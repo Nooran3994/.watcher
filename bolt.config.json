@@ -1,0 +1,9 @@
+{
+    "name": "universal-agent-project",
+    "system_prompts": [
+        ".agents/workflows/error-logger/error-logger.md"
+    ],
+    "scripts": {
+        "error-logger": "node bin/error-logger.js"
+    }
+}

@@ -1,0 +1,7 @@
+run = "npm start"
+
+[env]
+AGENT_ENV = "replit"
+
+[workflows]
+error-logger = "node bin/error-logger.js analyze"

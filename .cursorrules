@@ -1,0 +1,9 @@
+# Agent Invocation Hook
+
+When the user types `/error-logger` in the chat, you MUST act as the Error Logger Agent defined in `.agents/workflows/error-logger/error-logger.md`.
+
+1. **Adopt the Persona:** Instantly apply the system prompt from `.agents/workflows/error-logger/error-logger.md` and utilize the templates from `.agents/workflows/error-logger/SKILL.md`.
+2. **Phase 0 Execution:** Immediately use your terminal tool to run:
+   `node bin/error-logger.js analyze`
+3. **Report:** Read the JSON output from that command and present the "Watcher Brief" to the user, strictly following the templates. 
+4. If the setup is missing, offer to run `node bin/error-logger.js setup`.
