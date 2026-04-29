@@ -12,16 +12,16 @@ from pathlib import Path
 
 def run_command(cmd, description):
     """Run a shell command with error handling"""
-    print(f"\n📦 {description}...")
+    print(f"\n[INFO] {description}...")
     try:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         if result.returncode != 0:
-            print(f"❌ Error: {result.stderr}")
+            print(f"[ERROR] {result.stderr}")
             return False
-        print(f"✅ {description} complete")
+        print(f"[SUCCESS] {description} complete")
         return True
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
+        print(f"[ERROR] {str(e)}")
         return False
 
 
@@ -34,10 +34,10 @@ def create_directory_structure(watcher_dir):
         watcher_dir / "config"
     ]
     
-    print(f"\n📁 Creating directory structure in {watcher_dir}...")
+    print(f"\n[INFO] Creating directory structure in {watcher_dir}...")
     for directory in directories:
         directory.mkdir(parents=True, exist_ok=True)
-        print(f"  ✓ {directory}")
+        print(f"  [OK] {directory}")
 
 
 def create_config_file(watcher_dir):
@@ -75,7 +75,7 @@ LOG_TO_CONSOLE=true
     with open(config_file, 'w') as f:
         f.write(config_content)
     
-    print(f"✅ Configuration file created: {config_file}")
+    print(f"[SUCCESS] Configuration file created: {config_file}")
 
 
 def create_readme(watcher_dir):
@@ -119,13 +119,13 @@ python app_watcher.py --host 127.0.0.1 --port 8080 --check-interval 5
 
 ## Features
 
-✅ Real-time performance tracking
-✅ Error detection and classification
-✅ Resource monitoring (CPU, memory, disk)
-✅ Automatic error pattern analysis
-✅ Debugging suggestions
-✅ Comprehensive CSV reports
-✅ Network health checks
+* Real-time performance tracking
+* Error detection and classification
+* Resource monitoring (CPU, memory, disk)
+* Automatic error pattern analysis
+* Debugging suggestions
+* Comprehensive CSV reports
+* Network health checks
 
 ## Configuration
 
@@ -138,8 +138,8 @@ Edit `config/watcher.config` to customize:
 ## Interpreting Reports
 
 ### Performance CSV
-- `response_time_ms` > threshold = slow request (⚠️)
-- `status_code` >= 400 = failed request (❌)
+- `response_time_ms` > threshold = slow request (WARNING)
+- `status_code` >= 400 = failed request (ERROR)
 
 ### Error Analysis
 - Suggestions show patterns and fixes
@@ -177,7 +177,7 @@ For issues or feature requests, check the generated error analysis JSON.
     with open(readme_file, 'w') as f:
         f.write(readme_content)
     
-    print(f"✅ README created: {readme_file}")
+    print(f"[SUCCESS] README created: {readme_file}")
 
 
 def create_requirements_file(watcher_dir):
@@ -192,7 +192,7 @@ beautifulsoup4==4.12.2
     with open(requirements_file, 'w') as f:
         f.write(requirements_content)
     
-    print(f"✅ Requirements file created: {requirements_file}")
+    print(f"[SUCCESS] Requirements file created: {requirements_file}")
 
 
 def main():
@@ -228,7 +228,7 @@ def main():
     
     if success:
         print("\n" + "=" * 70)
-        print("✅ SETUP COMPLETE!")
+        print("[SUCCESS] SETUP COMPLETE!")
         print("=" * 70)
         print(f"""
 Your watcher is ready to use. To start monitoring:
@@ -237,16 +237,16 @@ Your watcher is ready to use. To start monitoring:
 
 Directory structure created:
   .watcher/
-  ├── logs/
-  ├── reports/
-  ├── config/
-  ├── requirements.txt
-  └── README.md
+  - logs/
+  - reports/
+  - config/
+  - requirements.txt
+  - README.md
 
 For more info, see .watcher/README.md
         """)
     else:
-        print("\n⚠️  Some setup steps failed. Please check the errors above.")
+        print("\n[WARNING] Some setup steps failed. Please check the errors above.")
         sys.exit(1)
 
 
