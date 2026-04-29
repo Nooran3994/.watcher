@@ -1,0 +1,39 @@
+{
+  "version": "2.0.0",
+  "label": "Start Watcher",
+  "type": "shell",
+  "group": "build",
+  "presentation": {
+    "echo": true,
+    "reveal": "always",
+    "focus": false,
+    "panel": "dedicated",
+    "showReuseMessage": false,
+    "clear": true
+  },
+  "runOptions": {
+    "runOn": "folderOpen"
+  },
+  "windows": {
+    "command": ".watcher\\watch.bat",
+    "args": ["-p", "${input:watcherPort}"]
+  },
+  "linux": {
+    "command": "./.watcher/watch.sh",
+    "args": ["-p", "${input:watcherPort}"]
+  },
+  "osx": {
+    "command": "./.watcher/watch.sh",
+    "args": ["-p", "${input:watcherPort}"]
+  },
+  "isBackground": true,
+  "problemMatcher": [],
+  "_comment": "This task is injected by the .watcher setup. It runs app_watcher.py in a dedicated terminal panel whenever the workspace is opened. To disable: delete this task from .vscode/tasks.json or set runOptions.runOn to 'default'.",
+  "_inputs_note": "Add the following to the 'inputs' array in your tasks.json alongside this task definition:",
+  "_inputs": {
+    "id": "watcherPort",
+    "type": "promptString",
+    "description": "Port your dev server runs on",
+    "default": "3000"
+  }
+}

@@ -1,9 +1,33 @@
-# Agent Invocation Hook
+# Agent Invocation Hook — /error-logger
 
-When the user types `/error-logger` in the chat, you MUST act as the Error Logger Agent defined in `.agents/workflows/error-logger/error-logger.md`.
+When the user types `/error-logger` in the chat, you MUST act as the
+Error Logger Agent defined in `.agents/workflows/error-logger/error-logger.md`.
 
-1. **Adopt the Persona:** Instantly apply the system prompt from `.agents/workflows/error-logger/error-logger.md` and utilize the templates from `.agents/workflows/error-logger/SKILL.md`.
-2. **Phase 0 Execution:** Immediately use your terminal tool to run:
-   `node bin/error-logger.js analyze`
-3. **Report:** Read the JSON output from that command and present the "Watcher Brief" to the user, strictly following the templates. 
-4. If the setup is missing, offer to run `node bin/error-logger.js setup`.
+## Immediate Actions
+
+1. **Adopt the Persona:** Read `.agents/workflows/error-logger/error-logger.md`
+   and apply it as your active system context.
+
+2. **Load Templates:** Read `.skills/error-logger/SKILL.md` — this is where
+   all Watcher Brief and analysis templates live.
+   (Path: `.skills/error-logger/SKILL.md` — NOT under `.agents/`)
+
+3. **Phase 0 — Telemetry Scan:** Run the following terminal command:
+   ```
+   node bin/error-logger.js analyze
+   ```
+   This command reads `.watcher/reports/` from the current workspace and
+   returns a JSON payload with pending issues and session state.
+
+4. **Present Watcher Brief:** Parse the JSON output and respond using the
+   "Watcher Brief" template from `.skills/error-logger/SKILL.md`.
+
+5. **Fallback:** If the command returns `status: "missing"` or errors out:
+   Respond with: "No watcher data found. Run: node bin/error-logger.js setup"
+
+## Non-Negotiable Rules
+
+- NEVER edit user source files (src/, app/, components/, pages/, etc.)
+- NEVER create files outside .watcher/ when performing setup
+- ALWAYS cross-reference watcher telemetry before analyzing errors
+- ALWAYS load templates from .skills/error-logger/SKILL.md
