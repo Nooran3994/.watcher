@@ -278,16 +278,22 @@ class ApplicationWatcher:
         self._stop_event.clear()
         
         # Process attachment logic
-        if self.run_cmd:
+        if self.process_manager.target_process:
+            pass # Already attached via target-port in main
+        elif self.run_cmd:
             proc = self.process_manager.run_command(self.run_cmd)
             self.stream_analyzer = StreamAnalyzer(proc, self.logger, self.on_app_log_error)
         elif self.target_pid:
             self.process_manager.find_by_pid(self.target_pid)
         elif self.process_name:
             self.process_manager.find_by_name(self.process_name)
-        elif self.enable_http:
-             # Just wait and poll
-             pass
+        else:
+            # Auto-detect process from the parent project directory
+            project_dir = self.watcher_dir.parent
+            if not self.process_manager.auto_detect_process(str(project_dir)):
+                if self.enable_http:
+                    # Just wait and poll
+                    pass
         
         if not self.health_check():
             self.logger.warning("Initial health check failed but continuing monitoring.")

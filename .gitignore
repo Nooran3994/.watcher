@@ -1,3 +1,28 @@
-#folders 
+# Folders
 .skills/
 .agents/
+
+# Application Watcher (auto-generated monitoring data)
+.watcher/logs/
+.watcher/reports/
+.watcher/*.log
+
+# OS/IDEs
+.vs/
+.idea/
+.vscode/
+
+# Dependencies
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Temporary files
+tmp/
+*.log
+
+# Application files
+metrics.json
+queue.json

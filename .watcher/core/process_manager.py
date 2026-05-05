@@ -48,6 +48,43 @@ class ProcessManager:
         self.logger.warning(f"Process name '{name}' not found")
         return False
 
+    def auto_detect_process(self, project_dir: str) -> bool:
+        """Find an application process running from the specified project directory."""
+        import os
+        from pathlib import Path
+        
+        project_dir_str = str(Path(project_dir).resolve()).lower()
+        ignored_names = {'cmd.exe', 'powershell.exe', 'bash', 'sh', 'zsh', 'code.exe', 'cursor.exe', 'windsurf.exe', 'conhost.exe'}
+        candidate = None
+        
+        for proc in psutil.process_iter(['name', 'cwd', 'cmdline']):
+            try:
+                info = proc.info
+                name = (info.get('name') or '').lower()
+                cwd = info.get('cwd')
+                
+                # Ignore system shells, IDEs, and the python process running this watcher
+                if name in ignored_names:
+                    continue
+                if name.startswith('python') and info.get('cmdline') and 'app_watcher.py' in ' '.join(info['cmdline']).lower():
+                    continue
+                    
+                if cwd and str(os.path.abspath(cwd)).lower().startswith(project_dir_str):
+                    candidate = proc
+                    # Prefer long-running standard server processes if multiple match
+                    if name in {'node.exe', 'node', 'npm.cmd', 'npm', 'electron.exe', 'electron', 'python.exe', 'python', 'java.exe', 'java', 'ruby.exe', 'ruby'}:
+                        break # Found a highly likely candidate
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+                
+        if candidate:
+            self.target_process = candidate
+            self.logger.info(f"Auto-detected running application: '{candidate.name()}' (PID {candidate.pid}) in codebase")
+            return True
+            
+        self.logger.warning("No running application detected natively in the codebase.")
+        return False
+
     def run_command(self, cmd: str) -> subprocess.Popen:
         """Run a command as a child process and attach to it."""
         import shlex

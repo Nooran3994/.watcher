@@ -10,6 +10,7 @@ set PORT=3000
 set WATCHER_DIR=.watcher
 set CHECK_INTERVAL=2
 set RESPONSE_THRESHOLD=1000
+set RUN_CMD=
 
 REM Parse arguments
 :parse_args
@@ -75,6 +76,18 @@ if "%1"=="--threshold" (
     shift
     goto parse_args
 )
+if "%1"=="-r" (
+    set RUN_CMD=%2
+    shift
+    shift
+    goto parse_args
+)
+if "%1"=="--run" (
+    set RUN_CMD=%2
+    shift
+    shift
+    goto parse_args
+)
 if "%1"=="--setup" (
     echo Running setup wizard...
     python setup_watcher.py
@@ -135,10 +148,14 @@ python -c "import requests; requests.get('http://%HOST%:%PORT%/', timeout=5)" >n
 if %ERRORLEVEL% equ 0 (
     echo   ^[OK^] Application is accessible
 ) else (
-    echo   [ERROR] Cannot reach http://%HOST%:%PORT%/
-    echo   Make sure your application is running first
-    echo.
-    exit /b 1
+    if "%RUN_CMD%"=="" (
+        echo   [ERROR] Cannot reach http://%HOST%:%PORT%/
+        echo   Make sure your application is running first, or use --run to start it.
+        echo.
+        exit /b 1
+    ) else (
+        echo   ^[WAITING^] Application will be started by the watcher...
+    )
 )
 
 echo.
@@ -146,13 +163,21 @@ echo Monitoring started...
 echo Press Ctrl+C to stop and generate reports
 echo.
 
+REM Prepare RUN argument
+if not "%RUN_CMD%"=="" (
+    set RUN_ARG=--run "%RUN_CMD%"
+) else (
+    set RUN_ARG=
+)
+
 REM Run watcher
 python %APP_WATCHER% ^
     --host %HOST% ^
     --port %PORT% ^
     --watcher-dir %WATCHER_DIR% ^
     --check-interval %CHECK_INTERVAL% ^
-    --response-threshold %RESPONSE_THRESHOLD%
+    --response-threshold %RESPONSE_THRESHOLD% ^
+    %RUN_ARG%
 
 set EXIT_CODE=%ERRORLEVEL%
 
@@ -184,6 +209,7 @@ echo     -p, --port PORT              Application port (default: 3000)
 echo     -d, --dir DIR                Watcher directory (default: .watcher)
 echo     -i, --interval SECONDS       Check interval (default: 2)
 echo     -t, --threshold MS           Response threshold in ms (default: 1000)
+echo     -r, --run COMMAND            Command to run and wrap (auto-starts app)
 echo     --setup                      Run setup wizard
 echo     --help                       Show this help message
 echo.

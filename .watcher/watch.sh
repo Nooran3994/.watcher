@@ -17,6 +17,7 @@ PORT="3000"
 WATCHER_DIR=".watcher"
 CHECK_INTERVAL="2"
 RESPONSE_THRESHOLD="1000"
+RUN_CMD=""
 
 # Functions
 print_help() {
@@ -32,6 +33,7 @@ ${GREEN}Options:${NC}
     -d, --dir DIR                Watcher directory (default: .watcher)
     -i, --interval SECONDS       Check interval (default: 2)
     -t, --threshold MS           Response threshold in ms (default: 1000)
+    -r, --run COMMAND            Command to run and wrap (auto-starts app)
     --setup                      Run setup wizard
     --help                       Show this help message
 
@@ -75,6 +77,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -t|--threshold)
             RESPONSE_THRESHOLD="$2"
+            shift 2
+            ;;
+        -r|--run)
+            RUN_CMD="$2"
             shift 2
             ;;
         --setup)
@@ -142,10 +148,14 @@ echo -e "${GREEN}Status:${NC}"
 if python3 -c "import requests; requests.get('http://$HOST:$PORT/', timeout=5)" 2>/dev/null; then
     echo -e "  ${GREEN}✅ Application is accessible${NC}"
 else
-    echo -e "  ${RED}❌ Cannot reach http://$HOST:$PORT/${NC}"
-    echo -e "  ${YELLOW}Make sure your application is running first${NC}"
-    echo ""
-    exit 1
+    if [ -z "$RUN_CMD" ]; then
+        echo -e "  ${RED}❌ Cannot reach http://$HOST:$PORT/${NC}"
+        echo -e "  ${YELLOW}Make sure your application is running first, or use --run to start it.${NC}"
+        echo ""
+        exit 1
+    else
+        echo -e "  ${YELLOW}⏳ Application will be started by the watcher...${NC}"
+    fi
 fi
 
 echo ""
@@ -153,13 +163,20 @@ echo -e "${BLUE}Monitoring started...${NC}"
 echo -e "${YELLOW}Press Ctrl+C to stop and generate reports${NC}"
 echo ""
 
+# Prepare RUN argument
+RUN_ARG=()
+if [ -n "$RUN_CMD" ]; then
+    RUN_ARG=(--run "$RUN_CMD")
+fi
+
 # Run watcher
 python3 "$APP_WATCHER" \
     --host "$HOST" \
     --port "$PORT" \
     --watcher-dir "$WATCHER_DIR" \
     --check-interval "$CHECK_INTERVAL" \
-    --response-threshold "$RESPONSE_THRESHOLD"
+    --response-threshold "$RESPONSE_THRESHOLD" \
+    "${RUN_ARG[@]}"
 
 exit_code=$?
 
