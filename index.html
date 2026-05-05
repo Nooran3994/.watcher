@@ -1,0 +1,1938 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>SCAAI Desktop</title>
+  <link rel="stylesheet" href="src/renderer/styles/global.css" />
+  <script>
+    // ── Mermaid CDN loader — non-blocking, graceful fallback ──
+    // Loads asynchronously so a CDN failure never stalls the page.
+    (function () {
+      var s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js';
+      s.async = true;
+      s.onload = function () {
+        window._mermaidCdnLoaded = true;
+        if (typeof _initMermaid === 'function') _initMermaid();
+      };
+      s.onerror = function () {
+        window._mermaidCdnLoaded = false;
+        console.warn('[MERMAID] CDN unavailable — diagram blocks will show raw source.');
+      };
+      document.head.appendChild(s);
+    })();
+  </script>
+  <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+</head>
+
+<body>
+  <!-- ── Hidden state holders — keep original IDs alive for all existing JS references ── -->
+  <div style="display:none;position:absolute;pointer-events:none" aria-hidden="true">
+    <div class="sem-dot" id="semdot"></div>
+    <span id="semlbl">SEM 0</span>
+    <span id="hsc"></span>
+    <div class="sdot" id="sdot" style="background:#1e1e38"></div>
+    <span class="slb" id="slb">Ready</span>
+    <span id="fc">0</span>
+  </div>
+  <div id="app">
+    <!-- Titlebar -->
+    <div id="tb">
+      <div class="L">
+        <span class="logo">SCAAI</span>
+        <div class="ppill" onclick="openSettings()">
+          <div class="pdot" id="pdot" style="background:#6c63ff"></div>
+          <div>
+            <div class="pname" id="pname">Groq</div>
+            <div class="pmdl" id="pmdl">llama-3.3-70b</div>
+          </div>
+        </div>
+      </div>
+      <div class="R">
+        <!-- ── Overflow toggle — collapses SEM/status/browser/settings ── -->
+        <button id="tb-overflow-btn" onclick="toggleOverflowMenu()" title="Panel controls">···</button>
+        <button id="tb-new-chat-btn" onclick="startFreshChat()" title="New chat — clear and start fresh">＋ New</button>
+
+        <button class="wb" onclick="window.scaai.minimize()">—</button>
+        <button class="wb" onclick="window.scaai.maximize()">□</button>
+        <button class="wb cx" onclick="window.scaai.close()">✕</button>
+      </div>
+    </div>
+
+    <!-- ── Overflow panel — revealed when ··· is pressed ── -->
+    <div id="tb-overflow-panel">
+      <div class="ov-section">WORKSPACE</div>
+      <div class="ov-row" onclick="ovOpenPanel('proj')">
+        <span class="ov-row-icon">📂</span>
+        <span class="ov-row-label">Projects</span>
+      </div>
+      <div class="ov-row" onclick="openChatHistoryPanel();toggleOverflowMenu()">
+        <span class="ov-row-icon">💬</span>
+        <span class="ov-row-label">Chat History</span>
+        <span class="ov-row-val" id="ov-chat-count" style="color:#6c63ff"></span>
+      </div>
+      <div class="ov-row" onclick="ovOpenPanel('sem')">
+        <span class="ov-row-icon">🔍</span>
+        <span class="ov-row-label">Semantic Memory</span>
+        <span class="ov-row-val" id="ov-semlbl">SEM 0</span>
+      </div>
+      <div class="ov-row" onclick="ovOpenPanel('tool')">
+        <span class="ov-row-icon">🔧</span>
+        <span class="ov-row-label">Tools &amp; Settings</span>
+      </div>
+      <div class="ov-divider"></div>
+      <div class="ov-section">QUICK ACTIONS</div>
+      <div class="ov-row" onclick="bringBrowserToFront();toggleOverflowMenu()">
+        <span class="ov-row-icon">🌐</span>
+        <span class="ov-row-label">Open Browser</span>
+      </div>
+      <div class="ov-row" onclick="toggleThemePanel();toggleOverflowMenu()">
+        <span class="ov-row-icon">⚙</span>
+        <span class="ov-row-label">Theme &amp; Settings</span>
+      </div>
+      <div class="ov-divider"></div>
+      <div class="ov-status-row">
+        <div class="ov-sdot" id="ov-sdot" style="background:#1e1e38"></div>
+        <span class="ov-slabel" id="ov-slb">Ready</span>
+        <span id="ov-hsc" style="display:none;font-size:8px;color:#6c63ff;font-weight:700;margin-left:auto"></span>
+      </div>
+      <div class="ov-action-row">
+        <button class="ov-act-btn danger" onclick="clearChat();toggleOverflowMenu()">🗑 Clear chat</button>
+        <button class="ov-act-btn" onclick="openSkillsModal();toggleOverflowMenu()">⚡ Skills</button>
+      </div>
+      <div class="ov-sem-indicator" onclick="ovOpenPanel('sem')">
+        <div class="ov-sem-dot" id="ov-semdot"></div>
+        <span class="ov-sem-label">Semantic Memory</span>
+        <span class="ov-sem-count" id="ov-semcount"></span>
+      </div>
+    </div>
+
+    <div id="body">
+      <!-- Chat -->
+      <div id="chat">
+        <div id="abar"></div>
+        <div id="msgs"></div>
+        <div id="thinking">
+          <div class="tav">SC</div>
+          <div class="tdots"><span></span><span></span><span></span></div>
+          <span id="tlbl">Thinking…</span>
+        </div>
+        <div id="iwrap">
+          <!-- ── Agent + Skills bar (Upgrade 2) ── -->
+          <div id="agent-bar">
+            <span id="agent-label">🤖</span>
+            <select id="agent-select" title="Active agent — changes routing on next send"
+              onchange="setActiveAgent(this.value)">
+              <option value="agent_main">SCAAI (default)</option>
+            </select>
+            <button id="skills-bar-btn" onclick="openSkillsModal()" title="Skills — click to manage prompt skills">⚡
+              Skills <span id="skill-badge">0</span></button>
+            <div id="vc-badge" title="Vector compression — prompt filtered to most relevant context"><span
+                class="vc-dot"></span></div>
+          </div>
+          <div id="irow">
+            <div class="itools" style="margin-bottom:1px">
+              <button class="ibtn" id="wsbtn" onclick="toggleWebSearch()"
+                title="Web Search (Google) — click to enable/disable">🌐</button>
+              <button class="ibtn" id="cbbtn" onclick="toggleCodebaseMode()"
+                title="Codebase Mode — click to toggle">🧩</button>
+            </div>
+            <textarea id="ci" rows="1" placeholder="Ask anything… load files, run commands, browse your PC"></textarea>
+            <div class="itools" style="margin-bottom:1px">
+              <button id="sbtn" onclick="send()">Send ↵</button>
+            </div>
+          </div>
+          <div class="hint">Enter=send · Shift+Enter=newline · AI can browse your PC, run commands &amp; search the web</div>
+        </div>
+        <div id="cb-toolbar" class="cb-off">
+          <span class="cb-tb-label">🧩 CODEBASE</span>
+          <select id="cb-tb-select" class="cb-tb-select" onchange="cbTbSwitch(this.value)"
+            title="Select active codebase">
+            <option value="">— none indexed —</option>
+          </select>
+          <button class="cb-tb-btn" id="cb-tb-mode-btn" onclick="toggleCodebaseMode()"
+            title="Toggle Codebase Mode ON/OFF">Mode: OFF</button>
+          <div class="cb-tb-sep"></div>
+          <button class="cb-tb-btn" onclick="cbTbReanalyze()" title="Re-analyze current codebase">↺ Re-scan</button>
+          <button class="cb-tb-btn" onclick="cbTbDeepAnalyze()"
+            title="Deep Analyze — reads every file body for full logic, call graphs, types"
+            style="color:#a0e0ff;border-color:rgba(100,200,255,.3)">🔬 Deep</button>
+          <button class="cb-tb-btn" onclick="cbGenerateFixPrompt()"
+            title="Generate a structured fix prompt for this error — ready to paste into Claude, GPT-4, etc."
+            style="color:#ffc080;border-color:rgba(255,180,80,.3)">📋 Fix Prompt</button>
+          <button class="cb-tb-btn" onclick="cbTbNew()" title="Index a new codebase">+ New</button>
+          <button class="cb-tb-btn cb-tb-danger" onclick="cbTbForget()"
+            title="Remove active codebase from memory">✕</button>
+        </div>
+      </div><!-- /#chat -->
+
+
+
+      <!-- ══ PROJECT OVERLAY — covers #chat when browsing projects ══ -->
+      <!-- ══ CHAT HISTORY OVERLAY ══ -->
+      <div id="chat-history-overlay">
+        <div id="ch-topbar">
+          <button onclick="closeChatHistoryPanel()"
+            style="background:none;border:none;color:#555578;cursor:pointer;font-size:12px;padding:5px 0;font-family:inherit;display:flex;align-items:center;gap:5px;transition:color .12s"
+            onmouseover="this.style.color='#9898c8'" onmouseout="this.style.color='#555578'">← Back</button>
+          <h2>Chat History</h2>
+          <button onclick="startFreshChat();closeChatHistoryPanel()"
+            style="background:linear-gradient(135deg,#5b51e8,#4f46e5);border:none;color:#fff;font-weight:700;border-radius:8px;cursor:pointer;font-size:12px;padding:9px 18px;font-family:inherit;transition:all .15s;display:flex;align-items:center;gap:6px;flex-shrink:0">＋
+            New chat</button>
+        </div>
+        <div id="ch-search-row">
+          <input id="ch-search-inp" placeholder="Search chats…" oninput="filterChatHistory_standalone(this.value)" />
+        </div>
+        <div id="ch-bulk-bar">
+          <span class="ch-bulk-count" id="ch-bulk-count">0 selected</span>
+          <button class="ch-bulk-btn ch-bulk-del" onclick="_chDeleteSelected()">🗑 Delete selected</button>
+          <button class="ch-bulk-btn ch-bulk-cancel" onclick="_chClearSelection()">Cancel</button>
+        </div>
+        <div id="ch-list-scroll">
+          <div id="ch-list"></div>
+        </div>
+      </div>
+
+      <div id="proj-overlay">
+
+        <!-- ── View 1: Projects Grid ── -->
+        <div id="pgv" style="display:flex">
+          <div id="pgv-topbar">
+            <button onclick="hideProjectOverlay()"
+              style="background:none;border:none;color:#555578;cursor:pointer;font-size:12px;padding:5px 0;font-family:inherit;display:flex;align-items:center;gap:5px;transition:color .12s;-webkit-app-region:no-drag;flex-shrink:0"
+              onmouseover="this.style.color='#9898c8'" onmouseout="this.style.color='#555578'">← Back</button>
+            <h2 style="flex:1">Projects</h2>
+            <button class="pgv-new-btn" onclick="openProjCreateModal()">＋ New project</button>
+          </div>
+          <div id="pgv-search-row">
+            <input id="pgv-search-inp" placeholder="Search projects…" oninput="filterProjectGrid(this.value)" />
+          </div>
+          <div id="pgv-sort-row">
+            <span>Sort by</span>
+            <select id="pgv-sort-sel" onchange="sortProjectGrid(this.value)">
+              <option value="activity">Activity</option>
+              <option value="name">Name</option>
+              <option value="created">Created</option>
+            </select>
+          </div>
+          <div id="pgv-grid-scroll">
+            <div id="pgv-grid"></div>
+          </div>
+        </div>
+
+        <!-- ── View 2: Project Home ── -->
+        <div id="phv" style="display:none">
+          <div id="phv-nav">
+            <button id="phv-back-btn" onclick="showProjectGrid()">← All projects</button>
+            <div style="flex:1"></div>
+            <button class="proj-act-btn" id="phv-rename-btn" title="Rename project">✏</button>
+            <button class="proj-act-btn danger" id="phv-delete-btn" title="Delete project">🗑</button>
+          </div>
+          <div id="phv-body">
+            <!-- Left: chat area -->
+            <div id="phv-left">
+              <div id="phv-hdr">
+                <div id="phv-proj-name">
+                  <div id="phv-proj-name-dot"></div>
+                  <span id="phv-proj-name-text"></span>
+                </div>
+                <div id="phv-proj-desc"></div>
+              </div>
+              <!-- Phase tabs -->
+              <div id="phv-phases"></div>
+              <!-- Start chat prompt -->
+              <div id="phv-prompt-row">
+                <textarea id="phv-prompt-box" placeholder="How can I help you today?" rows="2"
+                  onkeydown="phvPromptKeydown(event)"></textarea>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:7px">
+                  <span style="font-size:9px;color:#252545;flex:1">Enter to send · Shift+Enter for new line</span>
+                  <button id="phv-prompt-btn" onclick="phvStartChat()">Send ↵</button>
+                </div>
+              </div>
+              <!-- Chat history -->
+              <div id="phv-chat-section">
+                <div id="phv-chat-section-hdr">
+                  <span>CHAT HISTORY</span>
+                  <button class="phv-new-chat-btn" onclick="startNewProjectChatFromHome()">+ New chat</button>
+                </div>
+                <div id="phv-search-row">
+                  <span style="font-size:11px;color:#303055">🔍</span>
+                  <input id="phv-search-inp" placeholder="Search chats…" oninput="phvFilterChats(this.value)" />
+                  <button class="phv-search-clear" id="phv-search-clear" onclick="phvClearSearch()">✕</button>
+                </div>
+                <div id="phv-chat-list"></div>
+              </div>
+            </div>
+            <!-- Right: instructions + files -->
+            <div id="phv-right">
+              <div id="phv-right-scroll">
+                <div class="phv-rpanel-section">
+                  <div class="phv-rpanel-hdr">
+                    <span class="phv-rpanel-title">INSTRUCTIONS</span>
+                    <button class="phv-rpanel-add" onclick="openInstructionsModal()"
+                      title="Edit project instructions">＋</button>
+                  </div>
+                  <div id="phv-instr-content" class="phv-instr-empty" onclick="openInstructionsModal()">Add instructions
+                    to tailor AI responses for this project.</div>
+                </div>
+                <div class="phv-rpanel-divider"></div>
+                <div class="phv-rpanel-section" id="phv-mission-section">
+                  <div class="phv-rpanel-hdr">
+                    <span class="phv-rpanel-title">MISSION ROADMAP</span>
+                    <button class="phv-rpanel-add" onclick="window._runStrategicAnalysis(window._silentCall, '', 'roadmap')" title="Force strategic re-analysis">↺</button>
+                  </div>
+                  <div id="phv-mission-roadmap" class="phv-mission-empty">
+                    No active mission detected. Start a complex task to trigger automatic planning.
+                  </div>
+                </div>
+                <div class="phv-rpanel-divider"></div>
+                <div class="phv-rpanel-section">
+                  <div class="phv-rpanel-hdr">
+                    <span class="phv-rpanel-title">CONTEXT NOTES</span>
+                    <button class="phv-rpanel-add" id="phv-ctx-toggle" title="Edit context notes"
+                      onclick="togglePhvCtxEdit()">✏</button>
+                  </div>
+                  <textarea id="phv-ctx-ta"
+                    style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:7px;color:#6060a0;font-size:11px;padding:8px 10px;outline:none;font-family:inherit;resize:none;min-height:70px;box-sizing:border-box;line-height:1.6;display:none"
+                    placeholder="Project notes, background, goals…" oninput="debounceSaveProjectContext()"></textarea>
+                  <div id="phv-ctx-preview" class="phv-instr-empty" onclick="togglePhvCtxEdit()">Add background context,
+                    notes, and goals for this project.</div>
+                </div>
+                <div class="phv-rpanel-divider"></div>
+                <div class="phv-rpanel-section">
+                  <div class="phv-rpanel-hdr">
+                    <span class="phv-rpanel-title">ACTIVE FILES</span>
+                    <button class="phv-rpanel-add" onclick="doOpenFiles()" title="Add files to context">＋</button>
+                  </div>
+                  <div id="phv-files-list" style="font-size:11px;color:#2a2a48;line-height:1.7">No files loaded. Use the
+                    FILES tab or click ＋ to add.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /#proj-overlay -->
+      <div id="sb">
+        <div id="stabs">
+          <button id="tb-proj" onclick="switchTab('proj')">📂 PROJ</button>
+          <button id="tb-sem" class="active" onclick="switchTab('sem')">🔍 SEM</button>
+          <button id="tb-graph" onclick="switchTab('graph')">🕸️ GRAPH</button>
+          <button id="tb-tool" onclick="switchTab('tool')">🔧 TOOLS</button>
+          <button
+            style="background:none;border:none;color:#2a2a48;cursor:pointer;font-size:11px;padding:0 8px;flex-shrink:0;transition:color .15s;font-family:inherit"
+            onclick="toggleSidebar()" title="Close panel">✕</button>
+        </div>
+
+        <!-- FILES tab hidden — files now appear in Code Panel tree only -->
+        <div id="tf" style="display:none">
+          <div class="sbar">
+            <button class="bp" style="flex:1;font-size:10px;padding:6px;border-radius:6px" onclick="doOpenFiles()">+
+              Files</button>
+            <button class="bg2" style="flex:1;font-size:10px;padding:6px;color:#00c9a7" onclick="doOpenFolder()">📁
+              Folder</button>
+            <button class="bg2" id="rfbtn" style="font-size:10px;padding:6px;min-width:32px"
+              title="Sync all files from disk" onclick="refreshAllFiles()">↻</button>
+          </div>
+          <div id="fsrow"
+            style="display:none;padding:5px 9px;border-bottom:1px solid rgba(255,255,255,.04);flex-shrink:0">
+            <div class="srow"><span style="color:#1e1e38;font-size:10px">🔍</span><input id="fsr" placeholder="Filter…"
+                oninput="renderFiles()" /><span style="display:none;color:#2a2a48;cursor:pointer;font-size:10px"
+                id="fscl" onclick="clrFS()">✕</span></div>
+          </div>
+          <div id="fl"></div>
+          <div id="facts"
+            style="display:none;padding:6px 9px;border-top:1px solid rgba(255,255,255,.04);display:flex;gap:4px;flex-shrink:0">
+            <button class="bg2" style="flex:1;font-size:9px;padding:4px" onclick="selAll()">All</button>
+            <button class="bg2" style="flex:1;font-size:9px;padding:4px" onclick="selNone()">None</button>
+            <button class="bg2" style="flex:1;font-size:9px;padding:4px;color:#f87171"
+              onclick="clrFiles()">Clear</button>
+          </div>
+          <div class="sdiv"></div>
+          <div class="slabel">PERSONA</div>
+          <div id="pbars" style="padding:0 12px 10px"></div>
+        </div>
+
+        <!-- MEM tab removed — semantic memory is the sole persistent store -->
+
+        <!-- SEM tab -->
+        <div id="tsem" style="display:none">
+          <div
+            style="padding:7px 9px;border-bottom:1px solid rgba(255,255,255,.04);flex-shrink:0;display:flex;flex-direction:column;gap:5px">
+            <!-- Recall (search) -->
+            <div class="srow"><span style="color:#1e1e38;font-size:10px">🔍</span><input id="semq"
+                placeholder="recall: search semantic memory…" onkeydown="if(event.key==='Enter')semSearch()" /></div>
+            <div style="display:flex;gap:4px">
+              <button class="bg2" style="flex:1;font-size:9px;padding:4px" onclick="semSearch()">🔍 Recall</button>
+              <button class="bg2" style="flex:1;font-size:9px;padding:4px" onclick="semListAll()">📋 List</button>
+              <button class="bg2" style="flex:1;font-size:9px;padding:4px" onclick="semStats()">📊 Stats</button>
+            </div>
+            <!-- Learn -->
+            <div style="border-top:1px solid rgba(255,255,255,.04);padding-top:5px">
+              <div style="font-size:8px;color:#1e1e38;font-weight:700;letter-spacing:1px;margin-bottom:3px">LEARN (add
+                to memory)</div>
+              <div class="srow" style="margin-bottom:3px"><input id="semlearn-label" placeholder="label (optional)" />
+              </div>
+              <div class="srow" style="margin-bottom:3px"><textarea id="semlearn-content"
+                  placeholder="Content to remember…"
+                  style="background:transparent;border:none;outline:none;color:#a8a8c8;font-size:10px;flex:1;font-family:inherit;resize:none;min-height:40px;width:100%"></textarea>
+              </div>
+              <div style="display:flex;gap:4px;margin-top:2px">
+                <button class="bg2" style="flex:1;font-size:9px;padding:4px;color:#00c9a7" onclick="semLearn()">💾
+                  Store</button>
+                <button class="bg2"
+                  style="flex:1;font-size:9px;padding:4px;color:#6c63ff;border-color:rgba(108,99,255,.25)"
+                  onclick="semAutoLearn()"
+                  title="AI analyses this conversation and extracts structured facts automatically">🧠
+                  Auto-Learn</button>
+              </div>
+            </div>
+            <!-- Knowledge Base Ingest -->
+            <div style="border-top:1px solid rgba(255,255,255,.04);padding-top:5px">
+              <div style="font-size:8px;color:#1e1e38;font-weight:700;letter-spacing:1px;margin-bottom:3px">KNOWLEDGE
+                BASE (index loaded files)</div>
+              <div style="font-size:9px;color:#6c6c8a;margin-bottom:4px">Chunks all active files into semantic memory as
+                searchable knowledge.</div>
+              <div style="display:flex;gap:4px">
+                <button class="bg2" id="kb-ingest-btn"
+                  style="flex:1;font-size:9px;padding:4px;color:#fbbf24;border-color:rgba(251,191,36,.25)"
+                  onclick="ingestFilesIntoKB()"
+                  title="Index all loaded files into semantic memory as knowledge chunks">📚 Index KB</button>
+                <button class="bg2" style="flex:1;font-size:9px;padding:4px;color:#6c6c8a" onclick="ingestKBStatus()"
+                  title="Show what files are indexed in the knowledge base">📋 KB Status</button>
+              </div>
+              <div id="kb-progress" style="font-size:9px;color:#6c6c8a;margin-top:3px;display:none"></div>
+            </div>
+            <!-- Forget -->
+            <div style="border-top:1px solid rgba(255,255,255,.04);padding-top:5px">
+              <div style="font-size:8px;color:#1e1e38;font-weight:700;letter-spacing:1px;margin-bottom:3px">FORGET
+                (remove from memory)</div>
+              <div class="srow" style="margin-bottom:3px"><input id="semforget-kw"
+                  placeholder="keyword or label to forget…" /></div>
+              <button class="bg2"
+                style="width:100%;font-size:9px;padding:4px;color:#f87171;border-color:rgba(248,113,113,.2)"
+                onclick="semForget()">🗑 Forget</button>
+            </div>
+          </div>
+          <div id="seml"></div>
+          <div style="padding:7px 9px;border-top:1px solid rgba(255,255,255,.04);flex-shrink:0">
+            <div style="display:flex;gap:4px;margin-bottom:4px">
+              <button class="bg2"
+                style="flex:1;font-size:9px;padding:4px;color:#60a5fa;border-color:rgba(96,165,250,.25)"
+                onclick="_storeSessionSummary(true)" title="Summarize this session and store for next time">📋 End
+                Session</button>
+              <button class="bg2"
+                style="flex:1;font-size:9px;padding:4px;color:#a78bfa;border-color:rgba(167,139,250,.25)"
+                onclick="semImportDialog()" title="Bulk-import past conversations into memory">📥 Import</button>
+            </div>
+            <button class="bd" onclick="clearSemMem()">🗑 Clear All Semantic DB</button>
+          </div>
+        </div>
+
+        <!-- PROJ tab -->
+        <div id="tproj" style="display:none">
+          <!-- Header: projects list section -->
+          <div class="proj-header">
+            <span class="proj-header-title">PROJECTS</span>
+            <button class="proj-create-btn" onclick="openProjCreateModal()">+ New</button>
+          </div>
+          <div class="proj-list" id="proj-list"></div>
+
+          <!-- Active project detail (shown below list when a project is active) -->
+          <div class="proj-detail" id="proj-detail">
+            <div class="proj-detail-hdr">
+              <div class="proj-dot proj-detail-dot" id="proj-detail-dot"></div>
+              <span class="proj-detail-name" id="proj-detail-name">Project Name</span>
+              <button class="proj-deactivate-btn" onclick="deactivateProject()"
+                title="Deactivate project">Deactivate</button>
+            </div>
+
+            <!-- Phase pipeline stepper -->
+            <div class="proj-pipeline" id="proj-pipeline"></div>
+
+            <!-- Context notes -->
+            <div class="proj-ctx">
+              <div style="font-size:8px;color:#1e1e38;font-weight:700;letter-spacing:1px;margin-bottom:3px">PROJECT
+                CONTEXT</div>
+              <textarea id="proj-ctx-input" placeholder="Project notes, background, goals…"
+                oninput="debounceSaveProjectContext()"></textarea>
+            </div>
+
+            <!-- Chat history for this project -->
+            <div class="chat-hist-hdr">
+              <span>CHAT HISTORY</span>
+              <button class="chat-hist-new-btn" onclick="startNewProjectChat()" title="New chat in this project">+
+                Chat</button>
+            </div>
+            <div class="chat-search-row">
+              <input id="chat-search-input" placeholder="🔍 Search chats…" oninput="filterChatHistory(this.value)" />
+              <button class="chat-search-clear" id="chat-search-clear" onclick="clearChatSearch()"
+                title="Clear search">✕</button>
+            </div>
+            <div class="chat-hist-list" id="chat-hist-list"></div>
+          </div>
+        </div>
+
+        <!-- GRAPH tab -->
+        <div id="tgraph" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0;padding:10px;">
+          <div style="font-size:11px;color:#a0a0c8;margin-bottom:8px;text-align:center;font-weight:700;">KNOWLEDGE GRAPH</div>
+          <div id="sg-network" style="flex:1;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:8px;"></div>
+          <div style="text-align:center;margin-top:10px;">
+            <button class="bg2" onclick="refreshKnowledgeGraph()" style="font-size:10px;padding:6px;min-width:100px;color:#00c9a7">↻ Refresh Graph</button>
+          </div>
+        </div>
+
+        <!-- TOOLS tab -->
+        <div id="ttool" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0">
+          <div style="overflow-y:auto;flex:1;padding:0">
+
+            <!-- System Instructions -->
+            <div class="tool-section">
+              <div class="tool-section-hdr">
+                <span class="tool-section-icon">📋</span>
+                <span>System Instructions</span>
+                <span class="tool-section-sub">Injected into every conversation</span>
+              </div>
+              <textarea id="sys-instr"
+                placeholder="Give SCAAI permanent instructions&#10;e.g. Always respond concisely. Prefer Python. My name is Alfred."
+                style="width:100%;min-height:70px;background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.15);border-radius:6px;color:#a0a0c8;font-size:10px;padding:7px;box-sizing:border-box;resize:vertical;font-family:inherit;outline:none"
+                oninput="saveSysInstr()" onchange="saveSysInstr()"></textarea>
+              <div style="font-size:8px;color:#333358;margin-top:3px">Auto-saved · Always active · Works across sessions
+              </div>
+            </div>
+
+            <!-- Web Search Settings -->
+            <div class="tool-section" style="border-top:1px solid rgba(255,255,255,.04)">
+              <div class="tool-section-hdr"><span class="tool-section-icon">🌐</span><span>Web Search</span><span
+                  class="tool-section-sub">Engine + Keys</span></div>
+              <div style="margin-bottom:6px">
+                <label
+                  style="font-size:8px;color:#3a3a68;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:2px">ENGINE</label>
+                <select id="ws-engine" onchange="_wsShowFields(this.value)"
+                  style="width:100%;background:#0d0d1a;border:1px solid rgba(108,99,255,.2);border-radius:5px;color:#a0a0c8;font-size:10px;padding:5px 7px;outline:none;cursor:pointer;font-family:inherit">
+                  <option value="tavily">🟢 Tavily — 1,000 free/month (recommended)</option>
+                  <option value="duckduckgo">🦆 DuckDuckGo — free, no key needed</option>
+                  <option value="brave">🦁 Brave Search — $5 free credits/month</option>
+                  <option value="google">🔵 Google CSE — 100/day (needs billing)</option>
+                </select>
+              </div>
+              <div id="ws-fields-tavily">
+                <label
+                  style="font-size:8px;color:#3a3a68;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:2px">TAVILY
+                  API KEY</label>
+                <input id="ws-tavily-key" type="password" placeholder="tvly-dev-…"
+                  style="width:100%;background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.12);border-radius:5px;color:#a0a0c8;font-size:10px;padding:5px 7px;font-family:monospace;outline:none;box-sizing:border-box;margin-bottom:2px" />
+                <div style="font-size:8px;color:#333358">Free key: <a href="javascript:void(0)"
+                    onclick="openMiniBrowser('https://tavily.com');return false;"
+                    style="color:#6c63ff;cursor:pointer">tavily.com</a> → API Keys</div>
+              </div>
+              <div id="ws-fields-brave" style="display:none">
+                <label
+                  style="font-size:8px;color:#3a3a68;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:2px">BRAVE
+                  API KEY</label>
+                <input id="ws-brave-key" type="password" placeholder="BSA…"
+                  style="width:100%;background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.12);border-radius:5px;color:#a0a0c8;font-size:10px;padding:5px 7px;font-family:monospace;outline:none;box-sizing:border-box" />
+              </div>
+              <div id="ws-fields-google" style="display:none">
+                <label
+                  style="font-size:8px;color:#3a3a68;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:2px">GOOGLE
+                  API KEY</label>
+                <input id="ws-google-key" type="password" placeholder="AIza…"
+                  style="width:100%;background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.12);border-radius:5px;color:#a0a0c8;font-size:10px;padding:5px 7px;font-family:monospace;outline:none;box-sizing:border-box;margin-bottom:4px" />
+                <label
+                  style="font-size:8px;color:#3a3a68;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:2px">SEARCH
+                  ENGINE ID (CX)</label>
+                <input id="ws-google-cx" type="text" placeholder="110d76868…"
+                  style="width:100%;background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.12);border-radius:5px;color:#a0a0c8;font-size:10px;padding:5px 7px;font-family:monospace;outline:none;box-sizing:border-box" />
+              </div>
+              <div id="ws-fields-duckduckgo" style="display:none">
+                <div
+                  style="font-size:9px;color:#555580;padding:5px 7px;background:rgba(0,201,167,.04);border:1px solid rgba(0,201,167,.1);border-radius:5px">
+                  No key needed. Auto-fallback when other engines fail.</div>
+              </div>
+              <button onclick="saveWebSearchConfig()"
+                style="width:100%;margin-top:6px;background:rgba(99,182,255,.08);border:1px solid rgba(99,182,255,.2);color:#63b6ff;font-size:9px;padding:5px;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:700">💾
+                Save Web Search Settings</button>
+            </div>
+
+            <!-- Tools Grid -->
+            <div class="tool-section" style="border-top:1px solid rgba(255,255,255,.04)">
+              <div class="tool-section-hdr" style="margin-bottom:8px">
+                <span class="tool-section-icon">⚙️</span>
+                <span>Built-in Tools</span>
+              </div>
+
+              <!-- Obsidian Tool Card -->
+              <div class="tool-card" id="tool-obsidian" onclick="openObsidianTool()">
+                <div class="tool-card-icon">🗂️</div>
+                <div class="tool-card-body">
+                  <div class="tool-card-name">Obsidian Knowledge Tool</div>
+                  <div class="tool-card-desc">One-click: analyse chat → write professional Zettelkasten notes with
+                    connections, tags, backlinks &amp; structure</div>
+                  <div class="tool-card-status" id="obs-status">⬜ Not configured</div>
+                </div>
+                <div class="tool-card-arrow">›</div>
+              </div>
+
+              <!-- More tools placeholder -->
+              <div class="tool-card tool-card-dim" style="cursor:default;opacity:.4">
+                <div class="tool-card-icon">🔜</div>
+                <div class="tool-card-body">
+                  <div class="tool-card-name">More tools coming</div>
+                  <div class="tool-card-desc">GitHub, Notion, Linear, Calendar…</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Project Create Modal -->
+  <div id="proj-create-modal">
+    <div id="proj-create-panel">
+      <div class="pcm-hdr">
+        <h3 id="pcm-title">New Project</h3>
+        <button class="mcl" onclick="closeProjCreateModal()">✕</button>
+      </div>
+      <div class="pcm-body">
+        <div>
+          <label class="flbl">PROJECT NAME <span
+              style="color:#f97316;font-size:8px;font-weight:400">required</span></label>
+          <input type="text" id="pcm-name" placeholder="e.g. E-Commerce Redesign" maxlength="80" />
+        </div>
+        <div>
+          <label class="flbl">DESCRIPTION <span
+              style="color:#555580;font-size:8px;font-weight:400">optional</span></label>
+          <input type="text" id="pcm-desc" placeholder="Brief project description…" maxlength="200" />
+        </div>
+        <div>
+          <label class="flbl">COLOR</label>
+          <div class="color-swatches" id="pcm-colors">
+            <div class="color-swatch sel" data-color="#6c63ff" style="background:#6c63ff"
+              onclick="selectProjColor(this)"></div>
+            <div class="color-swatch" data-color="#00c9a7" style="background:#00c9a7" onclick="selectProjColor(this)">
+            </div>
+            <div class="color-swatch" data-color="#f97316" style="background:#f97316" onclick="selectProjColor(this)">
+            </div>
+            <div class="color-swatch" data-color="#10b981" style="background:#10b981" onclick="selectProjColor(this)">
+            </div>
+            <div class="color-swatch" data-color="#60a5fa" style="background:#60a5fa" onclick="selectProjColor(this)">
+            </div>
+            <div class="color-swatch" data-color="#f472b6" style="background:#f472b6" onclick="selectProjColor(this)">
+            </div>
+            <div class="color-swatch" data-color="#fbbf24" style="background:#fbbf24" onclick="selectProjColor(this)">
+            </div>
+            <div class="color-swatch" data-color="#a78bfa" style="background:#a78bfa" onclick="selectProjColor(this)">
+            </div>
+          </div>
+        </div>
+        <div>
+          <label class="flbl">INITIAL PHASE</label>
+          <select id="pcm-phase"
+            style="width:100%;background:#0d0d1a;border:1px solid rgba(108,99,255,.2);border-radius:5px;color:#a0a0c8;font-size:10px;padding:5px 7px;outline:none;cursor:pointer;font-family:inherit">
+            <option value="planning">📋 Planning</option>
+            <option value="researching">🔍 Researching</option>
+            <option value="evaluating">⚖️ Evaluating</option>
+            <option value="executing">⚡ Executing</option>
+            <option value="testing">🧪 Testing</option>
+            <option value="validating">✅ Validating</option>
+          </select>
+        </div>
+      </div>
+      <div class="pcm-ftr">
+        <button class="bg2" style="padding:7px 14px;font-size:11px" onclick="closeProjCreateModal()">Cancel</button>
+        <button class="bp" style="padding:7px 18px;font-size:11px" onclick="confirmCreateProject()">✓ Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Project Instructions Modal ── -->
+  <div id="instr-modal" onclick="if(event.target===this)closeInstructionsModal()">
+    <div id="instr-panel">
+      <div class="pcm-hdr">
+        <h3>Set project instructions</h3>
+        <button class="mcl" onclick="closeInstructionsModal()">✕</button>
+      </div>
+      <div id="instr-subtext">Provide the AI with relevant instructions and context for all chats within this project.
+      </div>
+      <textarea id="instr-textarea"
+        placeholder="e.g. Always respond in a formal tone. The project targets Kenyan schools. Prioritise mobile-first design…"></textarea>
+      <div class="pcm-ftr" style="padding:0 20px 16px">
+        <button class="bg2" style="padding:8px 16px;font-size:11px" onclick="closeInstructionsModal()">Cancel</button>
+        <button class="bp" style="padding:8px 22px;font-size:11px" onclick="saveInstructions()">✓ Save
+          Instructions</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Quick-Input Modal (rename project / rename chat) ── -->
+  <div id="quick-input-modal" onclick="if(event.target===this)closeQuickInputModal()">
+    <div id="quick-input-panel">
+      <div class="pcm-hdr">
+        <h3 id="qi-title">Rename</h3>
+        <button class="mcl" onclick="closeQuickInputModal()">✕</button>
+      </div>
+      <div class="pcm-body">
+        <div>
+          <label class="flbl" id="qi-label">NAME</label>
+          <input type="text" id="qi-input" maxlength="120" placeholder="Enter new name…" />
+        </div>
+      </div>
+      <div class="pcm-ftr">
+        <button class="bg2" style="padding:7px 14px;font-size:11px" onclick="closeQuickInputModal()">Cancel</button>
+        <button class="bp" style="padding:7px 18px;font-size:11px" onclick="confirmQuickInput()">✓ Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Obsidian Tool Modal -->
+  <div id="obs-modal" class="mbg" style="display:none" onclick="if(event.target===this)closeObsidianModal()">
+    <div class="modal" style="width:560px;max-height:92vh;overflow-y:auto">
+      <div class="mhdr">
+        <h3>🗂️ Obsidian Knowledge Tool</h3>
+        <button class="mcl" onclick="closeObsidianModal()">✕</button>
+      </div>
+      <div class="mbody" id="obs-modal-body">
+        <!-- Content rendered by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Theme picker panel -->
+  <div id="theme-modal" onclick="if(event.target===this)closeThemePanel()">
+    <div id="theme-panel">
+      <h4>🎨 Theme</h4>
+      <div class="theme-opt active" id="theme-opt-default" onclick="applyTheme('default')">
+        <div class="theme-swatch" style="background:linear-gradient(135deg,#6c63ff,#00c9a7)"></div>
+        <div>
+          <div class="theme-name">Void Purple</div>
+          <div class="theme-desc">Default dark · violet &amp; teal</div>
+        </div>
+      </div>
+      <div class="theme-opt" id="theme-opt-ocean" onclick="applyTheme('ocean')">
+        <div class="theme-swatch" style="background:linear-gradient(135deg,#0e7490,#2dd4bf)"></div>
+        <div>
+          <div class="theme-name">Deep Ocean</div>
+          <div class="theme-desc">Dark navy · cyan &amp; sky</div>
+        </div>
+      </div>
+      <div class="theme-opt" id="theme-opt-ember" onclick="applyTheme('ember')">
+        <div class="theme-swatch" style="background:linear-gradient(135deg,#f97316,#fbbf24)"></div>
+        <div>
+          <div class="theme-name">Ember</div>
+          <div class="theme-desc">Dark charcoal · orange &amp; gold</div>
+        </div>
+      </div>
+      <div class="theme-opt" id="theme-opt-arctic" onclick="applyTheme('arctic')">
+        <div class="theme-swatch" style="background:linear-gradient(135deg,#1e3a5f,#93c5fd)"></div>
+        <div>
+          <div class="theme-name">Arctic</div>
+          <div class="theme-desc">Near-black · ice blue</div>
+        </div>
+      </div>
+      <div class="theme-opt" id="theme-opt-midgreen" onclick="applyTheme('midgreen')">
+        <div class="theme-swatch" style="background:linear-gradient(135deg,#064e3b,#34d399)"></div>
+        <div>
+          <div class="theme-name">Midnight Green</div>
+          <div class="theme-desc">Very dark · emerald</div>
+        </div>
+      </div>
+      <div class="theme-opt" id="theme-opt-slate" onclick="applyTheme('slate')">
+        <div class="theme-swatch" style="background:linear-gradient(135deg,#312e81,#f472b6)"></div>
+        <div>
+          <div class="theme-name">Slate</div>
+          <div class="theme-desc">Dark grey · violet &amp; pink</div>
+        </div>
+      </div>
+      <div class="theme-opt" id="theme-opt-white" onclick="applyTheme('white')">
+        <div class="theme-swatch" style="background:linear-gradient(135deg,#e0e7ff,#fff);border:1px solid #c7d2fe">
+        </div>
+        <div>
+          <div class="theme-name">Arctic White</div>
+          <div class="theme-desc">Light · black text</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="smodal" class="mbg" style="display:none" onclick="if(event.target===this)closeSettings()">
+    <div class="modal" style="width:580px;max-height:92vh;overflow-y:auto">
+      <div class="mhdr">
+        <h3>⚙️ Settings</h3><button class="mcl" onclick="closeSettings()">✕</button>
+      </div>
+      <div class="mbody">
+        <div>
+          <label class="flbl">PROVIDER</label>
+          <div class="ptabs">
+            <div class="ptab active" id="ptab-groq" onclick="selProv('groq')"><span class="pi">⚡</span>
+              <div class="pn">Groq</div>
+              <div class="ps">Fast &amp; free</div>
+            </div>
+            <div class="ptab" id="ptab-github" onclick="selProv('github')"><span class="pi">🐙</span>
+              <div class="pn">GitHub Models</div>
+              <div class="ps">Free · DeepSeek · GPT-4o</div>
+            </div>
+            <div class="ptab" id="ptab-custom" onclick="selProv('custom')"><span class="pi">🔧</span>
+              <div class="pn">Custom API</div>
+              <div class="ps">Any provider</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Groq -->
+        <div class="pp active" id="pp-groq">
+          <div>
+            <label class="flbl">API KEY (PRIMARY)</label>
+            <input type="password" id="qk" placeholder="gsk_… (primary key)" />
+            <div style="color:#282848;font-size:9px;margin-top:3px">console.groq.com → API Keys (free tier)</div>
+          </div>
+          <div>
+            <label class="flbl">EXTRA API KEYS — auto-rotates when limit hit</label>
+            <textarea class="finput" id="qk-extra"
+              placeholder="gsk_key2…&#10;gsk_key3…&#10;(one key per line — rotates automatically on 429/rate limit)"
+              style="min-height:70px;font-size:10px;font-family:monospace"></textarea>
+            <div id="qk-status" style="font-size:9px;margin-top:3px;color:#00c9a7"></div>
+          </div>
+          <div>
+            <label class="flbl">MODEL</label>
+            <div class="mgrid">
+              <div class="mopt sel" data-p="groq" data-m="llama-3.3-70b" onclick="selM(this)">
+                <div class="mn">Llama 3.3 70B</div>
+                <div class="ms">★ Best balance · Fast</div>
+              </div>
+              <div class="mopt" data-p="groq" data-m="llama-4-scout" onclick="selM(this)">
+                <div class="mn">Llama 4 Scout</div>
+                <div class="ms">Latest Meta · Multimodal</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GitHub Models -->
+        <div class="pp" id="pp-github">
+          <div>
+            <label class="flbl">GITHUB PERSONAL ACCESS TOKEN</label>
+            <input type="password" id="ghtoken" placeholder="ghp_… (classic PAT — no special scopes needed)" />
+            <div style="color:#282848;font-size:9px;margin-top:3px">github.com → Settings → Developer settings →
+              Personal access tokens → Tokens (classic) → Generate new token · No scopes needed for classic PAT.
+              Fine-grained PAT needs <code>models:read</code>.</div>
+          </div>
+          <div>
+            <label class="flbl">MODEL</label>
+            <div class="mgrid" style="grid-template-columns:1fr 1fr">
+              <div class="mopt" data-p="github" data-m="deepseek/DeepSeek-V3-0324" onclick="selM(this)">
+                <div class="mn">DeepSeek V3</div>
+                <div class="ms">Best for code · ~4k ctx</div>
+              </div>
+              <div class="mopt" data-p="github" data-m="deepseek/DeepSeek-R1" onclick="selM(this)">
+                <div class="mn">DeepSeek R1</div>
+                <div class="ms">Reasoning · ~4k ctx</div>
+              </div>
+              <div class="mopt" data-p="github" data-m="openai/gpt-4o-mini" onclick="selM(this)">
+                <div class="mn">GPT-4o mini</div>
+                <div class="ms">★ Recommended · ~8k ctx</div>
+              </div>
+              <div class="mopt" data-p="github" data-m="meta/Llama-3.3-70B-Instruct" onclick="selM(this)">
+                <div class="mn">Llama 3.3 70B</div>
+                <div class="ms">Open · ~8k ctx</div>
+              </div>
+              <div class="mopt" data-p="github" data-m="microsoft/phi-4" onclick="selM(this)">
+                <div class="mn">Phi-4</div>
+                <div class="ms">Microsoft · ~8k ctx</div>
+              </div>
+              <div class="mopt" data-p="github" data-m="mistral-ai/Mistral-Nemo" onclick="selM(this)">
+                <div class="mn">Mistral Nemo</div>
+                <div class="ms">Mistral · ~8k ctx</div>
+              </div>
+            </div>
+          </div>
+          <div
+            style="font-size:8px;color:#d97706;margin-top:4px;padding:6px;background:rgba(217,119,6,.06);border:1px solid rgba(217,119,6,.2);border-radius:6px">
+            ⚠ <strong>Token limits:</strong> DeepSeek V3/R1 have ~4,000 token total limits (input + output). SCAAI
+            automatically trims the system prompt and message history to fit. For general chat, <strong>GPT-4o mini or
+              Llama 3.3 70B are recommended</strong> — they have ~8k limits and work more reliably. DeepSeek V3 is best
+            used via the <strong>Code Analyst agent</strong> for focused code analysis tasks.
+          </div>
+        </div>
+
+        <!-- Custom / Universal API -->
+        <div class="pp" id="pp-custom">
+          <!-- Quick-start presets -->
+          <div>
+            <label class="flbl">QUICK PRESETS</label>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px" id="custom-presets">
+              <button class="bg2" style="font-size:9px;padding:3px 8px" onclick="applyPreset('openai')">OpenAI</button>
+              <button class="bg2" style="font-size:9px;padding:3px 8px"
+                onclick="applyPreset('anthropic')">Anthropic</button>
+              <button class="bg2" style="font-size:9px;padding:3px 8px" onclick="applyPreset('gemini')">Gemini</button>
+              <button class="bg2" style="font-size:9px;padding:3px 8px"
+                onclick="applyPreset('mistral')">Mistral</button>
+              <button class="bg2" style="font-size:9px;padding:3px 8px" onclick="applyPreset('ollama')">Ollama
+                (local)</button>
+              <button class="bg2" style="font-size:9px;padding:3px 8px" onclick="applyPreset('together')">Together
+                AI</button>
+              <button class="bg2" style="font-size:9px;padding:3px 8px"
+                onclick="applyPreset('openrouter')">OpenRouter</button>
+              <button class="bg2" style="font-size:9px;padding:3px 8px" onclick="applyPreset('cohere')">Cohere</button>
+            </div>
+          </div>
+          <div>
+            <label class="flbl">ENDPOINT URL <span
+                style="color:#f97316;font-size:8px;font-weight:400">required</span></label>
+            <input type="text" id="curl" placeholder="https://api.openai.com/v1/chat/completions"
+              style="font-family:monospace;font-size:10px" oninput="_updateCustomFmtHint()" />
+            <div id="curl-hint" style="font-size:8px;color:#444468;margin-top:2px;font-family:monospace"></div>
+          </div>
+          <div>
+            <label class="flbl">API KEY / TOKEN</label>
+            <input type="password" id="ckey" placeholder="sk-… or Bearer token or leave blank for local" />
+          </div>
+          <div>
+            <label class="flbl">MODEL ID <span
+                style="color:#f97316;font-size:8px;font-weight:400">required</span></label>
+            <input type="text" id="cmod" placeholder="gpt-4o  /  claude-sonnet-4-20250514  /  mistral-large" />
+          </div>
+          <!-- Advanced auth override -->
+          <details style="margin-top:4px">
+            <summary style="font-size:9px;color:#444468;cursor:pointer;user-select:none;padding:3px 0">▸ Advanced auth
+              settings</summary>
+            <div style="padding:8px 0 0;display:flex;flex-direction:column;gap:6px">
+              <div>
+                <label class="flbl">AUTH HEADER NAME <span style="color:#666;font-size:8px;font-weight:400">default:
+                    Authorization</span></label>
+                <input type="text" id="cauth-header" placeholder="Authorization  |  x-api-key  |  api-key" />
+              </div>
+              <div>
+                <label class="flbl">AUTH PREFIX <span style="color:#666;font-size:8px;font-weight:400">default: "Bearer
+                    " (include trailing space)</span></label>
+                <input type="text" id="cauth-prefix" placeholder='Bearer  |  Token  |  (empty for no prefix)' />
+              </div>
+              <div style="font-size:8px;color:#333358">Example — Anthropic: header=<code>x-api-key</code>
+                prefix=<em>(empty)</em>. OpenAI: header=<code>Authorization</code> prefix=<code>Bearer </code></div>
+            </div>
+          </details>
+          <div
+            style="font-size:8px;color:#333358;margin-top:5px;border-top:1px solid rgba(255,255,255,.04);padding-top:5px">
+            Response format is auto-detected from the URL. Override via advanced settings if needed.<br />
+            Supports: OpenAI-compat · Anthropic · Gemini · Ollama · Any REST API returning JSON.
+          </div>
+        </div>
+
+        <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:10px;margin-top:12px">
+          <label class="flbl">TERMINAL MODE</label>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#a0a0c8;cursor:pointer">
+              <input type="checkbox" id="use-wsl2" checked style="accent-color:#6c63ff" />
+              <span>Use WSL2 (Bash) if available</span>
+            </label>
+          </div>
+          <div style="font-size:8px;color:#333358;margin-top:4px">If unchecked, SCAAI will use native PowerShell/CMD
+            even if WSL2 is installed. Useful if WSL2 is slow to start or giving timeouts.</div>
+        </div>
+
+        <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:10px;margin-top:4px">
+          <label class="flbl">INNER MONOLOGUE MODEL <span
+              style="color:#6c6c8a;font-size:8px;font-weight:400">(fast/cheap model for background reasoning — default:
+              llama-3.1-8b-instant)</span></label>
+          <input type="text" id="im-model"
+            placeholder="llama-3.1-8b-instant  /  gemini-2.0-flash-lite  /  (leave blank = same as main)"
+            style="font-family:monospace;font-size:10px" />
+          <div style="font-size:8px;color:#333358;margin-top:3px">Uses a separate model for inner monologue background
+            calls (4+ per turn). Saves cost on expensive main models. Must be on the same provider.</div>
+        </div>
+        <div class="mftr">
+          <button class="bg2" style="padding:8px 16px;font-size:12px" onclick="closeSettings()">Cancel</button>
+          <button class="bp" style="padding:8px 22px;font-size:12px" onclick="saveSettings()">✓ Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+  <script src="src/renderer/cognitiveEngine.js"></script>
+  <script src="src/renderer/strategicEngine.js"></script>
+  <script src="src/renderer/reflectionEngine.js"></script>
+  <script src="src/renderer/renderer.js"></script>
+
+  <!-- ══ MINI BROWSER PANEL ══ -->
+  <div id="mini-browser"
+    style="display:none;flex-direction:column;position:fixed;z-index:9000;width:760px;height:560px;min-width:400px;min-height:280px;top:55px;right:18px;background:#0d0d18;border:1px solid rgba(108,99,255,.35);border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,.75);overflow:hidden;">
+    <!-- Titlebar -->
+    <div id="mb-titlebar"
+      style="display:flex;align-items:center;gap:6px;background:rgba(108,99,255,.1);border-bottom:1px solid rgba(108,99,255,.18);padding:5px 10px;cursor:move;flex-shrink:0;user-select:none;-webkit-app-region:no-drag;">
+      <img id="mb-favicon" style="width:14px;height:14px;flex-shrink:0;border-radius:2px;display:none"
+        onerror="this.style.display='none'" />
+      <span id="mb-title"
+        style="flex:1;font-size:10px;color:#8888b8;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🌐
+        Mini Browser</span>
+      <!-- Profile switcher -->
+      <div style="position:relative;flex-shrink:0;">
+        <button id="mb-profile-btn" onclick="mbToggleProfiles()" title="Switch profile / account">
+          <div id="mb-profile-indicator"></div>
+          <span id="mb-profile-label">Default</span>
+          <span style="font-size:8px;color:#444466;">▾</span>
+        </button>
+        <div id="mb-profile-panel"></div>
+      </div>
+      <button id="mb-min" class="mb-ctrl" onclick="mbMinimize()" title="Minimize">─</button>
+      <button id="mb-max" class="mb-ctrl" onclick="mbMaximize()" title="Maximize">⬜</button>
+      <button class="mb-ctrl mb-close" onclick="mbClose()" title="Close">✕</button>
+    </div>
+    <!-- Tab Strip (populated by browser.js) -->
+    <div id="mb-tab-strip"></div>
+    <!-- Toolbar -->
+    <div id="mb-toolbar">
+      <button id="mb-back" onclick="mbNav('back')" title="Back">‹</button>
+      <button id="mb-fwd" onclick="mbNav('fwd')" title="Forward">›</button>
+      <button id="mb-reload" onclick="mbNav('reload')" title="Reload">↻</button>
+      <input id="mb-url" type="text" placeholder="https://… or search" />
+      <button id="mb-go" onclick="mbGo(document.getElementById('mb-url').value)">Go</button>
+      <button id="mb-ext" onclick="mbExt()" title="Open in system browser">↗ Open</button>
+      <button id="mb-summarize-btn" onclick="mbSummarizePage()" title="Ask SCAAI to summarize this page">✦ Ask
+        SCAAI</button>
+    </div>
+    <!-- Content -->
+    <div id="mb-content" style="flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;">
+      <div id="mb-overlay"
+        style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0d0d18;color:#606080;font-size:12px;gap:10px;z-index:2;pointer-events:none;">
+        <div id="mb-spinner"></div>
+        <span id="mb-overlay-text">Loading…</span>
+      </div>
+      <!-- Webviews are injected dynamically by browser.js -->
+      <div id="mb-webview-stack" style="flex:1;position:relative;overflow:hidden;"></div>
+    </div>
+    <!-- Resize handles injected by browser.js (8 directions) -->
+  </div>
+  <script src="findings.js"></script>
+  <script src="browser.js"></script>
+
+  <!-- ══════════════════════════════════════════════════════
+     UPGRADE 2 — Skills Modal HTML
+     ══════════════════════════════════════════════════════ -->
+  <div id="skills-modal" onclick="if(event.target===this)closeSkillsModal()">
+    <div id="skills-panel">
+      <div class="sk-hdr">
+        <h3>⚡ Skills</h3>
+        <span style="font-size:10px;color:#333358;flex:1;margin-left:10px">Active skills inject their content into the
+          AI's system prompt on every message</span>
+        <button onclick="closeSkillsModal()">✕</button>
+      </div>
+      <div id="sk-tabs">
+        <button class="sk-tab active" onclick="skTab('list')">Installed</button>
+        <button class="sk-tab" onclick="skTab('upload')">Upload .md</button>
+        <button class="sk-tab" onclick="skTab('write')">Write New</button>
+      </div>
+      <div id="sk-body">
+        <!-- LIST -->
+        <div id="sk-pane-list">
+          <div id="sk-list-items" style="margin-top:4px"></div>
+          <div id="sk-list-empty" style="text-align:center;padding:30px;color:#333358;font-size:11px;display:none">No
+            skills installed yet.<br />Upload a <code>.md</code> file or write one using the tabs above.</div>
+        </div>
+        <!-- UPLOAD -->
+        <div id="sk-pane-upload" style="display:none">
+          <div id="sk-upload-zone" onclick="skPickFile()" ondragover="event.preventDefault();this.classList.add('drag')"
+            ondragleave="this.classList.remove('drag')" ondrop="skHandleDrop(event)">
+            <div class="sk-up-icon">📄</div>
+            <p style="font-size:13px;font-weight:700;color:#a0a0c8">Click to pick a <code>.md</code> file, or drag &amp;
+              drop</p>
+            <p>The markdown content becomes the skill's system prompt — write it like instructions to the AI.</p>
+            <p style="font-size:9px;color:#333348;margin-top:8px">Skill name = filename without extension. Activate the
+              skill to inject it into every message.</p>
+          </div>
+          <div id="sk-upload-status" style="font-size:10px;color:#00c9a7;min-height:20px;margin-top:6px"></div>
+        </div>
+        <!-- WRITE -->
+        <div id="sk-pane-write" style="display:none">
+          <div id="sk-editor-wrap">
+            <div style="font-size:9px;color:#333358;margin-bottom:4px">Write a new skill. Content is injected verbatim
+              into the system prompt when this skill is active.</div>
+            <input id="sk-ed-name" placeholder="Skill name — e.g. Python Expert, Security Auditor" />
+            <input id="sk-ed-desc"
+              placeholder="Describe what the skill should do — AI will generate the full content from this" />
+            <div style="display:flex;gap:6px;margin-bottom:4px;align-items:center">
+              <button id="sk-gen-btn" onclick="skGenerateContent()"
+                style="background:rgba(108,99,255,.15);border:1px solid rgba(108,99,255,.35);color:#a0a0e8;font-size:9px;padding:3px 10px;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:700;flex-shrink:0;transition:all .15s"
+                title="Generate skill content from name + description using AI">✨ Generate from description</button>
+              <span id="sk-gen-status" style="font-size:9px;color:#00c9a7;min-height:14px"></span>
+            </div>
+            <textarea id="sk-ed-content"
+              placeholder="# Python Expert&#10;&#10;You are an expert Python developer.&#10;&#10;When writing Python:&#10;- Always use type hints&#10;- Follow PEP 8 strictly&#10;- Write docstrings for every function"></textarea>
+            <div id="sk-ed-hint" class="sk-ed-hint">💡 <strong>Tips:</strong> Start with a role statement. List concrete
+              behaviours. One skill per domain works best. Multiple active skills stack — all are injected together.
+            </div>
+            <button id="sk-ed-save" onclick="skSaveWritten()">💾 Save Skill</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ════════════════════════════════════════════════════════════════
+    // UPGRADE 2 — Agents + Skills
+    // All additive — zero existing functions modified directly.
+    // ════════════════════════════════════════════════════════════════
+
+    // ── Agent selector ──────────────────────────────────────────────
+    async function loadAgents() {
+      try {
+        const r = await A.agents.load();
+        if (r.ok && r.agents) {
+          AGENTS_LIST = r.agents;
+          const sel = document.getElementById('agent-select');
+          if (!sel) return;
+          sel.innerHTML = '';
+          r.agents.forEach(ag => {
+            const opt = document.createElement('option');
+            opt.value = ag.id;
+            opt.textContent = `${ag.name} (${ag.provider}/${(ag.model || '').split('/').pop().slice(0, 18)})`;
+            if (ag.id === ACTIVE_AGENT) opt.selected = true;
+            sel.appendChild(opt);
+          });
+        }
+      } catch (e) { console.warn('[agents] load failed:', e.message); }
+    }
+
+    function setActiveAgent(id) {
+      ACTIVE_AGENT = id;
+      const agent = AGENTS_LIST.find(a => a.id === id);
+      if (agent) {
+        const label = document.getElementById('agent-label');
+        const colors = { main: '#6c63ff', specialist: '#00c9a7', orchestrator: '#e879f9' };
+        if (label) label.style.color = colors[agent.role] || '#6c63ff';
+      }
+    }
+
+    // ── _dispatchChat — single routing point for ALL AI calls ────────
+    // Called from send() instead of A.api.chat() directly.
+    //   agent_main  → A.api.chat with CONFIG provider/model (existing flow, untouched)
+    //   specialist  → A.agents.chat with that agent's provider + model
+    // Skills are already baked into opts.system by buildSystemPrompt before this is called.
+    async function _dispatchChat(opts) {
+      if (ACTIVE_AGENT === 'agent_main' || !AGENTS_LIST.length) {
+        return A.api.chat(opts);
+      }
+      const agent = AGENTS_LIST.find(a => a.id === ACTIVE_AGENT);
+      if (!agent) return A.api.chat(opts); // unknown ID — fall back safely
+      return A.agents.chat({
+        agentId: ACTIVE_AGENT,
+        messages: opts.messages,
+        userSystemPrompt: opts.system,     // includes active skill injections
+        maxTokens: opts.maxTokens || 8192,
+        githubToken: CONFIG.githubToken || '',
+        groqKey: CONFIG.groqKey || '',
+        customApiUrl: CONFIG.customApiUrl || '',
+        customApiKey: CONFIG.customApiKey || '',
+        customModel: CONFIG.customModel || '',
+      });
+    }
+
+    // ── Skills ───────────────────────────────────────────────────────
+    async function loadSkills() {
+      try {
+        const r = await A.skills.list();
+        if (r.ok && r.skills) {
+          SKILLS_LIST = r.skills;
+          updateSkillBadge();
+          renderSkillsList();
+        }
+      } catch (e) { console.warn('[skills] load failed:', e.message); }
+    }
+
+    function updateSkillBadge() {
+      const badge = document.getElementById('skill-badge');
+      if (badge) badge.textContent = ACTIVE_SKILL_IDS.size;
+    }
+
+    // Inject active skill .md content into system prompt
+    function getActiveSkillsPrompt() {
+      if (!ACTIVE_SKILL_IDS.size) return '';
+      const parts = [];
+      const names = [];
+      for (const id of ACTIVE_SKILL_IDS) {
+        const sk = SKILLS_LIST.find(s => s._id === id);
+        if (sk && sk._mdContent) {
+          parts.push(`\n--- SKILL: ${sk.name} ---\n${sk._mdContent}`);
+          names.push(sk.name);
+        }
+      }
+      if (!parts.length) return '';
+      // Explicit declaration forces AI to name active skills correctly when asked,
+      // rather than inventing generic meta-skills.
+      const header = `\n\n════════════════════════════════════════\n`
+        + `ACTIVE SKILLS (${names.length}): ${names.join(', ')}\n`
+        + `════════════════════════════════════════\n`
+        + `The following skills are currently active and augment your behaviour for this session.\n`
+        + `RULE: When asked "which skills are you using" — name them exactly: ${names.join(', ')}. Do NOT list generic meta-skills.\n`
+        + `RULE: Apply every active skill's instructions on every response, not just when explicitly asked.\n`;
+      return header + parts.join('\n');
+    }
+
+    // Extend buildSystemPrompt to inject active skills (non-destructive wrap)
+    (function () {
+      const _orig = buildSystemPrompt;
+      buildSystemPrompt = function (semContext) {
+        const base = _orig(semContext);
+        const skillsPrompt = getActiveSkillsPrompt();
+        return skillsPrompt ? base + skillsPrompt : base;
+      };
+    })();
+
+    // ── Skills Modal ─────────────────────────────────────────────────
+    function openSkillsModal() {
+      loadSkills().then(() => renderSkillsList());
+      document.getElementById('skills-modal').classList.add('open');
+      skTab('list');
+    }
+    function closeSkillsModal() {
+      document.getElementById('skills-modal').classList.remove('open');
+    }
+    function skTab(name) {
+      ['list', 'upload', 'write'].forEach((t, i) => {
+        document.getElementById(`sk-pane-${t}`).style.display = t === name ? 'block' : 'none';
+        document.querySelectorAll('.sk-tab')[i].classList.toggle('active', t === name);
+      });
+    }
+
+    function renderSkillsList() {
+      const container = document.getElementById('sk-list-items');
+      const empty = document.getElementById('sk-list-empty');
+      if (!container) return;
+      if (!SKILLS_LIST.length) {
+        container.innerHTML = '';
+        if (empty) empty.style.display = 'block';
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+      container.innerHTML = '';
+      SKILLS_LIST.forEach(sk => {
+        const isOn = ACTIVE_SKILL_IDS.has(sk._id);
+        const div = document.createElement('div');
+        div.className = 'sk-item' + (isOn ? ' active-skill' : '');
+        const icon = sk.type === 'md' ? '📄' : (sk.type === 'python' ? '🐍' : '📦');
+        div.innerHTML = `
+      <div class="sk-item-icon">${icon}</div>
+      <div class="sk-item-body">
+        <div class="sk-item-name">${sk.name || sk._id}</div>
+        <div class="sk-item-desc">${sk.description || 'No description'}</div>
+        <div class="sk-item-meta">v${sk.version || '1.0.0'} · ${sk.type || 'python'} · id: ${sk._id}</div>
+      </div>
+      <div class="sk-item-actions">
+        <button class="sk-toggle ${isOn ? 'on' : 'off'}" onclick="skToggle('${sk._id}',this)">${isOn ? 'Active' : 'Inactive'}</button>
+        <button class="sk-del" onclick="skDelete('${sk._id}')">✕</button>
+      </div>`;
+        container.appendChild(div);
+      });
+    }
+
+    function skToggle(id, btn) {
+      if (ACTIVE_SKILL_IDS.has(id)) {
+        ACTIVE_SKILL_IDS.delete(id);
+        btn.className = 'sk-toggle off'; btn.textContent = 'Inactive';
+        btn.closest('.sk-item').classList.remove('active-skill');
+      } else {
+        // Ensure md content is loaded
+        const sk = SKILLS_LIST.find(s => s._id === id);
+        if (sk && sk.type === 'md' && !sk._mdContent) {
+          A.fs.readFile(sk._dir + '/' + (sk.entrypoint || 'skill.md')).then(r => { if (r.ok) sk._mdContent = r.content; }).catch(() => { });
+        }
+        ACTIVE_SKILL_IDS.add(id);
+        btn.className = 'sk-toggle on'; btn.textContent = 'Active';
+        btn.closest('.sk-item').classList.add('active-skill');
+      }
+      updateSkillBadge();
+    }
+
+    async function skDelete(id) {
+      const r = await A.skills.delete(id);
+      if (r.ok) {
+        SKILLS_LIST = SKILLS_LIST.filter(s => s._id !== id);
+        ACTIVE_SKILL_IDS.delete(id);
+        updateSkillBadge(); renderSkillsList();
+      } else { addMsg('sys', '⚠ Could not delete skill: ' + (r.error || 'unknown')); }
+    }
+
+    function skPickFile() {
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = '.md,.txt';
+      inp.onchange = e => { if (e.target.files[0]) skInstallMdFile(e.target.files[0]); };
+      inp.click();
+    }
+
+    function skHandleDrop(e) {
+      e.preventDefault(); e.currentTarget.classList.remove('drag');
+      const file = e.dataTransfer.files[0];
+      if (file && (file.name.endsWith('.md') || file.name.endsWith('.txt'))) skInstallMdFile(file);
+      else document.getElementById('sk-upload-status').textContent = 'Only .md or .txt files are supported.';
+    }
+
+    async function skInstallMdFile(file) {
+      const status = document.getElementById('sk-upload-status');
+      status.textContent = 'Installing…';
+      const reader = new FileReader();
+      reader.onload = async ev => {
+        const content = ev.target.result;
+        const rawName = file.name.replace(/\.(md|txt)$/i, '');
+        const skillId = 'md-' + rawName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        const manifest = {
+          name: rawName.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          description: 'Skill loaded from ' + file.name,
+          version: '1.0.0', author: 'user', type: 'md', entrypoint: 'skill.md', triggers: [], schema: {},
+        };
+        const r = await A.skills.install({ id: skillId, manifest, script: content });
+        if (r.ok) {
+          status.textContent = `✓ "${manifest.name}" installed. Go to Installed tab to activate it.`;
+          await loadSkills();
+          const sk = SKILLS_LIST.find(s => s._id === skillId);
+          if (sk) sk._mdContent = content;
+          setTimeout(() => { status.textContent = ''; skTab('list'); }, 1800);
+        } else {
+          status.textContent = 'Error: ' + (r.error || 'install failed');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    async function skGenerateContent() {
+      const name = (document.getElementById('sk-ed-name').value || '').trim();
+      const desc = (document.getElementById('sk-ed-desc').value || '').trim();
+      const genBtn = document.getElementById('sk-gen-btn');
+      const genStatus = document.getElementById('sk-gen-status');
+      if (!name && !desc) { genStatus.textContent = '⚠ Enter a name or description first.'; setTimeout(() => { genStatus.textContent = ''; }, 2500); return; }
+      const intention = name + (desc ? ` — ${desc}` : '');
+      genBtn.disabled = true; genBtn.textContent = '⏳ Generating…'; genStatus.textContent = '';
+      try {
+        const prompt = `You are an expert at writing AI system prompt skill files.\nGenerate a skill markdown file for SCAAI based on this intention:\n\n"${intention}"\n\nREQUIREMENTS:\n- Start with a # heading matching the skill name\n- Write a clear role statement (1-2 sentences)\n- List 8-14 concrete, actionable behaviour rules specific to this skill domain\n- Each rule must start with a verb (Always..., When..., Never..., Flag..., Prefer...)\n- Rules must be specific and opinionated, not generic advice\n- Length: 200-400 words\n\nOutput ONLY the raw markdown. No code fences. No preamble. No explanation.`;
+        const r = await A.api.chat({
+          provider: CONFIG.provider, model: CONFIG.model,
+          system: 'You generate precise, opinionated AI skill prompt files. Output only raw markdown, nothing else.',
+          messages: [{ role: 'user', content: prompt }], maxTokens: 800,
+          apiKey: getApiKey(CONFIG.provider), githubToken: CONFIG.githubToken || '',
+          groqKey: CONFIG.groqKey || '', customApiUrl: CONFIG.customApiUrl || '',
+          customApiKey: CONFIG.customApiKey || '', customModel: CONFIG.customModel || '',
+          customFmt: CONFIG.customFmt || '', customAuthHeader: CONFIG.customAuthHeader || 'Authorization',
+          customAuthPrefix: CONFIG.customAuthPrefix !== undefined ? CONFIG.customAuthPrefix : 'Bearer ',
+        });
+        if (r.ok && r.text) {
+          let content = r.text.replace(/^```[\w]*\n?/, '').replace(/\n?```$/, '').trim();
+          content = content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+          document.getElementById('sk-ed-content').value = content;
+          genStatus.textContent = '✓ Generated — review and save.';
+          if (!desc && name) document.getElementById('sk-ed-desc').value = `AI-generated skill for: ${name}`;
+        } else {
+          genStatus.textContent = '⚠ ' + (r.error || 'Generation failed. Check API key in Settings.');
+        }
+      } catch (e) { genStatus.textContent = '⚠ Error: ' + e.message; }
+      finally {
+        genBtn.disabled = false; genBtn.textContent = '✨ Generate from description';
+        setTimeout(() => { genStatus.textContent = ''; }, 4000);
+      }
+    }
+
+    async function skSaveWritten() {
+      const name = (document.getElementById('sk-ed-name').value || '').trim();
+      const desc = (document.getElementById('sk-ed-desc').value || '').trim();
+      const content = (document.getElementById('sk-ed-content').value || '').trim();
+      if (!name) { alert('Skill name is required.'); return; }
+      if (!content) { alert('Skill content is required.'); return; }
+      const skillId = 'md-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      const manifest = { name, description: desc || 'User-written skill', version: '1.0.0', author: 'user', type: 'md', entrypoint: 'skill.md', triggers: [], schema: {} };
+      const r = await A.skills.install({ id: skillId, manifest, script: content });
+      if (r.ok) {
+        await loadSkills();
+        const sk = SKILLS_LIST.find(s => s._id === skillId);
+        if (sk) sk._mdContent = content;
+        document.getElementById('sk-ed-name').value = '';
+        document.getElementById('sk-ed-desc').value = '';
+        document.getElementById('sk-ed-content').value = '';
+        addMsg('sys', `✓ Skill **${name}** saved. Activate it in the Skills panel to inject it into the AI context.`);
+        setTimeout(() => skTab('list'), 300);
+      } else {
+        addMsg('sys', '⚠ Skill save failed: ' + (r.error || 'unknown'));
+      }
+    }
+
+
+
+
+
+
+
+
+
+    // ── Init drop zone after panel first opens ────────────────────────
+
+
+    // ── Boot: load agents + skills after UI is ready ─────────────────
+    setTimeout(async () => {
+      await loadAgents();
+      await loadSkills();
+      console.log('[Upgrade 2] Agents and skills loaded. _dispatchChat routing active.');
+    }, 400);
+
+    // ═══════════════════════════════════════════════════════════════════
+    // ── OVERFLOW MENU & SIDEBAR TOGGLE ──
+    // All secondary titlebar controls (SEM, status, browser, settings,
+    // clear) live inside #tb-overflow-panel. Sidebar (#sb) is hidden by
+    // default; revealed when a panel button is clicked from the overflow.
+    // Zero existing functionality removed — all handlers still wired.
+    // ═══════════════════════════════════════════════════════════════════
+
+    function toggleOverflowMenu() {
+      const btn = document.getElementById('tb-overflow-btn');
+      const panel = document.getElementById('tb-overflow-panel');
+      if (!btn || !panel) return;
+      const open = panel.classList.toggle('ov-open');
+      btn.classList.toggle('ov-active', open);
+
+      // Sync mirror elements inside panel on open
+      if (open) _syncOverflowMirrors();
+
+      // Click-outside to close
+      if (open) {
+        setTimeout(() => {
+          document.addEventListener('mousedown', _closeOverflowOnOutside, { once: true, capture: true });
+        }, 0);
+      }
+    }
+
+    function _closeOverflowOnOutside(e) {
+      const panel = document.getElementById('tb-overflow-panel');
+      const btn = document.getElementById('tb-overflow-btn');
+      if (panel && !panel.contains(e.target) && btn && !btn.contains(e.target)) {
+        panel.classList.remove('ov-open');
+        if (btn) btn.classList.remove('ov-active');
+      }
+    }
+
+    // Mirror SEM count, status dot/label, hsc into overflow panel
+    function _syncOverflowMirrors() {
+      // SEM label
+      const semlbl = document.getElementById('semlbl');
+      const ovSemlbl = document.getElementById('ov-semlbl');
+      if (semlbl && ovSemlbl) ovSemlbl.textContent = semlbl.textContent;
+
+      // SEM dot
+      const semdot = document.getElementById('semdot');
+      const ovSemdot = document.getElementById('ov-semdot');
+      if (semdot && ovSemdot) ovSemdot.className = 'ov-sem-dot' + (semdot.classList.contains('active') ? ' active' : '');
+
+      // SEM count in sem indicator row
+      const ovCount = document.getElementById('ov-semcount');
+      if (ovCount && semlbl) ovCount.textContent = semlbl.textContent;
+
+      // Status dot + label
+      const sdot = document.getElementById('sdot');
+      const slb = document.getElementById('slb');
+      const ovSdot = document.getElementById('ov-sdot');
+      const ovSlb = document.getElementById('ov-slb');
+      if (sdot && ovSdot) ovSdot.style.background = sdot.style.background;
+      if (slb && ovSlb) ovSlb.textContent = slb.textContent;
+
+      // hsc (context cache indicator)
+      const hsc = document.getElementById('hsc');
+      const ovHsc = document.getElementById('ov-hsc');
+      if (hsc && ovHsc) {
+        ovHsc.textContent = hsc.textContent;
+        ovHsc.style.display = hsc.style.display;
+      }
+    }
+
+    // Open a specific sidebar panel from the overflow menu
+    function ovOpenPanel(tab) {
+      toggleOverflowMenu();           // close the dropdown
+      toggleSidebar(true);            // ensure sidebar is open
+      switchTab(tab);                 // switch to requested tab
+    }
+
+    // Toggle the sidebar open/closed
+    function toggleSidebar(forceOpen) {
+      const sb = document.getElementById('sb');
+      if (!sb) return;
+      if (forceOpen === true) {
+        sb.classList.add('sb-open');
+      } else {
+        sb.classList.toggle('sb-open');
+      }
+    }
+
+    // Keep overflow mirrors in sync whenever SEM state updates
+    // Hook into existing updateSemUI which is called on every SEM change
+    (function () {
+      if (typeof updateSemUI === 'function') {
+        const _orig = updateSemUI;
+        window.updateSemUI = function () {
+          _orig.apply(this, arguments);
+          _syncOverflowMirrors();
+        };
+      }
+      // Also sync setStatus
+      if (typeof setStatus === 'function') {
+        const _origSS = setStatus;
+        window.setStatus = function (s) {
+          _origSS.apply(this, arguments);
+          _syncOverflowMirrors();
+        };
+      }
+    })();
+
+
+
+
+    // ── Findings Panel State ──────────────────────────────────────────
+    let _findingsCurrentTab = 'all';
+    let _findingsResults = null;  // { findings:[], summary:{} }
+    let _findingsLoading = false;
+
+    // ── Open/Close ───────────────────────────────────────────────────
+    function openFindingsPanel() {
+      document.getElementById('findings-overlay').classList.add('open');
+      // If we have a cached report, show it
+      if (_findingsResults) _renderFindings(_findingsResults, _findingsCurrentTab);
+    }
+    function closeFindingsPanel() {
+      document.getElementById('findings-overlay').classList.remove('open');
+    }
+
+    // ── Tab switching ────────────────────────────────────────────────
+    function switchFTab(name) {
+      _findingsCurrentTab = name;
+      document.querySelectorAll('.ftab').forEach(t => t.classList.remove('active'));
+      const btn = document.getElementById('ftab-' + name);
+      if (btn) btn.classList.add('active');
+      if (_findingsResults) _renderFindings(_findingsResults, name);
+    }
+
+    // ── Run analysis ─────────────────────────────────────────────────
+    async function runFindings() {
+      if (_findingsLoading) return;
+      _findingsLoading = true;
+
+      // Show loading state
+      document.getElementById('findings-empty').style.display = 'none';
+      document.getElementById('findings-list').style.display = 'none';
+      document.getElementById('findings-loading').style.display = 'flex';
+      document.getElementById('findings-summary-bar').style.display = 'none';
+
+      // Animate loading steps
+      const steps = ['fls-1', 'fls-2', 'fls-3', 'fls-4', 'fls-5'];
+      let stepIdx = 0;
+      const stepInterval = setInterval(() => {
+        if (stepIdx > 0) document.getElementById(steps[stepIdx - 1]).className = 'fls done';
+        if (stepIdx < steps.length) document.getElementById(steps[stepIdx]).className = 'fls active';
+        stepIdx++;
+      }, 600);
+
+      // Update run button
+      const runBtn = document.getElementById('findings-run-btn');
+      const runIcon = document.getElementById('findings-run-icon');
+      runBtn.classList.add('running');
+      runIcon.className = 'spin';
+      runBtn.textContent = '';
+      runBtn.appendChild(runIcon);
+      runBtn.insertAdjacentText('beforeend', ' Analysing…');
+
+      try {
+        // Pass all global state the engine needs
+        const globals = {
+          CONV_HISTORY,
+          ACTIVE_PROJECT,
+          SEM_READY,
+          SEM_COUNT,
+          CONFIG,
+          WEB_SEARCH_ENABLED,
+          CODEBASE_MODE,
+          FILES,
+          SEL,
+          TOOLS_CONFIG,
+          USER_PROFILE,
+          A,
+        };
+
+        const result = await SystemFindings.runAnalysis(globals);
+        clearInterval(stepInterval);
+
+        // Mark all steps done
+        steps.forEach(s => { try { document.getElementById(s).className = 'fls done'; } catch (e) { } });
+
+        if (result.ok) {
+          _findingsResults = result;
+          setTimeout(() => {
+            document.getElementById('findings-loading').style.display = 'none';
+            _renderFindings(result, _findingsCurrentTab);
+            _updateFindingsTriggerBadge(result.summary);
+          }, 400);
+        } else {
+          document.getElementById('findings-loading').style.display = 'none';
+          document.getElementById('findings-empty').style.display = 'flex';
+          addMsg('sys', '❌ Findings analysis failed: ' + (result.error || 'unknown'));
+        }
+      } catch (e) {
+        clearInterval(stepInterval);
+        document.getElementById('findings-loading').style.display = 'none';
+        document.getElementById('findings-empty').style.display = 'flex';
+        addMsg('sys', '❌ Findings error: ' + e.message);
+      } finally {
+        _findingsLoading = false;
+        // Reset run button
+        runBtn.classList.remove('running');
+        runIcon.className = '';
+        runBtn.innerHTML = '';
+        runIcon.textContent = '▶';
+        runBtn.appendChild(runIcon);
+        runBtn.insertAdjacentText('beforeend', ' Run Analysis');
+      }
+    }
+
+    // ── Render findings ──────────────────────────────────────────────
+    function _renderFindings(result, tab) {
+      const { findings, summary } = result;
+
+      // Update summary bar
+      const bar = document.getElementById('findings-summary-bar');
+      bar.style.display = 'flex';
+      document.getElementById('fsb-c').textContent = summary.critical;
+      document.getElementById('fsb-h').textContent = summary.high;
+      document.getElementById('fsb-m').textContent = summary.medium;
+      document.getElementById('fsb-l').textContent = summary.low;
+      document.getElementById('fsb-meta').textContent =
+        `${summary.chatsAnalyzed} chats · ${summary.messagesAnalyzed} messages analysed · ` +
+        `${summary.aiFixable} AI-fixable · ${summary.codeRequired} need code · ` +
+        `${summary.config} config`;
+
+      // Filter by tab
+      let filtered = findings;
+      if (tab === 'ai') filtered = findings.filter(f => f.actionType === 'ai-fixable');
+      if (tab === 'code') filtered = findings.filter(f => f.actionType === 'code-required');
+      if (tab === 'config') filtered = findings.filter(f => f.actionType === 'configuration');
+
+      // Render cards
+      const list = document.getElementById('findings-list');
+      list.innerHTML = '';
+      list.style.display = '';
+      document.getElementById('findings-empty').style.display = 'none';
+
+      if (!filtered.length) {
+        list.innerHTML = `<div style="text-align:center;padding:40px;color:#333358;font-size:12px">
+      No ${tab === 'all' ? '' : tab} findings — ${tab === 'all' ? 'all systems nominal!' : 'try another category.'}
+    </div>`;
+        return;
+      }
+
+      // Group by category
+      const cats = SystemFindings.CATEGORIES;
+      const groups = {};
+      filtered.forEach(f => {
+        if (!groups[f.category]) groups[f.category] = [];
+        groups[f.category].push(f);
+      });
+
+      Object.entries(groups).forEach(([cat, items]) => {
+        const catInfo = cats[cat] || { icon: '🔸', label: cat };
+        const sevColors = { critical: '#ef4444', high: '#f97316', medium: '#fbbf24', low: '#60a5fa', info: '#9ca3af' };
+
+        // Group header
+        const hdr = document.createElement('div');
+        hdr.className = 'findings-group-hdr';
+        hdr.innerHTML = `<span class="findings-group-dot" style="background:${sevColors[items[0].severity] || '#555580'}"></span>
+      <span>${catInfo.icon} ${catInfo.label}</span>
+      <span style="color:#252545;font-weight:400">(${items.length})</span>`;
+        list.appendChild(hdr);
+
+        // Finding cards
+        items.forEach(f => {
+          const card = document.createElement('div');
+          card.className = `finding-card sev-${f.severity}`;
+          card.id = 'fc-' + f.id;
+
+          const typeLabels = { 'ai-fixable': '🤖 AI-fixable', 'code-required': '💻 Code needed', 'configuration': '⚙ Configuration' };
+
+          card.innerHTML = `
+        <div class="finding-card-hdr" onclick="toggleFindingCard('${f.id}')">
+          <span class="finding-sev-badge ${f.severity}">${f.severity}</span>
+          <span class="finding-cat-icon">${catInfo.icon}</span>
+          <span class="finding-title">${f.title}</span>
+          <span class="finding-type-badge ${f.actionType}">${typeLabels[f.actionType] || f.actionType}</span>
+          <span class="finding-chevron">▶</span>
+        </div>
+        <div class="finding-body">
+          <div class="finding-desc">${f.description}</div>
+          ${f.learnContent ? `<div class="finding-learn-preview" id="flp-${f.id}">${f.learnContent}</div>` : ''}
+          <div class="finding-actions">
+            ${f.actions && f.actions.map(a =>
+            `<button class="fa-btn primary" onclick="${a.cmd};event.stopPropagation()">${a.label}</button>`
+          ).join('')}
+            ${f.learnContent ? `<button class="fa-btn learn" id="flearn-${f.id}" onclick="learnOneFinding('${f.id}');event.stopPropagation()">🧠 Learn this</button>` : ''}
+            <button class="fa-btn feed" onclick="feedOneFindingToAI('${f.id}');event.stopPropagation()">🤖 Feed to AI</button>
+          </div>
+        </div>`;
+
+          list.appendChild(card);
+        });
+      });
+    }
+
+    function toggleFindingCard(id) {
+      const card = document.getElementById('fc-' + id);
+      if (!card) return;
+      card.classList.toggle('expanded');
+      // Show learn preview when expanded
+      const lp = document.getElementById('flp-' + id);
+      if (lp) lp.classList.toggle('visible', card.classList.contains('expanded'));
+    }
+
+    // ── Learn a single finding ────────────────────────────────────────
+    async function learnOneFinding(id) {
+      if (!SEM_READY) { addMsg('sys', '⚠️ Semantic memory not ready.'); return; }
+      const finding = _findingsResults && _findingsResults.findings.find(f => f.id === id);
+      if (!finding) return;
+      const btn = document.getElementById('flearn-' + id);
+      if (btn) { btn.textContent = '⏳…'; btn.disabled = true; }
+      const r = await SystemFindings.learnFinding(finding, A);
+      if (r && r.ok) {
+        SEM_COUNT = r.count || SEM_COUNT; updateSemUI();
+        if (btn) { btn.className = 'fa-btn done'; btn.textContent = '✅ Learned'; }
+        addMsg('ai', `🧠 **Learned from finding:** ${finding.title}\n\nStored as a system improvement note in memory. I'll use this to improve my behaviour going forward.`);
+      } else {
+        if (btn) { btn.textContent = '🧠 Learn this'; btn.disabled = false; }
+        addMsg('sys', '❌ Learn failed: ' + (r && r.error || 'unknown'));
+      }
+    }
+
+    // ── Learn from ALL findings ───────────────────────────────────────
+    async function learnAllFindingsNow() {
+      if (!SEM_READY) { addMsg('sys', '⚠️ Semantic memory not ready.'); return; }
+      if (!_findingsResults) { addMsg('sys', '⚠️ Run analysis first.'); return; }
+
+      const btn = document.querySelector('.fsb-action-btn.learn');
+      if (btn) { btn.textContent = '⏳ Learning…'; btn.disabled = true; }
+
+      const r = await SystemFindings.learnAllFindings(_findingsResults.findings, A);
+      SEM_COUNT = SEM_COUNT + r.learned; updateSemUI();
+
+      if (btn) { btn.textContent = `✅ ${r.learned} learned`; btn.disabled = false; }
+      closeFindingsPanel();
+      addMsg('ai', `🧠 **Learned from ${r.learned} findings** (${r.skipped} had no learnable content).\n\nThese improvement notes are now stored in memory and will influence my behaviour in every future session. You can view them in the SEM tab.`);
+    }
+
+    // ── Feed a single finding to AI ───────────────────────────────────
+    function feedOneFindingToAI(id) {
+      const finding = _findingsResults && _findingsResults.findings.find(f => f.id === id);
+      if (!finding) return;
+      const ci = document.getElementById('ci');
+      if (!ci) return;
+      ci.value = `I found an issue with your behaviour:\n\n[${finding.severity.toUpperCase()}] ${finding.title}\n\n${finding.description}\n\nPlease:\n1. Acknowledge this specific issue\n2. Explain what causes it\n3. Commit to a concrete change\n4. ${finding.actionType === 'code-required' ? 'Tell me what code change would fix this' : 'Tell me how you will behave differently from now on'}`;
+      ci.dispatchEvent(new Event('input', { bubbles: true }));
+      ci.focus();
+      ci.style.height = '';
+      ci.style.height = Math.min(ci.scrollHeight, 110) + 'px';
+      closeFindingsPanel();
+    }
+
+    // ── Feed top findings to AI ───────────────────────────────────────
+    function feedFindingsToAI() {
+      if (!_findingsResults) return;
+      const ci = document.getElementById('ci');
+      if (!ci) return;
+      const prompt = SystemFindings.buildAIPrompt(_findingsResults.findings, []);
+      ci.value = prompt;
+      ci.dispatchEvent(new Event('input', { bubbles: true }));
+      ci.focus();
+      ci.style.height = '';
+      ci.style.height = Math.min(ci.scrollHeight, 110) + 'px';
+      closeFindingsPanel();
+    }
+
+    // ── Trigger badge on the toolbar button ──────────────────────────
+    function _updateFindingsTriggerBadge(summary) {
+      const btn = document.getElementById('findings-trigger-btn');
+      if (!btn) return;
+      const critical = (summary.critical || 0) + (summary.high || 0);
+      const badge = btn.querySelector('.ftb-count');
+      if (badge) {
+        badge.textContent = critical;
+        badge.classList.toggle('visible', critical > 0);
+      }
+    }
+
+    // ── Inject trigger button into the titlebar overflow ─────────────
+    (function _injectFindingsButton() {
+      setTimeout(() => {
+        // Add to overflow panel's QUICK ACTIONS section
+        const ovPanel = document.getElementById('tb-overflow-panel');
+        if (!ovPanel) return;
+
+        // Find the "QUICK ACTIONS" divider and insert after the first row
+        const rows = ovPanel.querySelectorAll('.ov-row');
+        if (!rows.length) return;
+
+        // Create the trigger row
+        const row = document.createElement('div');
+        row.className = 'ov-row';
+        row.style.cssText = 'border-top:1px solid rgba(108,99,255,.08);margin-top:2px;';
+        row.innerHTML = `<span class="ov-row-icon">🔬</span>
+      <span class="ov-row-label">System Findings</span>
+      <span class="ov-row-val" style="color:#f97316;font-weight:700" id="ov-findings-badge"></span>`;
+        row.onclick = () => { openFindingsPanel(); toggleOverflowMenu(); };
+        ovPanel.insertBefore(row, ovPanel.querySelector('.ov-divider'));
+
+
+
+      }, 600);
+    })();
+
+    // ── Keyboard shortcut ─────────────────────────────────────────────
+    document.addEventListener('keydown', e => {
+      if (document.getElementById('findings-overlay').classList.contains('open')) {
+        if (e.key === 'Escape') closeFindingsPanel();
+      }
+    });
+
+    // ── Modify the per-message 🔬 feedback button to also offer System Findings ──
+    // This patches the existing addMsg function behaviour so the 🔬 now shows a mini-menu
+    (function _patchXAIButton() {
+      // We intercept clicks on xai-trigger buttons via event delegation
+      document.addEventListener('click', e => {
+        const btn = e.target.closest('.fb-btn.xai-trigger');
+        if (!btn) return;
+
+        // If already showing a mini-menu for this button, close it
+        const existingMenu = btn.parentNode.querySelector('.xai-mini-menu');
+        if (existingMenu) { existingMenu.remove(); return; }
+
+        e.stopPropagation();
+
+        // Build mini-menu
+        const menu = document.createElement('div');
+        menu.className = 'xai-mini-menu';
+        menu.style.cssText = `
+      position:absolute; z-index:9999;
+      background:#0d0d1e; border:1px solid rgba(108,99,255,.3);
+      border-radius:8px; padding:4px; min-width:190px;
+      box-shadow:0 8px 24px rgba(0,0,0,.65);
+      bottom:calc(100% + 6px); left:0;
+    `;
+        menu.innerHTML = `
+      <div onclick="(function(btn){const wrap=btn.closest('.msg');if(!wrap)return;const body=wrap.querySelector('.mbody');const text=body?body.textContent:'';_runXAIForMessage(text,wrap);})(document.querySelector('.fb-btn.xai-trigger'));document.querySelectorAll('.xai-mini-menu').forEach(m=>m.remove())"
+        style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:5px;font-size:11px;color:#9090c8;transition:background .1s"
+        onmouseover="this.style.background='rgba(108,99,255,.1)'" onmouseout="this.style.background=''"
+      >
+        <span>🔬</span> <span>RAG Transparency <span style="font-size:9px;color:#444468">(this message)</span></span>
+      </div>
+      <div onclick="openFindingsPanel();document.querySelectorAll('.xai-mini-menu').forEach(m=>m.remove())"
+        style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:5px;font-size:11px;color:#9090c8;transition:background .1s"
+        onmouseover="this.style.background='rgba(108,99,255,.1)'" onmouseout="this.style.background=''"
+      >
+        <span>📊</span> <span>System Findings <span style="font-size:9px;color:#444468">(all chats)</span></span>
+      </div>`;
+
+        // Position relative to the feedback bar
+        btn.style.position = 'relative';
+        btn.appendChild(menu);
+
+        // Close on outside click
+        setTimeout(() => {
+          document.addEventListener('mousedown', function _cl(e2) {
+            if (!menu.contains(e2.target) && e2.target !== btn) {
+              menu.remove();
+            }
+            document.removeEventListener('mousedown', _cl);
+          });
+        }, 0);
+      }, true);
+    })();
+
+    console.log('[SYSTEM FINDINGS] Engine v1 loaded — openFindingsPanel() to use');
+
+  </script>
+
+
+
+
+  <!-- ── Findings Panel ── -->
+  <div id="findings-overlay" onclick="if(event.target===this)closeFindingsPanel()">
+    <div id="findings-panel">
+
+      <!-- Header -->
+      <div id="findings-hdr">
+        <div id="findings-hdr-left">
+          <span id="findings-icon">🔬</span>
+          <div>
+            <div id="findings-title">System Findings</div>
+            <div id="findings-subtitle">Analysing all chats & system state</div>
+          </div>
+        </div>
+        <div id="findings-hdr-right">
+          <button id="findings-run-btn" onclick="runFindings()" title="Run full system analysis">
+            <span id="findings-run-icon">▶</span> Run Analysis
+          </button>
+          <button class="findings-hdr-btn" onclick="closeFindingsPanel()" title="Close">✕</button>
+        </div>
+      </div>
+
+      <!-- Summary bar (shown after analysis) -->
+      <div id="findings-summary-bar" style="display:none">
+        <div class="fsb-stat" id="fsb-critical"><span class="fsb-dot critical"></span><span id="fsb-c">0</span> Critical
+        </div>
+        <div class="fsb-stat" id="fsb-high"><span class="fsb-dot high"></span><span id="fsb-h">0</span> High</div>
+        <div class="fsb-stat" id="fsb-medium"><span class="fsb-dot medium"></span><span id="fsb-m">0</span> Medium</div>
+        <div class="fsb-stat" id="fsb-low"><span class="fsb-dot low"></span><span id="fsb-l">0</span> Low</div>
+        <div class="fsb-divider"></div>
+        <div class="fsb-meta" id="fsb-meta">0 chats · 0 messages analysed</div>
+        <div class="fsb-actions">
+          <button class="fsb-action-btn ai" onclick="feedFindingsToAI()"
+            title="Feed top findings to AI for self-improvement">🤖 Feed to AI</button>
+          <button class="fsb-action-btn learn" onclick="learnAllFindingsNow()"
+            title="Store all improvement notes in memory">🧠 Learn from All</button>
+        </div>
+      </div>
+
+      <!-- Tab strip -->
+      <div id="findings-tabs">
+        <button class="ftab active" id="ftab-all" onclick="switchFTab('all')">All Findings</button>
+        <button class="ftab" id="ftab-ai" onclick="switchFTab('ai')">🤖 AI-Fixable</button>
+        <button class="ftab" id="ftab-code" onclick="switchFTab('code')">💻 Code Required</button>
+        <button class="ftab" id="ftab-config" onclick="switchFTab('config')">⚙ Configuration</button>
+      </div>
+
+      <!-- Body -->
+      <div id="findings-body">
+        <!-- Empty state -->
+        <div id="findings-empty">
+          <div id="findings-empty-icon">🔬</div>
+          <div id="findings-empty-title">Run an analysis to see system findings</div>
+          <div id="findings-empty-desc">The findings engine analyses all your chat history, memory state, tool usage,
+            response quality, and interaction patterns to surface improvement opportunities.</div>
+          <button id="findings-start-btn" onclick="runFindings()">▶ Start Analysis</button>
+        </div>
+
+        <!-- Loading state -->
+        <div id="findings-loading" style="display:none">
+          <div id="findings-loading-spinner"></div>
+          <div id="findings-loading-label">Analysing…</div>
+          <div id="findings-loading-steps">
+            <div class="fls" id="fls-1">● Memory & recall patterns</div>
+            <div class="fls" id="fls-2">● Response quality metrics</div>
+            <div class="fls" id="fls-3">● Tool usage analysis</div>
+            <div class="fls" id="fls-4">● Model performance</div>
+            <div class="fls" id="fls-5">● Interaction patterns</div>
+          </div>
+        </div>
+
+        <!-- Findings list -->
+        <div id="findings-list" style="display:none"></div>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+
+</html>

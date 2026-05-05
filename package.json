@@ -1,0 +1,18 @@
+{
+  "name": "scaai-desktop",
+  "version": "4.0.0",
+  "description": "SCAAI – Local AI Agent with full computer access (Claude, Gemini, Groq)",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron --no-deprecation .",
+    "dev": "electron --no-deprecation . --dev"
+  },
+  "devDependencies": {
+    "electron": "^41.0.2"
+  },
+  "author": "SCAAI",
+  "license": "MIT",
+  "dependencies": {
+    "pdf-parse": "^2.4.5"
+  }
+}
