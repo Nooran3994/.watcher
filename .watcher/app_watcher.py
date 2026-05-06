@@ -343,6 +343,8 @@ def main():
     parser.add_argument('--run', type=str, default=None, help='Command to run and wrap')
     parser.add_argument('--no-http', action='store_true')
     parser.add_argument('--watcher-dir', type=Path, default=Path('.watcher'))
+    parser.add_argument('--check-interval', type=int, default=2)
+    parser.add_argument('--response-threshold', type=int, default=1000)
     args = parser.parse_args()
     
     args.watcher_dir.mkdir(parents=True, exist_ok=True)
@@ -353,6 +355,9 @@ def main():
         process_name=args.process_name, enable_http=not args.no_http, 
         target_pid=args.pid, run_cmd=args.run
     )
+
+    watcher.check_interval_seconds = args.check_interval
+    watcher.response_time_threshold_ms = args.response_threshold
     
     if args.target_port:
         watcher.process_manager.find_by_port(args.target_port)

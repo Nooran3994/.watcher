@@ -11,6 +11,19 @@ set WATCHER_DIR=.watcher
 set CHECK_INTERVAL=2
 set RESPONSE_THRESHOLD=1000
 set RUN_CMD=
+set PROCESS_NAME=
+set ENABLE_HTTP_POLL=true
+
+REM Load config from watcher.config if it exists
+set CONFIG_FILE=%WATCHER_DIR%\config\watcher.config
+if exist "%CONFIG_FILE%" (
+    for /f "usebackq tokens=1,2 delims==" %%a in ("%CONFIG_FILE%") do (
+        set line=%%a
+        if not "!line:~0,1!"=="#" (
+            set %%a=%%b
+        )
+    )
+)
 
 REM Parse arguments
 :parse_args
@@ -143,18 +156,31 @@ echo   Reports Dir:        %WATCHER_DIR%\reports\
 echo.
 echo Status:
 
-REM Health check
-python -c "import requests; requests.get('http://%HOST%:%PORT%/', timeout=5)" >nul 2>&1
-if %ERRORLEVEL% equ 0 (
-    echo   ^[OK^] Application is accessible
-) else (
-    if "%RUN_CMD%"=="" (
-        echo   [ERROR] Cannot reach http://%HOST%:%PORT%/
-        echo   Make sure your application is running first, or use --run to start it.
-        echo.
-        exit /b 1
+REM Health check (Optional if monitoring by process name or if HTTP disabled)
+if "%ENABLE_HTTP_POLL%"=="false" (
+    if not "%PROCESS_NAME%"=="" (
+        echo   ^[OK^] Monitoring target process: %PROCESS_NAME%
     ) else (
-        echo   ^[WAITING^] Application will be started by the watcher...
+        echo   ^[OK^] HTTP polling disabled by config.
+    )
+) else (
+    python -c "import requests; requests.get('http://%HOST%:%PORT%/', timeout=5)" >nul 2>&1
+    if %ERRORLEVEL% equ 0 (
+        echo   ^[OK^] Application is accessible
+    ) else (
+        if "%RUN_CMD%"=="" (
+            if not "%PROCESS_NAME%"=="" (
+                echo   ^[WARNING^] Cannot reach http://%HOST%:%PORT%/
+                echo   Continuing in process-only mode for: %PROCESS_NAME%
+            ) else (
+                echo   [ERROR] Cannot reach http://%HOST%:%PORT%/
+                echo   Make sure your application is running first, or use --run to start it.
+                echo.
+                exit /b 1
+            )
+        ) else (
+            echo   ^[WAITING^] Application will be started by the watcher...
+        )
     )
 )
 
@@ -170,6 +196,11 @@ if not "%RUN_CMD%"=="" (
     set RUN_ARG=
 )
 
+REM Prepare flags
+set FLAGS=
+if "%ENABLE_HTTP_POLL%"=="false" set FLAGS=%FLAGS% --no-http
+if not "%PROCESS_NAME%"=="" set FLAGS=%FLAGS% --process-name %PROCESS_NAME%
+
 REM Run watcher
 python %APP_WATCHER% ^
     --host %HOST% ^
@@ -177,7 +208,8 @@ python %APP_WATCHER% ^
     --watcher-dir %WATCHER_DIR% ^
     --check-interval %CHECK_INTERVAL% ^
     --response-threshold %RESPONSE_THRESHOLD% ^
-    %RUN_ARG%
+    %RUN_ARG% ^
+    %FLAGS%
 
 set EXIT_CODE=%ERRORLEVEL%
 

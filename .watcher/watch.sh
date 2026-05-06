@@ -18,6 +18,25 @@ WATCHER_DIR=".watcher"
 CHECK_INTERVAL="2"
 RESPONSE_THRESHOLD="1000"
 RUN_CMD=""
+PROCESS_NAME=""
+ENABLE_HTTP_POLL="true"
+
+# Load config from watcher.config if it exists
+CONFIG_FILE="$WATCHER_DIR/config/watcher.config"
+if [ -f "$CONFIG_FILE" ]; then
+    while IFS='=' read -r key value; do
+        [[ "$key" =~ ^#.*$ ]] || [[ -z "$key" ]] && continue
+        value=$(echo "$value" | tr -d '\r')
+        case "$key" in
+            HOST) HOST="$value" ;;
+            PORT) PORT="$value" ;;
+            PROCESS_NAME) PROCESS_NAME="$value" ;;
+            ENABLE_HTTP_POLL) ENABLE_HTTP_POLL="$value" ;;
+            CHECK_INTERVAL_SECONDS) CHECK_INTERVAL="$value" ;;
+            RESPONSE_TIME_THRESHOLD_MS) RESPONSE_THRESHOLD="$value" ;;
+        esac
+    done < "$CONFIG_FILE"
+fi
 
 # Functions
 print_help() {
@@ -144,17 +163,30 @@ echo "  Reports Dir:        $WATCHER_DIR/reports/"
 echo ""
 echo -e "${GREEN}Status:${NC}"
 
-# Health check
-if python3 -c "import requests; requests.get('http://$HOST:$PORT/', timeout=5)" 2>/dev/null; then
-    echo -e "  ${GREEN}✅ Application is accessible${NC}"
-else
-    if [ -z "$RUN_CMD" ]; then
-        echo -e "  ${RED}❌ Cannot reach http://$HOST:$PORT/${NC}"
-        echo -e "  ${YELLOW}Make sure your application is running first, or use --run to start it.${NC}"
-        echo ""
-        exit 1
+# Health check (Optional if monitoring by process name or if HTTP disabled)
+if [ "$ENABLE_HTTP_POLL" == "false" ]; then
+    if [ -n "$PROCESS_NAME" ]; then
+        echo -e "  ${GREEN}✅ Monitoring target process: $PROCESS_NAME${NC}"
     else
-        echo -e "  ${YELLOW}⏳ Application will be started by the watcher...${NC}"
+        echo -e "  ${GREEN}✅ HTTP polling disabled by config${NC}"
+    fi
+else
+    if python3 -c "import requests; requests.get('http://$HOST:$PORT/', timeout=5)" 2>/dev/null; then
+        echo -e "  ${GREEN}✅ Application is accessible${NC}"
+    else
+        if [ -z "$RUN_CMD" ]; then
+            if [ -n "$PROCESS_NAME" ]; then
+                echo -e "  ${YELLOW}⚠️ Cannot reach http://$HOST:$PORT/${NC}"
+                echo -e "  ${BLUE}Continuing in process-monitoring mode for: $PROCESS_NAME${NC}"
+            else
+                echo -e "  ${RED}❌ Cannot reach http://$HOST:$PORT/${NC}"
+                echo -e "  ${YELLOW}Make sure your application is running first, or use --run to start it.${NC}"
+                echo ""
+                exit 1
+            fi
+        else
+            echo -e "  ${YELLOW}⏳ Application will be started by the watcher...${NC}"
+        fi
     fi
 fi
 
@@ -169,6 +201,15 @@ if [ -n "$RUN_CMD" ]; then
     RUN_ARG=(--run "$RUN_CMD")
 fi
 
+# Prepare flags
+FLAGS=()
+if [ "$ENABLE_HTTP_POLL" == "false" ]; then
+    FLAGS+=(--no-http)
+fi
+if [ -n "$PROCESS_NAME" ]; then
+    FLAGS+=(--process-name "$PROCESS_NAME")
+fi
+
 # Run watcher
 python3 "$APP_WATCHER" \
     --host "$HOST" \
@@ -176,7 +217,8 @@ python3 "$APP_WATCHER" \
     --watcher-dir "$WATCHER_DIR" \
     --check-interval "$CHECK_INTERVAL" \
     --response-threshold "$RESPONSE_THRESHOLD" \
-    "${RUN_ARG[@]}"
+    "${RUN_ARG[@]}" \
+    "${FLAGS[@]}"
 
 exit_code=$?
 
