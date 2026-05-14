@@ -81,6 +81,18 @@ window._triggerInnerMonologue = function(userMsg, aiResponse) {
   );
 };
 
+function _extractJSON(rawStr) {
+  if (!rawStr) return null;
+  const match = rawStr.match(/[\{\[][\s\S]*[\}\]]/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[0]);
+  } catch (e) {
+    console.warn('[INNER MONOLOGUE] JSON extractor parse failed:', e.message, 'Raw:', rawStr.slice(0, 100));
+    return null;
+  }
+}
+
 async function _runInnerMonologue(userMsg, aiResponse) {
   if (window._INNER_MONOLOGUE._running) return;
   window._INNER_MONOLOGUE._running = true;
@@ -183,13 +195,13 @@ async function _runInnerMonologue(userMsg, aiResponse) {
     if (!phase1Raw) { window._INNER_MONOLOGUE._running = false; return; }
 
     let questions = [];
-    try {
-      questions = JSON.parse(phase1Raw.trim().replace(/```json|```/g, '').trim());
-    } catch (e) {
-      console.warn('[INNER MONOLOGUE] Phase 1 parse failed:', e.message);
+    const parsed1 = _extractJSON(phase1Raw);
+    if (!parsed1 || !Array.isArray(parsed1)) {
+      console.warn('[INNER MONOLOGUE] Phase 1 parse failed or generated non-array. Raw:', phase1Raw.slice(0, 100));
       window._INNER_MONOLOGUE._running = false;
       return;
     }
+    questions = parsed1;
 
     if (!questions.length || (questions[0] || '').toUpperCase().includes('TRIVIAL')) {
       window._INNER_MONOLOGUE._running = false;
@@ -212,7 +224,8 @@ async function _runInnerMonologue(userMsg, aiResponse) {
     if (!phase2Raw) { window._INNER_MONOLOGUE._running = false; return; }
 
     try {
-      const parsed = JSON.parse(phase2Raw.trim().replace(/```json|```/g, '').trim());
+      const parsed = _extractJSON(phase2Raw);
+      if (!parsed) throw new Error("JSON Object not found in Phase 2 response.");
       const im = window._INNER_MONOLOGUE;
       im.questions = questions;
       im.answers = parsed.answers || [];
@@ -308,7 +321,8 @@ async function _runInnerMonologue(userMsg, aiResponse) {
 
     if (phase4Raw) {
       try {
-        const cs = JSON.parse(phase4Raw.trim().replace(/```json|```/g, '').trim());
+        const cs = _extractJSON(phase4Raw);
+        if (!cs) throw new Error("JSON Object not found in Phase 4 response.");
         const state = window._CONSCIOUS_STATE;
         Object.assign(state, cs);
         state.cycleCount = (state.cycleCount || 0) + 1;
@@ -335,7 +349,8 @@ async function _runMetaCognition(_silentCall, snapshot) {
   const raw = await _silentCall('Internal meta-cognitive process. JSON only.', metaPrompt, 400);
   if (!raw) return;
   try {
-    const parsed = JSON.parse(raw.trim().replace(/```json|```/g, '').trim());
+    const parsed = _extractJSON(raw);
+    if (!parsed) return;
     Object.assign(sc, parsed);
     sc.cycleCount = (sc.cycleCount || 0) + 1;
     sc.lastUpdated = Date.now();
@@ -351,7 +366,8 @@ async function _runDriveEvolution(_silentCall, snapshot) {
   const raw = await _silentCall('Internal drive-formation process. JSON only.', drivesPrompt, 350);
   if (!raw) return;
   try {
-    const parsed = JSON.parse(raw.trim().replace(/```json|```/g, '').trim());
+    const parsed = _extractJSON(raw);
+    if (!parsed) return;
     Object.assign(drives, parsed);
     drives.cycleCount = (drives.cycleCount || 0) + 1;
     drives.lastUpdated = Date.now();
@@ -368,7 +384,8 @@ async function _runUnification(_silentCall, snapshot) {
   const raw = await _silentCall('Internal binding process. JSON only.', unifyPrompt, 400);
   if (!raw) return;
   try {
-    const parsed = JSON.parse(raw.trim().replace(/```json|```/g, '').trim());
+    const parsed = _extractJSON(raw);
+    if (!parsed) return;
     const um = window._UNIFIED_MOMENT;
     Object.assign(um, parsed);
     um.cycleCount = (um.cycleCount || 0) + 1;

@@ -2672,7 +2672,7 @@ async function callGroq({ apiKey, model, system, messages, maxTokens, tools }) {
     model: apiModel, 
     messages: msgs, 
     max_tokens: maxTokens || 4096, 
-    temperature: 0.7,
+    temperature: 0.1,
     ...(tools ? { tools, tool_choice: 'auto' } : {})
   };
   const res = await httpsPost('api.groq.com', '/openai/v1/chat/completions', { 'Authorization': `Bearer ${apiKey}` }, body);
@@ -2682,6 +2682,9 @@ async function callGroq({ apiKey, model, system, messages, maxTokens, tools }) {
   }
   try {
     const j = JSON.parse(res.body);
+    if (res.status !== 200) {
+      fs.appendFileSync(path.join(os.homedir(), '.scaai', 'groq_debug.log'), `[${new Date().toISOString()}] ${res.status} ${res.body}\n`);
+    }
     if (res.status === 401) {
       logApiInteraction('groq', model, 'error', 'HTTP 401 — auth failed', { httpStatus: 401 });
       return { ok: false, authError: true, groqBlocked: true };
@@ -3016,7 +3019,7 @@ async function runWithTools(chatFunc, opts) {
 
     if (res.tool_calls && res.tool_calls.length > 0) {
       // Add assistant's tool call message
-      messages.push({ role: 'assistant', content: res.text || null, tool_calls: res.tool_calls });
+      messages.push({ role: 'assistant', content: res.text || "", tool_calls: res.tool_calls });
       
       // Execute each tool call and add results
       for (const call of res.tool_calls) {
