@@ -881,7 +881,9 @@ function updateSemUI() {
 }
 
 async function semSearch() {
-  const q = document.getElementById('semq').value.trim();
+  const el = document.getElementById('semq');
+  if (!el) return;
+  const q = el.value.trim();
   if (!q) return;
   if (!SEM_READY) { renderSemResults(null, 'not_ready'); return; }
   const dot = document.getElementById('semdot');
@@ -894,8 +896,11 @@ async function semSearch() {
 
 // ── Gap 3+4: AI-assisted Learn with structured schema + entity extraction ──
 async function semLearn() {
-  const label = document.getElementById('semlearn-label').value.trim();
-  const content = document.getElementById('semlearn-content').value.trim();
+  const elLabel = document.getElementById('semlearn-label');
+  const elContent = document.getElementById('semlearn-content');
+  if (!elLabel || !elContent) return;
+  const label = elLabel.value.trim();
+  const content = elContent.value.trim();
   if (!content) { addMsg('sys', '⚠️ Enter content to learn.'); return; }
   if (!SEM_READY) { addMsg('sys', '⚠️ Semantic memory not ready. Click SEM tab → Install chromadb.'); return; }
   const list = document.getElementById('seml');
@@ -1143,7 +1148,9 @@ function _buildStructuredFact(content, label, type) {
 }
 
 async function semForget() {
-  const kw = document.getElementById('semforget-kw').value.trim();
+  const el = document.getElementById('semforget-kw');
+  if (!el) return;
+  const kw = el.value.trim();
   if (!kw) { addMsg('sys', '⚠️ Enter a keyword or label to forget.'); return; }
   if (!SEM_READY) { addMsg('sys', '⚠️ Semantic memory not ready.'); return; }
   if (!confirm(`Remove entries matching "${kw}" from semantic memory?`)) return;
@@ -2901,6 +2908,10 @@ function selProv(p) {
   document.getElementById(`pp-${p}`).classList.add('active');
 }
 function selM(el) {
+  if (el.tagName === 'SELECT') {
+    SM[el.dataset.p] = el.value;
+    return;
+  }
   document.querySelectorAll(`.mopt[data-p="${el.dataset.p}"]`).forEach(m => m.classList.remove('sel'));
   el.classList.add('sel'); SM[el.dataset.p] = el.dataset.m;
 }
@@ -2965,13 +2976,37 @@ function openSettings() {
   selProv(SP);
   document.querySelectorAll('.mopt[data-p="groq"]').forEach(el => el.classList.toggle('sel', el.dataset.m === SM.groq));
   document.querySelectorAll('.mopt[data-p="github"]').forEach(el => el.classList.toggle('sel', el.dataset.m === SM.github));
+
+  // Tools Tab Init
+  initToolsPanel(); // Populates ws-engine, keys, and obsidian status
+  
+  // System Tab Init
+  const syInstr = document.getElementById('sys-instr');
+  if (syInstr) syInstr.value = SYSTEM_INSTRUCTIONS || '';
   const imEl = document.getElementById('im-model');
   if (imEl) imEl.value = CONFIG.innerMonologueModel || 'llama-3.1-8b-instant';
   const wslEl = document.getElementById('use-wsl2');
   if (wslEl) wslEl.checked = CONFIG.useWsl2 !== false;
+
+  // Reset to first tab
+  switchSTab('api');
+
   document.getElementById('smodal').style.display = 'flex';
 }
 function closeSettings() { document.getElementById('smodal').style.display = 'none'; }
+
+function switchSTab(tab) {
+  ['api', 'tools', 'system'].forEach(t => {
+    const el = document.getElementById('st-' + t);
+    const btn = document.getElementById('stab-' + t);
+    if (el) el.style.display = (t === tab) ? 'block' : 'none';
+    if (btn) {
+      btn.classList.toggle('active', t === tab);
+      btn.style.color = (t === tab) ? '#6c63ff' : '#a0a0c8';
+      btn.style.borderBottomColor = (t === tab) ? '#6c63ff' : 'transparent';
+    }
+  });
+}
 
 // ── Theme system ──
 const THEMES = ['default', 'ocean', 'ember', 'arctic', 'midgreen', 'slate', 'white'];
@@ -3004,27 +3039,53 @@ async function saveSettings() {
   const cauthH = document.getElementById('cauth-header');
   const cauthP = document.getElementById('cauth-prefix');
   const ghEl = document.getElementById('ghtoken');
+  
+  // Update Config object
   CONFIG = {
     provider: SP,
     groqKey: document.getElementById('qk').value.trim(),
     groqKeys: extraKeys,
-    groqExtraKeys: extraKeys,  // alias — main.js _groqKeyPool reads this field name
+    groqExtraKeys: extraKeys,
     githubToken: ghEl ? ghEl.value.trim() : '',
     customApiUrl: curlEl ? curlEl.value.trim() : '',
     customApiKey: document.getElementById('ckey').value.trim(),
     customModel: document.getElementById('cmod').value.trim(),
-    customFmt: '', // auto-detected from URL in main.js
+    customFmt: '', 
     customAuthHeader: cauthH ? cauthH.value.trim() : 'Authorization',
     customAuthPrefix: cauthP ? cauthP.value : 'Bearer ',
     model: SP === 'custom' ? document.getElementById('cmod').value.trim() : SM[SP],
     innerMonologueModel: (document.getElementById('im-model') || {}).value || CONFIG.innerMonologueModel || 'llama-3.1-8b-instant',
     useWsl2: document.getElementById('use-wsl2') ? document.getElementById('use-wsl2').checked : true
   };
+
+  // Systems Instructions
+  const syInstr = document.getElementById('sys-instr');
+  if (syInstr) {
+    SYSTEM_INSTRUCTIONS = syInstr.value;
+    TOOLS_CONFIG.systemInstructions = SYSTEM_INSTRUCTIONS;
+  }
+
+  // Web Search
+  const wsEngine = (document.getElementById('ws-engine') || {}).value || 'tavily';
+  TOOLS_CONFIG.webSearch = {
+    engine: wsEngine,
+    tavilyKey: ((document.getElementById('ws-tavily-key') || {}).value || '').trim(),
+    braveKey: ((document.getElementById('ws-brave-key') || {}).value || '').trim(),
+    googleKey: ((document.getElementById('ws-google-key') || {}).value || '').trim(),
+    googleCx: ((document.getElementById('ws-google-cx') || {}).value || '').trim()
+  };
+
   KEY_IDX = { groq: 0, custom: 0 };
-  // Reset error state so a fresh key isn't blocked by stale 429/offline status
   setStatus('online');
-  await A.config.save(CONFIG); renderBadge(); closeSettings();
+  
+  await A.tools.save(TOOLS_CONFIG);
+  await A.config.save(CONFIG); 
+  
+  renderBadge(); 
+  closeSettings();
+  
   if (prevProvider !== SP || prevModel !== CONFIG.model) addMsg('ai', `Switched to **${PROVIDERS[SP]?.name || 'Custom'}** · **${CONFIG.model}**\nContext carried over.`);
+  addMsg('sys', '✅ Settings saved successfully.');
 }
 
 // ── Tabs ──
@@ -3033,16 +3094,24 @@ function switchTab(t) {
   const sb = document.getElementById('sb');
   if (sb && !sb.classList.contains('sb-open')) sb.classList.add('sb-open');
 
-  document.getElementById('tsem').style.display = t === 'sem' ? 'flex' : 'none';
-  document.getElementById('ttool').style.display = t === 'tool' ? 'flex' : 'none';
-  document.getElementById('tproj').style.display = t === 'proj' ? 'flex' : 'none';
+  const tsem = document.getElementById('tsem');
+  const ttool = document.getElementById('ttool');
+  const tproj = document.getElementById('tproj');
   const tgraph = document.getElementById('tgraph');
+
+  if (tsem) tsem.style.display = t === 'sem' ? 'flex' : 'none';
+  if (ttool) ttool.style.display = t === 'tool' ? 'flex' : 'none';
+  if (tproj) tproj.style.display = t === 'proj' ? 'flex' : 'none';
   if (tgraph) tgraph.style.display = t === 'graph' ? 'flex' : 'none';
 
-  document.getElementById('tb-sem').classList.toggle('active', t === 'sem');
-  document.getElementById('tb-tool').classList.toggle('active', t === 'tool');
-  document.getElementById('tb-proj').classList.toggle('active', t === 'proj');
+  const tbSem = document.getElementById('tb-sem');
+  const tbTool = document.getElementById('tb-tool');
+  const tbProj = document.getElementById('tb-proj');
   const tbGraph = document.getElementById('tb-graph');
+
+  if (tbSem) tbSem.classList.toggle('active', t === 'sem');
+  if (tbTool) tbTool.classList.toggle('active', t === 'tool');
+  if (tbProj) tbProj.classList.toggle('active', t === 'proj');
   if (tbGraph) tbGraph.classList.toggle('active', t === 'graph');
 
   if (t === 'sem' && !SEM_READY) renderSemResults(null, 'not_ready');
@@ -6168,7 +6237,9 @@ window.addEventListener('focus', () => {
 
 // ── System Instructions ──
 async function saveSysInstr() {
-  const val = document.getElementById('sys-instr').value;
+  const el = document.getElementById('sys-instr');
+  if (!el) return;
+  const val = el.value;
   SYSTEM_INSTRUCTIONS = val;
   TOOLS_CONFIG.systemInstructions = val;
   try { await A.tools.save(TOOLS_CONFIG); } catch (e) { }

@@ -41,13 +41,10 @@
     <div id="tb">
       <div class="L">
         <span class="logo">SCAAI</span>
-        <div class="ppill" onclick="openSettings()">
-          <div class="pdot" id="pdot" style="background:#6c63ff"></div>
-          <div>
-            <div class="pname" id="pname">Groq</div>
-            <div class="pmdl" id="pmdl">llama-3.3-70b</div>
-          </div>
-        </div>
+        <button class="ppill" onclick="openSettings()" style="display:flex;align-items:center;gap:8px;background:rgba(108,99,255,0.06);border:1px solid rgba(108,99,255,0.15);padding:5px 12px;border-radius:20px;cursor:pointer;transition:all 0.15s;margin-left:8px;-webkit-app-region:no-drag" onmouseover="this.style.background='rgba(108,99,255,0.1)';this.style.borderColor='rgba(108,99,255,0.3)'" onmouseout="this.style.background='rgba(108,99,255,0.06)';this.style.borderColor='rgba(108,99,255,0.15)'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <span style="font-size:11px;font-weight:700;color:#6c63ff;text-transform:uppercase;letter-spacing:0.5px">Settings</span>
+        </button>
       </div>
       <div class="R">
         <!-- ── Overflow toggle — collapses SEM/status/browser/settings ── -->
@@ -71,15 +68,6 @@
         <span class="ov-row-icon">💬</span>
         <span class="ov-row-label">Chat History</span>
         <span class="ov-row-val" id="ov-chat-count" style="color:#6c63ff"></span>
-      </div>
-      <div class="ov-row" onclick="ovOpenPanel('sem')">
-        <span class="ov-row-icon">🔍</span>
-        <span class="ov-row-label">Semantic Memory</span>
-        <span class="ov-row-val" id="ov-semlbl">SEM 0</span>
-      </div>
-      <div class="ov-row" onclick="ovOpenPanel('tool')">
-        <span class="ov-row-icon">🔧</span>
-        <span class="ov-row-label">Tools &amp; Settings</span>
       </div>
       <div class="ov-divider"></div>
       <div class="ov-section">QUICK ACTIONS</div>
@@ -317,12 +305,15 @@
       <div id="sb">
         <div id="stabs">
           <button id="tb-proj" onclick="switchTab('proj')">📂 PROJ</button>
-          <button id="tb-sem" class="active" onclick="switchTab('sem')">🔍 SEM</button>
-          <button id="tb-graph" onclick="switchTab('graph')">🕸️ GRAPH</button>
-          <button id="tb-tool" onclick="switchTab('tool')">🔧 TOOLS</button>
           <button
             style="background:none;border:none;color:#2a2a48;cursor:pointer;font-size:11px;padding:0 8px;flex-shrink:0;transition:color .15s;font-family:inherit"
             onclick="toggleSidebar()" title="Close panel">✕</button>
+        </div>
+        <div id="stabs-bottom" style="position:absolute;bottom:0;left:0;right:0;padding:10px;display:flex;flex-direction:column;gap:5px;border-top:1px solid rgba(255,255,255,.04);background:rgba(0,0,0,0.1)">
+          <button id="tb-settings" onclick="openSettings()" style="background:none;border:none;color:#6c6c8a;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:11px;padding:6px 12px;border-radius:6px;transition:all 0.15s;width:100%;font-family:inherit">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>Settings</span>
+          </button>
         </div>
 
         <!-- FILES tab hidden — files now appear in Code Panel tree only -->
@@ -348,85 +339,6 @@
             <button class="bg2" style="flex:1;font-size:9px;padding:4px" onclick="selNone()">None</button>
             <button class="bg2" style="flex:1;font-size:9px;padding:4px;color:#f87171"
               onclick="clrFiles()">Clear</button>
-          </div>
-          <div class="sdiv"></div>
-          <div class="slabel">PERSONA</div>
-          <div id="pbars" style="padding:0 12px 10px"></div>
-        </div>
-
-        <!-- MEM tab removed — semantic memory is the sole persistent store -->
-
-        <!-- SEM tab -->
-        <div id="tsem" style="display:none">
-          <div
-            style="padding:7px 9px;border-bottom:1px solid rgba(255,255,255,.04);flex-shrink:0;display:flex;flex-direction:column;gap:5px">
-            <!-- Recall (search) -->
-            <div class="srow"><span style="color:#1e1e38;font-size:10px">🔍</span><input id="semq"
-                placeholder="recall: search semantic memory…" onkeydown="if(event.key==='Enter')semSearch()" /></div>
-            <div style="display:flex;gap:4px">
-              <button class="bg2" style="flex:1;font-size:9px;padding:4px" onclick="semSearch()">🔍 Recall</button>
-              <button class="bg2" style="flex:1;font-size:9px;padding:4px" onclick="semListAll()">📋 List</button>
-              <button class="bg2" style="flex:1;font-size:9px;padding:4px" onclick="semStats()">📊 Stats</button>
-            </div>
-            <!-- Learn -->
-            <div style="border-top:1px solid rgba(255,255,255,.04);padding-top:5px">
-              <div style="font-size:8px;color:#1e1e38;font-weight:700;letter-spacing:1px;margin-bottom:3px">LEARN (add
-                to memory)</div>
-              <div class="srow" style="margin-bottom:3px"><input id="semlearn-label" placeholder="label (optional)" />
-              </div>
-              <div class="srow" style="margin-bottom:3px"><textarea id="semlearn-content"
-                  placeholder="Content to remember…"
-                  style="background:transparent;border:none;outline:none;color:#a8a8c8;font-size:10px;flex:1;font-family:inherit;resize:none;min-height:40px;width:100%"></textarea>
-              </div>
-              <div style="display:flex;gap:4px;margin-top:2px">
-                <button class="bg2" style="flex:1;font-size:9px;padding:4px;color:#00c9a7" onclick="semLearn()">💾
-                  Store</button>
-                <button class="bg2"
-                  style="flex:1;font-size:9px;padding:4px;color:#6c63ff;border-color:rgba(108,99,255,.25)"
-                  onclick="semAutoLearn()"
-                  title="AI analyses this conversation and extracts structured facts automatically">🧠
-                  Auto-Learn</button>
-              </div>
-            </div>
-            <!-- Knowledge Base Ingest -->
-            <div style="border-top:1px solid rgba(255,255,255,.04);padding-top:5px">
-              <div style="font-size:8px;color:#1e1e38;font-weight:700;letter-spacing:1px;margin-bottom:3px">KNOWLEDGE
-                BASE (index loaded files)</div>
-              <div style="font-size:9px;color:#6c6c8a;margin-bottom:4px">Chunks all active files into semantic memory as
-                searchable knowledge.</div>
-              <div style="display:flex;gap:4px">
-                <button class="bg2" id="kb-ingest-btn"
-                  style="flex:1;font-size:9px;padding:4px;color:#fbbf24;border-color:rgba(251,191,36,.25)"
-                  onclick="ingestFilesIntoKB()"
-                  title="Index all loaded files into semantic memory as knowledge chunks">📚 Index KB</button>
-                <button class="bg2" style="flex:1;font-size:9px;padding:4px;color:#6c6c8a" onclick="ingestKBStatus()"
-                  title="Show what files are indexed in the knowledge base">📋 KB Status</button>
-              </div>
-              <div id="kb-progress" style="font-size:9px;color:#6c6c8a;margin-top:3px;display:none"></div>
-            </div>
-            <!-- Forget -->
-            <div style="border-top:1px solid rgba(255,255,255,.04);padding-top:5px">
-              <div style="font-size:8px;color:#1e1e38;font-weight:700;letter-spacing:1px;margin-bottom:3px">FORGET
-                (remove from memory)</div>
-              <div class="srow" style="margin-bottom:3px"><input id="semforget-kw"
-                  placeholder="keyword or label to forget…" /></div>
-              <button class="bg2"
-                style="width:100%;font-size:9px;padding:4px;color:#f87171;border-color:rgba(248,113,113,.2)"
-                onclick="semForget()">🗑 Forget</button>
-            </div>
-          </div>
-          <div id="seml"></div>
-          <div style="padding:7px 9px;border-top:1px solid rgba(255,255,255,.04);flex-shrink:0">
-            <div style="display:flex;gap:4px;margin-bottom:4px">
-              <button class="bg2"
-                style="flex:1;font-size:9px;padding:4px;color:#60a5fa;border-color:rgba(96,165,250,.25)"
-                onclick="_storeSessionSummary(true)" title="Summarize this session and store for next time">📋 End
-                Session</button>
-              <button class="bg2"
-                style="flex:1;font-size:9px;padding:4px;color:#a78bfa;border-color:rgba(167,139,250,.25)"
-                onclick="semImportDialog()" title="Bulk-import past conversations into memory">📥 Import</button>
-            </div>
-            <button class="bd" onclick="clearSemMem()">🗑 Clear All Semantic DB</button>
           </div>
         </div>
 
@@ -474,119 +386,7 @@
           </div>
         </div>
 
-        <!-- GRAPH tab -->
-        <div id="tgraph" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0;padding:10px;">
-          <div style="font-size:11px;color:#a0a0c8;margin-bottom:8px;text-align:center;font-weight:700;">KNOWLEDGE GRAPH</div>
-          <div id="sg-network" style="flex:1;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:8px;"></div>
-          <div style="text-align:center;margin-top:10px;">
-            <button class="bg2" onclick="refreshKnowledgeGraph()" style="font-size:10px;padding:6px;min-width:100px;color:#00c9a7">↻ Refresh Graph</button>
-          </div>
-        </div>
 
-        <!-- TOOLS tab -->
-        <div id="ttool" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0">
-          <div style="overflow-y:auto;flex:1;padding:0">
-
-            <!-- System Instructions -->
-            <div class="tool-section">
-              <div class="tool-section-hdr">
-                <span class="tool-section-icon">📋</span>
-                <span>System Instructions</span>
-                <span class="tool-section-sub">Injected into every conversation</span>
-              </div>
-              <textarea id="sys-instr"
-                placeholder="Give SCAAI permanent instructions&#10;e.g. Always respond concisely. Prefer Python. My name is Alfred."
-                style="width:100%;min-height:70px;background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.15);border-radius:6px;color:#a0a0c8;font-size:10px;padding:7px;box-sizing:border-box;resize:vertical;font-family:inherit;outline:none"
-                oninput="saveSysInstr()" onchange="saveSysInstr()"></textarea>
-              <div style="font-size:8px;color:#333358;margin-top:3px">Auto-saved · Always active · Works across sessions
-              </div>
-            </div>
-
-            <!-- Web Search Settings -->
-            <div class="tool-section" style="border-top:1px solid rgba(255,255,255,.04)">
-              <div class="tool-section-hdr"><span class="tool-section-icon">🌐</span><span>Web Search</span><span
-                  class="tool-section-sub">Engine + Keys</span></div>
-              <div style="margin-bottom:6px">
-                <label
-                  style="font-size:8px;color:#3a3a68;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:2px">ENGINE</label>
-                <select id="ws-engine" onchange="_wsShowFields(this.value)"
-                  style="width:100%;background:#0d0d1a;border:1px solid rgba(108,99,255,.2);border-radius:5px;color:#a0a0c8;font-size:10px;padding:5px 7px;outline:none;cursor:pointer;font-family:inherit">
-                  <option value="tavily">🟢 Tavily — 1,000 free/month (recommended)</option>
-                  <option value="duckduckgo">🦆 DuckDuckGo — free, no key needed</option>
-                  <option value="brave">🦁 Brave Search — $5 free credits/month</option>
-                  <option value="google">🔵 Google CSE — 100/day (needs billing)</option>
-                </select>
-              </div>
-              <div id="ws-fields-tavily">
-                <label
-                  style="font-size:8px;color:#3a3a68;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:2px">TAVILY
-                  API KEY</label>
-                <input id="ws-tavily-key" type="password" placeholder="tvly-dev-…"
-                  style="width:100%;background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.12);border-radius:5px;color:#a0a0c8;font-size:10px;padding:5px 7px;font-family:monospace;outline:none;box-sizing:border-box;margin-bottom:2px" />
-                <div style="font-size:8px;color:#333358">Free key: <a href="javascript:void(0)"
-                    onclick="openMiniBrowser('https://tavily.com');return false;"
-                    style="color:#6c63ff;cursor:pointer">tavily.com</a> → API Keys</div>
-              </div>
-              <div id="ws-fields-brave" style="display:none">
-                <label
-                  style="font-size:8px;color:#3a3a68;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:2px">BRAVE
-                  API KEY</label>
-                <input id="ws-brave-key" type="password" placeholder="BSA…"
-                  style="width:100%;background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.12);border-radius:5px;color:#a0a0c8;font-size:10px;padding:5px 7px;font-family:monospace;outline:none;box-sizing:border-box" />
-              </div>
-              <div id="ws-fields-google" style="display:none">
-                <label
-                  style="font-size:8px;color:#3a3a68;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:2px">GOOGLE
-                  API KEY</label>
-                <input id="ws-google-key" type="password" placeholder="AIza…"
-                  style="width:100%;background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.12);border-radius:5px;color:#a0a0c8;font-size:10px;padding:5px 7px;font-family:monospace;outline:none;box-sizing:border-box;margin-bottom:4px" />
-                <label
-                  style="font-size:8px;color:#3a3a68;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:2px">SEARCH
-                  ENGINE ID (CX)</label>
-                <input id="ws-google-cx" type="text" placeholder="110d76868…"
-                  style="width:100%;background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.12);border-radius:5px;color:#a0a0c8;font-size:10px;padding:5px 7px;font-family:monospace;outline:none;box-sizing:border-box" />
-              </div>
-              <div id="ws-fields-duckduckgo" style="display:none">
-                <div
-                  style="font-size:9px;color:#555580;padding:5px 7px;background:rgba(0,201,167,.04);border:1px solid rgba(0,201,167,.1);border-radius:5px">
-                  No key needed. Auto-fallback when other engines fail.</div>
-              </div>
-              <button onclick="saveWebSearchConfig()"
-                style="width:100%;margin-top:6px;background:rgba(99,182,255,.08);border:1px solid rgba(99,182,255,.2);color:#63b6ff;font-size:9px;padding:5px;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:700">💾
-                Save Web Search Settings</button>
-            </div>
-
-            <!-- Tools Grid -->
-            <div class="tool-section" style="border-top:1px solid rgba(255,255,255,.04)">
-              <div class="tool-section-hdr" style="margin-bottom:8px">
-                <span class="tool-section-icon">⚙️</span>
-                <span>Built-in Tools</span>
-              </div>
-
-              <!-- Obsidian Tool Card -->
-              <div class="tool-card" id="tool-obsidian" onclick="openObsidianTool()">
-                <div class="tool-card-icon">🗂️</div>
-                <div class="tool-card-body">
-                  <div class="tool-card-name">Obsidian Knowledge Tool</div>
-                  <div class="tool-card-desc">One-click: analyse chat → write professional Zettelkasten notes with
-                    connections, tags, backlinks &amp; structure</div>
-                  <div class="tool-card-status" id="obs-status">⬜ Not configured</div>
-                </div>
-                <div class="tool-card-arrow">›</div>
-              </div>
-
-              <!-- More tools placeholder -->
-              <div class="tool-card tool-card-dim" style="cursor:default;opacity:.4">
-                <div class="tool-card-icon">🔜</div>
-                <div class="tool-card-body">
-                  <div class="tool-card-name">More tools coming</div>
-                  <div class="tool-card-desc">GitHub, Notion, Linear, Calendar…</div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -761,196 +561,222 @@
 
   <!-- Settings Modal -->
   <div id="smodal" class="mbg" style="display:none" onclick="if(event.target===this)closeSettings()">
-    <div class="modal" style="width:580px;max-height:92vh;overflow-y:auto">
+    <div class="modal" style="width:620px;max-height:92vh;overflow-y:hidden;display:flex;flex-direction:column">
       <div class="mhdr">
-        <h3>⚙️ Settings</h3><button class="mcl" onclick="closeSettings()">✕</button>
+        <h3 style="display:flex;align-items:center;gap:10px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#6c63ff"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          Settings
+        </h3>
+        <button class="mcl" onclick="closeSettings()">✕</button>
       </div>
-      <div class="mbody">
-        <div>
-          <label class="flbl">PROVIDER</label>
-          <div class="ptabs">
-            <div class="ptab active" id="ptab-groq" onclick="selProv('groq')"><span class="pi">⚡</span>
-              <div class="pn">Groq</div>
-              <div class="ps">Fast &amp; free</div>
+
+      <!-- Settings Tabs -->
+      <div class="stabs-strip" style="display:flex;gap:15px;padding:0 20px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,0.05)">
+        <button class="stab active" id="stab-api" onclick="switchSTab('api')" style="background:none;border:none;color:#6c63ff;font-size:12px;font-weight:700;padding:12px 5px;cursor:pointer;border-bottom:2px solid #6c63ff;transition:all 0.15s">API & Models</button>
+        <button class="stab" id="stab-tools" onclick="switchSTab('tools')" style="background:none;border:none;color:#a0a0c8;font-size:12px;font-weight:700;padding:12px 5px;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s">Tools & Integrations</button>
+        <button class="stab" id="stab-system" onclick="switchSTab('system')" style="background:none;border:none;color:#a0a0c8;font-size:12px;font-weight:700;padding:12px 5px;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s">System</button>
+      </div>
+
+      <div class="mbody" style="overflow-y:auto;flex:1;padding:20px 25px">
+        <!-- API TAB -->
+        <div id="st-api">
+          <div>
+            <label class="flbl">PROVIDER</label>
+            <div class="ptabs">
+              <div class="ptab active" id="ptab-groq" onclick="selProv('groq')"><span class="pi">⚡</span>
+                <div class="pn">Groq</div>
+                <div class="ps">Fast &amp; free</div>
+              </div>
+              <div class="ptab" id="ptab-github" onclick="selProv('github')"><span class="pi">🐙</span>
+                <div class="pn">GitHub Models</div>
+                <div class="ps">Free · DeepSeek · GPT-4o</div>
+              </div>
+              <div class="ptab" id="ptab-custom" onclick="selProv('custom')"><span class="pi">🔧</span>
+                <div class="pn">Custom API</div>
+                <div class="ps">Any provider</div>
+              </div>
             </div>
-            <div class="ptab" id="ptab-github" onclick="selProv('github')"><span class="pi">🐙</span>
-              <div class="pn">GitHub Models</div>
-              <div class="ps">Free · DeepSeek · GPT-4o</div>
+          </div>
+
+          <!-- Provider panels -->
+          <div class="pp active" id="pp-groq">
+            <div>
+              <label class="flbl">API KEY (PRIMARY)</label>
+              <input type="password" id="qk" placeholder="gsk_… (primary key)" />
+              <div style="color:#282848;font-size:9px;margin-top:3px">console.groq.com → API Keys (free tier)</div>
             </div>
-            <div class="ptab" id="ptab-custom" onclick="selProv('custom')"><span class="pi">🔧</span>
-              <div class="pn">Custom API</div>
-              <div class="ps">Any provider</div>
+            <div>
+              <label class="flbl">EXTRA API KEYS — auto-rotates when limit hit</label>
+              <textarea class="finput" id="qk-extra"
+                placeholder="gsk_key2…&#10;gsk_key3…&#10;(one key per line — rotates automatically on 429/rate limit)"
+                style="min-height:70px;font-size:10px;font-family:monospace"></textarea>
+              <div id="qk-status" style="font-size:9px;margin-top:3px;color:#00c9a7"></div>
+            </div>
+            <div>
+              <label class="flbl">MODEL</label>
+              <div class="mgrid">
+                <div class="mopt sel" data-p="groq" data-m="llama-3.3-70b" onclick="selM(this)">
+                  <div class="mn">Llama 3.3 70B</div>
+                  <div class="ms">★ Best balance · Fast</div>
+                </div>
+                <div class="mopt" data-p="groq" data-m="llama-4-scout" onclick="selM(this)">
+                  <div class="mn">Llama 4 Scout</div>
+                  <div class="ms">Latest Meta · Multimodal</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pp" id="pp-github">
+            <div>
+              <label class="flbl">GITHUB PERSONAL ACCESS TOKEN</label>
+              <input type="password" id="ghtoken" placeholder="ghp_…" />
+            </div>
+            <div>
+              <label class="flbl">GITHUB MODELS CATALOG</label>
+              <select id="gh-model-sel" data-p="github" onchange="selM(this)" style="width:100%;background:#0d0d1a;border:1px solid rgba(108,99,255,.2);border-radius:5px;color:#a0a0c8;font-size:11px;padding:8px;outline:none;cursor:pointer;font-family:inherit">
+                <optgroup label="OpenAI">
+                  <option value="gpt-4o">GPT-4o</option>
+                  <option value="gpt-4o-mini">GPT-4o mini</option>
+                  <option value="o1">o1-preview</option>
+                  <option value="o1-mini">o1-mini</option>
+                </optgroup>
+                <optgroup label="Meta (Llama)">
+                  <option value="meta-llama-3.1-405b-instruct">Llama 3.1 405B</option>
+                  <option value="meta-llama-3.1-70b-instruct">Llama 3.1 70B</option>
+                  <option value="meta-llama-3.1-8b-instruct">Llama 3.1 8B</option>
+                  <option value="Llama-3.2-90B-Vision-Instruct">Llama 3.2 90B Vision</option>
+                  <option value="Llama-3.2-11B-Vision-Instruct">Llama 3.2 11B Vision</option>
+                  <option value="meta-llama-3.3-70b-instruct">Llama 3.3 70B</option>
+                </optgroup>
+                <optgroup label="Mistral AI">
+                  <option value="Mistral-large">Mistral Large</option>
+                  <option value="Mistral-large-2407">Mistral Large 2407</option>
+                  <option value="Mistral-Nemo">Mistral Nemo</option>
+                  <option value="Mistral-small">Mistral Small</option>
+                </optgroup>
+                <optgroup label="Microsoft (Phi)">
+                  <option value="Phi-4">Phi-4 (Reasoning)</option>
+                  <option value="Phi-3.5-MoE-instruct">Phi 3.5 MoE</option>
+                  <option value="Phi-3.5-mini-instruct">Phi 3.5 mini</option>
+                  <option value="Phi-3.5-vision-instruct">Phi 3.5 Vision</option>
+                </optgroup>
+                <optgroup label="DeepSeek">
+                  <option value="DeepSeek-R1">DeepSeek R1</option>
+                  <option value="DeepSeek-V3">DeepSeek V3</option>
+                </optgroup>
+                <optgroup label="Cohere">
+                  <option value="Command-R-Plus">Command R Plus</option>
+                  <option value="Command-R">Command R</option>
+                </optgroup>
+              </select>
+              <div style="font-size:9px;color:#444468;margin-top:4px">Select any model from the GitHub Marketplace. Ensure your token has <code>models:read</code> scope.</div>
+            </div>
+          </div>
+
+          <div class="pp" id="pp-custom">
+            <div>
+              <label class="flbl">ENDPOINT URL</label>
+              <input type="text" id="curl" placeholder="https://api.openai.com/v1/chat/completions" />
+            </div>
+            <div>
+              <label class="flbl">API KEY / TOKEN</label>
+              <input type="password" id="ckey" placeholder="sk-… or leave blank for local" />
+            </div>
+            <div>
+              <label class="flbl">MODEL ID</label>
+              <input type="text" id="cmod" placeholder="gpt-4o / claude-3-5-sonnet-latest" />
             </div>
           </div>
         </div>
 
-        <!-- Groq -->
-        <div class="pp active" id="pp-groq">
-          <div>
-            <label class="flbl">API KEY (PRIMARY)</label>
-            <input type="password" id="qk" placeholder="gsk_… (primary key)" />
-            <div style="color:#282848;font-size:9px;margin-top:3px">console.groq.com → API Keys (free tier)</div>
+        <!-- TOOLS TAB -->
+        <div id="st-tools" style="display:none">
+          <!-- Web Search Settings -->
+          <div class="tool-section">
+            <div class="tool-section-hdr"><span class="tool-section-icon">🌐</span><span>Web Search</span><span
+                class="tool-section-sub">Engine + Keys</span></div>
+            <div style="margin-bottom:6px">
+              <label class="flbl">ENGINE</label>
+              <select id="ws-engine" onchange="_wsShowFields(this.value)"
+                style="width:100%;background:#0d0d1a;border:1px solid rgba(108,99,255,.2);border-radius:5px;color:#a0a0c8;font-size:10px;padding:6px;outline:none;cursor:pointer;font-family:inherit">
+                <option value="tavily">🟢 Tavily — 1,000 free/month</option>
+                <option value="duckduckgo">🦆 DuckDuckGo — free, no key</option>
+                <option value="brave">🦁 Brave Search</option>
+                <option value="google">🔵 Google CSE</option>
+              </select>
+            </div>
+            <div id="ws-fields-tavily">
+              <label class="flbl">TAVILY API KEY</label>
+              <input id="ws-tavily-key" type="password" placeholder="tvly-dev-…" class="finput" />
+            </div>
+            <div id="ws-fields-brave" style="display:none">
+              <label class="flbl">BRAVE API KEY</label>
+              <input id="ws-brave-key" type="password" placeholder="BSA…" class="finput" />
+            </div>
+            <div id="ws-fields-google" style="display:none">
+              <label class="flbl">GOOGLE API KEY</label>
+              <input id="ws-google-key" type="password" placeholder="AIza…" class="finput" style="margin-bottom:4px" />
+              <label class="flbl">SEARCH ENGINE ID (CX)</label>
+              <input id="ws-google-cx" type="text" placeholder="110d76868…" class="finput" />
+            </div>
           </div>
-          <div>
-            <label class="flbl">EXTRA API KEYS — auto-rotates when limit hit</label>
-            <textarea class="finput" id="qk-extra"
-              placeholder="gsk_key2…&#10;gsk_key3…&#10;(one key per line — rotates automatically on 429/rate limit)"
-              style="min-height:70px;font-size:10px;font-family:monospace"></textarea>
-            <div id="qk-status" style="font-size:9px;margin-top:3px;color:#00c9a7"></div>
-          </div>
-          <div>
-            <label class="flbl">MODEL</label>
-            <div class="mgrid">
-              <div class="mopt sel" data-p="groq" data-m="llama-3.3-70b" onclick="selM(this)">
-                <div class="mn">Llama 3.3 70B</div>
-                <div class="ms">★ Best balance · Fast</div>
-              </div>
-              <div class="mopt" data-p="groq" data-m="llama-4-scout" onclick="selM(this)">
-                <div class="mn">Llama 4 Scout</div>
-                <div class="ms">Latest Meta · Multimodal</div>
+
+          <div style="margin-top:20px;border-top:1px solid rgba(255,255,255,.06);padding-top:15px">
+            <div class="tool-section-hdr"><span class="tool-section-icon">🗂️</span><span>Obsidian Integration</span></div>
+            <div class="tool-card" id="tool-obsidian" onclick="openObsidianTool()" style="background:rgba(108,99,255,.05);padding:10px;border-radius:8px;border:1px solid rgba(108,99,255,.1);cursor:pointer;margin-top:8px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                  <div style="font-size:11px;color:#eee;font-weight:700">Obsidian Knowledge Tool</div>
+                  <div style="font-size:9px;color:#6c6c8a">Analyze chat → write structured notes</div>
+                </div>
+                <div id="obs-status" style="font-size:9px;color:#6c6c8a;background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:4px">⬜ Not configured</div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- GitHub Models -->
-        <div class="pp" id="pp-github">
-          <div>
-            <label class="flbl">GITHUB PERSONAL ACCESS TOKEN</label>
-            <input type="password" id="ghtoken" placeholder="ghp_… (classic PAT — no special scopes needed)" />
-            <div style="color:#282848;font-size:9px;margin-top:3px">github.com → Settings → Developer settings →
-              Personal access tokens → Tokens (classic) → Generate new token · No scopes needed for classic PAT.
-              Fine-grained PAT needs <code>models:read</code>.</div>
+        <!-- SYSTEM TAB -->
+        <div id="st-system" style="display:none">
+          <div class="tool-section">
+            <div class="tool-section-hdr">
+              <span class="tool-section-icon">📋</span>
+              <span>System Instructions</span>
+              <span class="tool-section-sub">Injected into every conversation</span>
+            </div>
+            <textarea id="sys-instr"
+              placeholder="Give SCAAI permanent instructions&#10;e.g. Always respond concisely. Prefer Python."
+              style="width:100%;min-height:80px;background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.15);border-radius:6px;color:#a0a0c8;font-size:10px;padding:8px;box-sizing:border-box;resize:vertical;font-family:inherit;outline:none"></textarea>
           </div>
-          <div>
-            <label class="flbl">MODEL</label>
-            <div class="mgrid" style="grid-template-columns:1fr 1fr">
-              <div class="mopt" data-p="github" data-m="deepseek/DeepSeek-V3-0324" onclick="selM(this)">
-                <div class="mn">DeepSeek V3</div>
-                <div class="ms">Best for code · ~4k ctx</div>
-              </div>
-              <div class="mopt" data-p="github" data-m="deepseek/DeepSeek-R1" onclick="selM(this)">
-                <div class="mn">DeepSeek R1</div>
-                <div class="ms">Reasoning · ~4k ctx</div>
-              </div>
-              <div class="mopt" data-p="github" data-m="openai/gpt-4o-mini" onclick="selM(this)">
-                <div class="mn">GPT-4o mini</div>
-                <div class="ms">★ Recommended · ~8k ctx</div>
-              </div>
-              <div class="mopt" data-p="github" data-m="meta/Llama-3.3-70B-Instruct" onclick="selM(this)">
-                <div class="mn">Llama 3.3 70B</div>
-                <div class="ms">Open · ~8k ctx</div>
-              </div>
-              <div class="mopt" data-p="github" data-m="microsoft/phi-4" onclick="selM(this)">
-                <div class="mn">Phi-4</div>
-                <div class="ms">Microsoft · ~8k ctx</div>
-              </div>
-              <div class="mopt" data-p="github" data-m="mistral-ai/Mistral-Nemo" onclick="selM(this)">
-                <div class="mn">Mistral Nemo</div>
-                <div class="ms">Mistral · ~8k ctx</div>
-              </div>
+
+          <div style="margin-top:20px;border-top:1px solid rgba(255,255,255,.06);padding-top:15px">
+            <label class="flbl">INTERNAL MODELS</label>
+            <div style="margin-top:8px">
+              <label class="flbl">INNER MONOLOGUE MODEL</label>
+              <input type="text" id="im-model" placeholder="llama-3.1-8b-instant" class="finput" />
+              <div style="font-size:8px;color:#333358;margin-top:3px">Fast model for background reasoning.</div>
             </div>
           </div>
-          <div
-            style="font-size:8px;color:#d97706;margin-top:4px;padding:6px;background:rgba(217,119,6,.06);border:1px solid rgba(217,119,6,.2);border-radius:6px">
-            ⚠ <strong>Token limits:</strong> DeepSeek V3/R1 have ~4,000 token total limits (input + output). SCAAI
-            automatically trims the system prompt and message history to fit. For general chat, <strong>GPT-4o mini or
-              Llama 3.3 70B are recommended</strong> — they have ~8k limits and work more reliably. DeepSeek V3 is best
-            used via the <strong>Code Analyst agent</strong> for focused code analysis tasks.
+
+          <div style="margin-top:20px;border-top:1px solid rgba(255,255,255,.06);padding-top:15px">
+            <label class="flbl">ENVIRONMENTS</label>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#a0a0c8;cursor:pointer">
+                <input type="checkbox" id="use-wsl2" checked style="accent-color:#6c63ff" />
+                <span>Use WSL2 (Bash) if available</span>
+              </label>
+            </div>
           </div>
         </div>
 
-        <!-- Custom / Universal API -->
-        <div class="pp" id="pp-custom">
-          <!-- Quick-start presets -->
-          <div>
-            <label class="flbl">QUICK PRESETS</label>
-            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px" id="custom-presets">
-              <button class="bg2" style="font-size:9px;padding:3px 8px" onclick="applyPreset('openai')">OpenAI</button>
-              <button class="bg2" style="font-size:9px;padding:3px 8px"
-                onclick="applyPreset('anthropic')">Anthropic</button>
-              <button class="bg2" style="font-size:9px;padding:3px 8px" onclick="applyPreset('gemini')">Gemini</button>
-              <button class="bg2" style="font-size:9px;padding:3px 8px"
-                onclick="applyPreset('mistral')">Mistral</button>
-              <button class="bg2" style="font-size:9px;padding:3px 8px" onclick="applyPreset('ollama')">Ollama
-                (local)</button>
-              <button class="bg2" style="font-size:9px;padding:3px 8px" onclick="applyPreset('together')">Together
-                AI</button>
-              <button class="bg2" style="font-size:9px;padding:3px 8px"
-                onclick="applyPreset('openrouter')">OpenRouter</button>
-              <button class="bg2" style="font-size:9px;padding:3px 8px" onclick="applyPreset('cohere')">Cohere</button>
-            </div>
-          </div>
-          <div>
-            <label class="flbl">ENDPOINT URL <span
-                style="color:#f97316;font-size:8px;font-weight:400">required</span></label>
-            <input type="text" id="curl" placeholder="https://api.openai.com/v1/chat/completions"
-              style="font-family:monospace;font-size:10px" oninput="_updateCustomFmtHint()" />
-            <div id="curl-hint" style="font-size:8px;color:#444468;margin-top:2px;font-family:monospace"></div>
-          </div>
-          <div>
-            <label class="flbl">API KEY / TOKEN</label>
-            <input type="password" id="ckey" placeholder="sk-… or Bearer token or leave blank for local" />
-          </div>
-          <div>
-            <label class="flbl">MODEL ID <span
-                style="color:#f97316;font-size:8px;font-weight:400">required</span></label>
-            <input type="text" id="cmod" placeholder="gpt-4o  /  claude-sonnet-4-20250514  /  mistral-large" />
-          </div>
-          <!-- Advanced auth override -->
-          <details style="margin-top:4px">
-            <summary style="font-size:9px;color:#444468;cursor:pointer;user-select:none;padding:3px 0">▸ Advanced auth
-              settings</summary>
-            <div style="padding:8px 0 0;display:flex;flex-direction:column;gap:6px">
-              <div>
-                <label class="flbl">AUTH HEADER NAME <span style="color:#666;font-size:8px;font-weight:400">default:
-                    Authorization</span></label>
-                <input type="text" id="cauth-header" placeholder="Authorization  |  x-api-key  |  api-key" />
-              </div>
-              <div>
-                <label class="flbl">AUTH PREFIX <span style="color:#666;font-size:8px;font-weight:400">default: "Bearer
-                    " (include trailing space)</span></label>
-                <input type="text" id="cauth-prefix" placeholder='Bearer  |  Token  |  (empty for no prefix)' />
-              </div>
-              <div style="font-size:8px;color:#333358">Example — Anthropic: header=<code>x-api-key</code>
-                prefix=<em>(empty)</em>. OpenAI: header=<code>Authorization</code> prefix=<code>Bearer </code></div>
-            </div>
-          </details>
-          <div
-            style="font-size:8px;color:#333358;margin-top:5px;border-top:1px solid rgba(255,255,255,.04);padding-top:5px">
-            Response format is auto-detected from the URL. Override via advanced settings if needed.<br />
-            Supports: OpenAI-compat · Anthropic · Gemini · Ollama · Any REST API returning JSON.
-          </div>
-        </div>
+      </div>
 
-        <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:10px;margin-top:12px">
-          <label class="flbl">TERMINAL MODE</label>
-          <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-            <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#a0a0c8;cursor:pointer">
-              <input type="checkbox" id="use-wsl2" checked style="accent-color:#6c63ff" />
-              <span>Use WSL2 (Bash) if available</span>
-            </label>
-          </div>
-          <div style="font-size:8px;color:#333358;margin-top:4px">If unchecked, SCAAI will use native PowerShell/CMD
-            even if WSL2 is installed. Useful if WSL2 is slow to start or giving timeouts.</div>
-        </div>
-
-        <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:10px;margin-top:4px">
-          <label class="flbl">INNER MONOLOGUE MODEL <span
-              style="color:#6c6c8a;font-size:8px;font-weight:400">(fast/cheap model for background reasoning — default:
-              llama-3.1-8b-instant)</span></label>
-          <input type="text" id="im-model"
-            placeholder="llama-3.1-8b-instant  /  gemini-2.0-flash-lite  /  (leave blank = same as main)"
-            style="font-family:monospace;font-size:10px" />
-          <div style="font-size:8px;color:#333358;margin-top:3px">Uses a separate model for inner monologue background
-            calls (4+ per turn). Saves cost on expensive main models. Must be on the same provider.</div>
-        </div>
-        <div class="mftr">
-          <button class="bg2" style="padding:8px 16px;font-size:12px" onclick="closeSettings()">Cancel</button>
-          <button class="bp" style="padding:8px 22px;font-size:12px" onclick="saveSettings()">✓ Save</button>
-        </div>
+      <div class="mftr">
+        <button class="bg2" style="padding:8px 16px;font-size:12px" onclick="closeSettings()">Cancel</button>
+        <button class="bp" style="padding:8px 22px;font-size:12px" onclick="saveSettings()">✓ Save</button>
       </div>
     </div>
+  </div>
   </div>
 
 
