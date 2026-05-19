@@ -1,8 +1,0 @@
-{
-    "agent_registry": [
-        {
-            "trigger": "/error-logger",
-            "manifest": ".agents/workflows/error-logger/agent.json"
-        }
-    ]
-}
