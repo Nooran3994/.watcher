@@ -1919,18 +1919,23 @@
     }
 
     .mav {
-      width: 34px;
-      height: 34px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      font-size: 10px;
-      font-weight: 900;
-      letter-spacing: .5px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      font-weight: 700;
+      font-size: 13px;
+      background: linear-gradient(135deg, #6c63ff 0%, #3f37c9 100%);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2), 0 0 10px rgba(108, 99, 255, 0.2);
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
+    .mav:hover { transform: scale(1.05); }
+    .mav svg { width: 18px; height: 18px; stroke: #fff; stroke-width: 2.5px; }
 
     .msg.bundled {
       margin-top: -16px;
@@ -2683,14 +2688,18 @@
     }
 
     #thinking .tav {
-      background: linear-gradient(135deg, #0d8a82, #00c9a7);
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #6c63ff 0%, #3f37c9 100%);
+      color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 10px;
-      font-weight: 900;
-      flex-shrink: 0
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2), 0 0 10px rgba(108, 99, 255, 0.2);
+      border: 1px solid rgba(255,255,255,0.1);
     }
+    #thinking .tav svg { width: 16px; height: 16px; stroke: #fff; stroke-width: 2.5px; }
 
     .tdots {
       display: flex;

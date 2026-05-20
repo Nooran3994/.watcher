@@ -2446,7 +2446,12 @@ function addToolMsg(cmd, result) {
   // ── FEATURE: Message Bundling ──
   if (_lastSender === 'sys') { wrap.classList.add('bundled'); }
   _lastSender = 'sys';
-  const av = document.createElement('div'); av.className = 'mav'; av.textContent = 'SC';
+  const av = document.createElement('div'); av.className = 'mav';
+  av.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2L2 7v10l10 5 10-5V7L12 2z"></path>
+    <polyline points="12 22 12 12 22 7"></polyline>
+    <polyline points="2 7 12 12"></polyline>
+  </svg>`;
   const right = document.createElement('div'); right.className = 'mright';
   const meta = document.createElement('div'); meta.className = 'mmeta';
   const rl = document.createElement('span'); rl.className = 'mrole'; rl.textContent = 'SCAAI';
