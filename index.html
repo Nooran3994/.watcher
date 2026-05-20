@@ -97,6 +97,115 @@
     </div>
 
     <div id="body">
+<div id="sb">
+        <div id="stabs">
+          <button id="tb-proj" onclick="switchTab('proj')">📂 PROJ</button>
+          <button
+            style="background:none;border:none;color:#2a2a48;cursor:pointer;font-size:11px;padding:0 8px;flex-shrink:0;transition:color .15s;font-family:inherit"
+            onclick="toggleSidebar()" title="Close panel">✕</button>
+        </div>
+        <div id="thistory" style="display:none">
+        <div id="ch-topbar">
+          <button onclick="closeChatHistoryPanel()"
+            style="background:none;border:none;color:#555578;cursor:pointer;font-size:12px;padding:5px 0;font-family:inherit;display:flex;align-items:center;gap:5px;transition:color .12s"
+            onmouseover="this.style.color='#9898c8'" onmouseout="this.style.color='#555578'">← Back</button>
+          <h2>Chat History</h2>
+          <button onclick="startFreshChat();closeChatHistoryPanel()"
+            style="background:linear-gradient(135deg,#5b51e8,#4f46e5);border:none;color:#fff;font-weight:700;border-radius:8px;cursor:pointer;font-size:12px;padding:9px 18px;font-family:inherit;transition:all .15s;display:flex;align-items:center;gap:6px;flex-shrink:0">＋
+            New chat</button>
+        </div>
+        <div id="ch-search-row">
+          <input id="ch-search-inp" placeholder="Search chats…" oninput="filterChatHistory_standalone(this.value)" />
+        </div>
+        <div id="ch-bulk-bar">
+          <span class="ch-bulk-count" id="ch-bulk-count">0 selected</span>
+          <button class="ch-bulk-btn ch-bulk-del" onclick="_chDeleteSelected()">🗑 Delete selected</button>
+          <button class="ch-bulk-btn ch-bulk-cancel" onclick="_chClearSelection()">Cancel</button>
+        </div>
+        <div id="ch-list-scroll">
+          <div id="ch-list"></div>
+        </div>
+      </div>
+<div id="stabs-bottom" style="position:absolute;bottom:0;left:0;right:0;padding:10px;display:flex;flex-direction:column;gap:5px;border-top:1px solid rgba(255,255,255,.04);background:rgba(0,0,0,0.1)">
+          <button id="tb-settings" onclick="openSettings()" style="background:none;border:none;color:#6c6c8a;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:11px;padding:6px 12px;border-radius:6px;transition:all 0.15s;width:100%;font-family:inherit">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>Settings</span>
+          </button>
+        </div>
+
+        <!-- FILES tab hidden — files now appear in Code Panel tree only -->
+        <div id="tf" style="display:none">
+          <div class="sbar">
+            <button class="bp" style="flex:1;font-size:10px;padding:6px;border-radius:6px" onclick="doOpenFiles()">+
+              Files</button>
+            <button class="bg2" style="flex:1;font-size:10px;padding:6px;color:#00c9a7" onclick="doOpenFolder()">📁
+              Folder</button>
+            <button class="bg2" id="rfbtn" style="font-size:10px;padding:6px;min-width:32px"
+              title="Sync all files from disk" onclick="refreshAllFiles()">↻</button>
+          </div>
+          <div id="fsrow"
+            style="display:none;padding:5px 9px;border-bottom:1px solid rgba(255,255,255,.04);flex-shrink:0">
+            <div class="srow"><span style="color:#1e1e38;font-size:10px">🔍</span><input id="fsr" placeholder="Filter…"
+                oninput="renderFiles()" /><span style="display:none;color:#2a2a48;cursor:pointer;font-size:10px"
+                id="fscl" onclick="clrFS()">✕</span></div>
+          </div>
+          <div id="fl"></div>
+          <div id="facts"
+            style="display:none;padding:6px 9px;border-top:1px solid rgba(255,255,255,.04);display:flex;gap:4px;flex-shrink:0">
+            <button class="bg2" style="flex:1;font-size:9px;padding:4px" onclick="selAll()">All</button>
+            <button class="bg2" style="flex:1;font-size:9px;padding:4px" onclick="selNone()">None</button>
+            <button class="bg2" style="flex:1;font-size:9px;padding:4px;color:#f87171"
+              onclick="clrFiles()">Clear</button>
+          </div>
+        </div>
+
+        <!-- PROJ tab -->
+        <div id="tproj" style="display:none">
+          <!-- Header: projects list section -->
+          <div class="proj-header">
+            <span class="proj-header-title">PROJECTS</span>
+            <button class="proj-create-btn" onclick="openProjCreateModal()">+ New</button>
+          </div>
+          <div class="proj-list" id="proj-list"></div>
+
+          <!-- Active project detail (shown below list when a project is active) -->
+          <div class="proj-detail" id="proj-detail">
+            <div class="proj-detail-hdr">
+              <div class="proj-dot proj-detail-dot" id="proj-detail-dot"></div>
+              <span class="proj-detail-name" id="proj-detail-name">Project Name</span>
+              <button class="proj-deactivate-btn" onclick="deactivateProject()"
+                title="Deactivate project">Deactivate</button>
+            </div>
+
+            <!-- Phase pipeline stepper -->
+            <div class="proj-pipeline" id="proj-pipeline"></div>
+
+            <!-- Context notes -->
+            <div class="proj-ctx">
+              <div style="font-size:8px;color:#1e1e38;font-weight:700;letter-spacing:1px;margin-bottom:3px">PROJECT
+                CONTEXT</div>
+              <textarea id="proj-ctx-input" placeholder="Project notes, background, goals…"
+                oninput="debounceSaveProjectContext()"></textarea>
+            </div>
+
+            <!-- Chat history for this project -->
+            <div class="chat-hist-hdr">
+              <span>CHAT HISTORY</span>
+              <button class="chat-hist-new-btn" onclick="startNewProjectChat()" title="New chat in this project">+
+                Chat</button>
+            </div>
+            <div class="chat-search-row">
+              <input id="chat-search-input" placeholder="🔍 Search chats…" oninput="filterChatHistory(this.value)" />
+              <button class="chat-search-clear" id="chat-search-clear" onclick="clearChatSearch()"
+                title="Clear search">✕</button>
+            </div>
+            <div class="chat-hist-list" id="chat-hist-list"></div>
+          </div>
+        </div>
+
+
+      </div>
+
       <!-- Chat -->
       <div id="chat">
         <div id="abar"></div>
@@ -159,28 +268,7 @@
 
       <!-- ══ PROJECT OVERLAY — covers #chat when browsing projects ══ -->
       <!-- ══ CHAT HISTORY OVERLAY ══ -->
-      <div id="chat-history-overlay">
-        <div id="ch-topbar">
-          <button onclick="closeChatHistoryPanel()"
-            style="background:none;border:none;color:#555578;cursor:pointer;font-size:12px;padding:5px 0;font-family:inherit;display:flex;align-items:center;gap:5px;transition:color .12s"
-            onmouseover="this.style.color='#9898c8'" onmouseout="this.style.color='#555578'">← Back</button>
-          <h2>Chat History</h2>
-          <button onclick="startFreshChat();closeChatHistoryPanel()"
-            style="background:linear-gradient(135deg,#5b51e8,#4f46e5);border:none;color:#fff;font-weight:700;border-radius:8px;cursor:pointer;font-size:12px;padding:9px 18px;font-family:inherit;transition:all .15s;display:flex;align-items:center;gap:6px;flex-shrink:0">＋
-            New chat</button>
-        </div>
-        <div id="ch-search-row">
-          <input id="ch-search-inp" placeholder="Search chats…" oninput="filterChatHistory_standalone(this.value)" />
-        </div>
-        <div id="ch-bulk-bar">
-          <span class="ch-bulk-count" id="ch-bulk-count">0 selected</span>
-          <button class="ch-bulk-btn ch-bulk-del" onclick="_chDeleteSelected()">🗑 Delete selected</button>
-          <button class="ch-bulk-btn ch-bulk-cancel" onclick="_chClearSelection()">Cancel</button>
-        </div>
-        <div id="ch-list-scroll">
-          <div id="ch-list"></div>
-        </div>
-      </div>
+      
 
       <div id="proj-overlay">
 
@@ -302,92 +390,7 @@
         </div>
 
       </div><!-- /#proj-overlay -->
-      <div id="sb">
-        <div id="stabs">
-          <button id="tb-proj" onclick="switchTab('proj')">📂 PROJ</button>
-          <button
-            style="background:none;border:none;color:#2a2a48;cursor:pointer;font-size:11px;padding:0 8px;flex-shrink:0;transition:color .15s;font-family:inherit"
-            onclick="toggleSidebar()" title="Close panel">✕</button>
-        </div>
-        <div id="stabs-bottom" style="position:absolute;bottom:0;left:0;right:0;padding:10px;display:flex;flex-direction:column;gap:5px;border-top:1px solid rgba(255,255,255,.04);background:rgba(0,0,0,0.1)">
-          <button id="tb-settings" onclick="openSettings()" style="background:none;border:none;color:#6c6c8a;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:11px;padding:6px 12px;border-radius:6px;transition:all 0.15s;width:100%;font-family:inherit">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            <span>Settings</span>
-          </button>
-        </div>
-
-        <!-- FILES tab hidden — files now appear in Code Panel tree only -->
-        <div id="tf" style="display:none">
-          <div class="sbar">
-            <button class="bp" style="flex:1;font-size:10px;padding:6px;border-radius:6px" onclick="doOpenFiles()">+
-              Files</button>
-            <button class="bg2" style="flex:1;font-size:10px;padding:6px;color:#00c9a7" onclick="doOpenFolder()">📁
-              Folder</button>
-            <button class="bg2" id="rfbtn" style="font-size:10px;padding:6px;min-width:32px"
-              title="Sync all files from disk" onclick="refreshAllFiles()">↻</button>
-          </div>
-          <div id="fsrow"
-            style="display:none;padding:5px 9px;border-bottom:1px solid rgba(255,255,255,.04);flex-shrink:0">
-            <div class="srow"><span style="color:#1e1e38;font-size:10px">🔍</span><input id="fsr" placeholder="Filter…"
-                oninput="renderFiles()" /><span style="display:none;color:#2a2a48;cursor:pointer;font-size:10px"
-                id="fscl" onclick="clrFS()">✕</span></div>
-          </div>
-          <div id="fl"></div>
-          <div id="facts"
-            style="display:none;padding:6px 9px;border-top:1px solid rgba(255,255,255,.04);display:flex;gap:4px;flex-shrink:0">
-            <button class="bg2" style="flex:1;font-size:9px;padding:4px" onclick="selAll()">All</button>
-            <button class="bg2" style="flex:1;font-size:9px;padding:4px" onclick="selNone()">None</button>
-            <button class="bg2" style="flex:1;font-size:9px;padding:4px;color:#f87171"
-              onclick="clrFiles()">Clear</button>
-          </div>
-        </div>
-
-        <!-- PROJ tab -->
-        <div id="tproj" style="display:none">
-          <!-- Header: projects list section -->
-          <div class="proj-header">
-            <span class="proj-header-title">PROJECTS</span>
-            <button class="proj-create-btn" onclick="openProjCreateModal()">+ New</button>
-          </div>
-          <div class="proj-list" id="proj-list"></div>
-
-          <!-- Active project detail (shown below list when a project is active) -->
-          <div class="proj-detail" id="proj-detail">
-            <div class="proj-detail-hdr">
-              <div class="proj-dot proj-detail-dot" id="proj-detail-dot"></div>
-              <span class="proj-detail-name" id="proj-detail-name">Project Name</span>
-              <button class="proj-deactivate-btn" onclick="deactivateProject()"
-                title="Deactivate project">Deactivate</button>
-            </div>
-
-            <!-- Phase pipeline stepper -->
-            <div class="proj-pipeline" id="proj-pipeline"></div>
-
-            <!-- Context notes -->
-            <div class="proj-ctx">
-              <div style="font-size:8px;color:#1e1e38;font-weight:700;letter-spacing:1px;margin-bottom:3px">PROJECT
-                CONTEXT</div>
-              <textarea id="proj-ctx-input" placeholder="Project notes, background, goals…"
-                oninput="debounceSaveProjectContext()"></textarea>
-            </div>
-
-            <!-- Chat history for this project -->
-            <div class="chat-hist-hdr">
-              <span>CHAT HISTORY</span>
-              <button class="chat-hist-new-btn" onclick="startNewProjectChat()" title="New chat in this project">+
-                Chat</button>
-            </div>
-            <div class="chat-search-row">
-              <input id="chat-search-input" placeholder="🔍 Search chats…" oninput="filterChatHistory(this.value)" />
-              <button class="chat-search-clear" id="chat-search-clear" onclick="clearChatSearch()"
-                title="Clear search">✕</button>
-            </div>
-            <div class="chat-hist-list" id="chat-hist-list"></div>
-          </div>
-        </div>
-
-
-      </div>
+      
     </div>
   </div>
 

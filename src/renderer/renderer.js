@@ -991,6 +991,15 @@ function _chunkText(text, sourceName) {
 // Main ingestion function — called by the 📚 Index KB button
 async function ingestFilesIntoKB() {
   if (!SEM_READY) { addMsg('sys', '⚠️ Semantic memory not ready. Install ChromaDB first.'); return; }
+  
+  // ── PRE-LOAD FILE CONTENTS FOR INDEXING ──
+  for (const fp of SEL) {
+    if (FILES[fp] && !FILES[fp].content) {
+      const r = await A.fs.readFile(fp);
+      if (r.ok) FILES[fp].content = r.content;
+    }
+  }
+
   const active = [...SEL].map(p => ({ path: p, ...FILES[p] })).filter(f => f.content && (f.content || '').length > 20);
   if (!active.length) {
     addMsg('sys', '⚠️ No active files loaded. Load files first (📎 button), then index them.');
@@ -1018,6 +1027,10 @@ async function ingestFilesIntoKB() {
     setLoading(true, `Ingesting ${name} (${chunks.length} chunks)…`);
     const r = await A.sem.ingest({ chunks });
     setLoading(false);
+    
+    // ── UNLOAD INSTANTLY ──
+    if (FILES[f.path]) delete FILES[f.path].content;
+
     if (r && r.ok) {
       totalStored += r.stored || chunks.length;
       report.push(`• ${name}: ${r.stored || chunks.length} chunks indexed ✓`);
@@ -2835,9 +2848,9 @@ async function doOpenFolder() {
 async function loadPaths(paths, folderRoot) {
   const loaded = [];
   for (const fp of paths) {
-    const r = await A.fs.readFile(fp); if (!r.ok) continue;
+    const r = await A.fs.stat(fp); if (!r.ok) continue;
     const nm = fp.split(/[\\/]/).pop(); const ext = nm.split('.').pop().toLowerCase();
-    FILES[fp] = { content: r.content, size: r.size, ext, name: nm, realPath: fp, folderRoot: folderRoot || null };
+    FILES[fp] = { size: r.size || 0, ext, name: nm, realPath: fp, folderRoot: folderRoot || null };
     loaded.push(fp);
   }
   if (!loaded.length) { addMsg('ai', 'No supported files found.'); return; }
@@ -3109,24 +3122,31 @@ function switchTab(t) {
   const ttool = document.getElementById('ttool');
   const tproj = document.getElementById('tproj');
   const tgraph = document.getElementById('tgraph');
+  const thistory = document.getElementById('thistory');
+  const tf = document.getElementById('tf');
 
   if (tsem) tsem.style.display = t === 'sem' ? 'flex' : 'none';
   if (ttool) ttool.style.display = t === 'tool' ? 'flex' : 'none';
   if (tproj) tproj.style.display = t === 'proj' ? 'flex' : 'none';
+  if (tf) tf.style.display = t === 'files' ? 'flex' : 'none';
   if (tgraph) tgraph.style.display = t === 'graph' ? 'flex' : 'none';
+  if (thistory) thistory.style.display = t === 'history' ? 'flex' : 'none';
 
   const tbSem = document.getElementById('tb-sem');
   const tbTool = document.getElementById('tb-tool');
   const tbProj = document.getElementById('tb-proj');
   const tbGraph = document.getElementById('tb-graph');
+  const tbHistory = document.getElementById('tb-history');
 
   if (tbSem) tbSem.classList.toggle('active', t === 'sem');
   if (tbTool) tbTool.classList.toggle('active', t === 'tool');
   if (tbProj) tbProj.classList.toggle('active', t === 'proj');
   if (tbGraph) tbGraph.classList.toggle('active', t === 'graph');
+  if (tbHistory) tbHistory.classList.toggle('active', t === 'history');
 
   if (t === 'sem' && !SEM_READY) renderSemResults(null, 'not_ready');
   if (t === 'graph') setTimeout(refreshKnowledgeGraph, 50);
+
 
   if (t === 'proj') {
     renderProjects();
@@ -5753,8 +5773,22 @@ ${'-'.repeat(40)}`);
   } catch (_ice) { console.warn('[INTENT-CLASSIFIER]', _ice.message); }
   // ── end ARCH v9 intent classifier ────────────────────────────────────────────
 
+  // ── PRE-LOAD FILE CONTENTS FOR CONTEXT ──
+  for (const fp of SEL) {
+    if (FILES[fp] && !FILES[fp].content) {
+      const r = await A.fs.readFile(fp);
+      if (r.ok) FILES[fp].content = r.content;
+    }
+  }
+
   // ── Original line — extended with fsGroundingContext + liveScanContext + intentContext ──
   let systemPrompt = buildSystemPrompt(semCtx + nlpContext + followUpCtx + webSearchContext + fsGroundingContext + liveScanContext + intentContext);
+  
+  // ── UNLOAD FILE CONTENTS TO SAVE RAM ──
+  for (const fp of SEL) {
+    if (FILES[fp]) delete FILES[fp].content;
+  }
+
   // ── Phase 2: Build messages with resolved message so LLM gets unambiguous input ──
   let messages = buildMessages(resolvedMsg !== msg ? resolvedMsg : msg);
   // ── Vector-based prompt compression ──

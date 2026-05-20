@@ -1360,13 +1360,13 @@
 
     /* ══ SIDEBAR — hidden by default, toggled via PROJ/SEM/TOOLS overflow items ══ */
     #sb {
-      display: none;
+      display: flex;
       flex-direction: column;
-      width: 220px;
-      min-width: 180px;
-      border-left: 1px solid rgba(108, 99, 255, .12);
+      width: 260px;
+      min-width: 220px;
+      border-right: 1px solid rgba(108, 99, 255, .12);
       flex-shrink: 0;
-      background: var(--bg-app);
+      background: #09090b; /* ChatGPT-like dark sidebar bg */
       overflow: hidden;
     }
 
@@ -1424,18 +1424,14 @@
 
 
     /* ── Chat History Overlay ── */
-    #chat-history-overlay {
-      position: absolute;
-      inset: 0;
-      z-index: 51;
-      background: #0d0d11;
+    #thistory {
+      flex: 1;
       display: none;
       flex-direction: column;
       overflow: hidden;
-      animation: poIn .18s ease
     }
 
-    #chat-history-overlay.visible {
+    #thistory.visible {
       display: flex
     }
 
@@ -1698,6 +1694,7 @@
       padding: 14px 18px;
       display: flex;
       flex-direction: column;
+      align-items: center;
       min-height: 0
     }
 
@@ -1708,7 +1705,8 @@
       margin-bottom: 14px;
       animation: fu .2s ease;
       min-width: 0;
-      width: 100%
+      width: 100%;
+      max-width: 800px;
     }
 
     .mav {
@@ -2533,21 +2531,27 @@
 
     /* ─ Input ─ */
     #iwrap {
-      padding: 8px 12px;
+      padding: 16px 24px;
       flex-shrink: 0;
       border-top: 1px solid rgba(255, 255, 255, .05);
-      background: rgba(6, 6, 16, .95)
+      background: rgba(6, 6, 16, .95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     #irow {
+      width: 100%;
+      max-width: 800px;
       display: flex;
       align-items: flex-end;
       gap: 7px;
       background: rgba(255, 255, 255, .04);
       border: 1px solid rgba(108, 99, 255, .16);
-      border-radius: 12px;
-      padding: 7px 8px 7px 12px;
-      transition: border-color .2s
+      border-radius: 24px;
+      padding: 10px 14px 10px 18px;
+      transition: border-color .2s;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
     }
 
     #irow:focus-within {
@@ -5183,11 +5187,13 @@
 
     /* ── Upgrade 2: Agent Bar ── */
     #agent-bar {
+      width: 100%;
+      max-width: 800px;
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 4px 10px 2px;
-      border-bottom: 1px solid rgba(108, 99, 255, .08)
+      padding: 0 4px 6px;
+      border-bottom: none;
     }
 
     #agent-bar #agent-label {
