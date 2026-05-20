@@ -41,170 +41,139 @@
     <div id="tb">
       <div class="L">
         <span class="logo">SCAAI</span>
-        <button class="ppill" onclick="openSettings()" style="display:flex;align-items:center;gap:8px;background:rgba(108,99,255,0.06);border:1px solid rgba(108,99,255,0.15);padding:5px 12px;border-radius:20px;cursor:pointer;transition:all 0.15s;margin-left:8px;-webkit-app-region:no-drag" onmouseover="this.style.background='rgba(108,99,255,0.1)';this.style.borderColor='rgba(108,99,255,0.3)'" onmouseout="this.style.background='rgba(108,99,255,0.06)';this.style.borderColor='rgba(108,99,255,0.15)'">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-          <span style="font-size:11px;font-weight:700;color:#6c63ff;text-transform:uppercase;letter-spacing:0.5px">Settings</span>
-        </button>
       </div>
       <div class="R">
-        <!-- ── Overflow toggle — collapses SEM/status/browser/settings ── -->
-        <button id="tb-overflow-btn" onclick="toggleOverflowMenu()" title="Panel controls">···</button>
-        <button id="tb-new-chat-btn" onclick="startFreshChat()" title="New chat — clear and start fresh">＋ New</button>
-
         <button class="wb" onclick="window.scaai.minimize()">—</button>
         <button class="wb" onclick="window.scaai.maximize()">□</button>
         <button class="wb cx" onclick="window.scaai.close()">✕</button>
       </div>
     </div>
 
-    <!-- ── Overflow panel — revealed when ··· is pressed ── -->
+    <!-- ── Overflow panel — remains for advanced status/memory mirrors ── -->
     <div id="tb-overflow-panel">
-      <div class="ov-section">WORKSPACE</div>
-      <div class="ov-row" onclick="ovOpenPanel('proj')">
-        <span class="ov-row-icon">📂</span>
-        <span class="ov-row-label">Projects</span>
-      </div>
-      <div class="ov-row" onclick="openChatHistoryPanel();toggleOverflowMenu()">
-        <span class="ov-row-icon">💬</span>
-        <span class="ov-row-label">Chat History</span>
-        <span class="ov-row-val" id="ov-chat-count" style="color:#6c63ff"></span>
-      </div>
-      <div class="ov-divider"></div>
-      <div class="ov-section">QUICK ACTIONS</div>
-      <div class="ov-row" onclick="bringBrowserToFront();toggleOverflowMenu()">
-        <span class="ov-row-icon">🌐</span>
-        <span class="ov-row-label">Open Browser</span>
-      </div>
-      <div class="ov-row" onclick="toggleThemePanel();toggleOverflowMenu()">
-        <span class="ov-row-icon">⚙</span>
-        <span class="ov-row-label">Theme &amp; Settings</span>
-      </div>
-      <div class="ov-divider"></div>
+      <!-- (existing status mirrors kept for JS compatibility) -->
       <div class="ov-status-row">
         <div class="ov-sdot" id="ov-sdot" style="background:#1e1e38"></div>
         <span class="ov-slabel" id="ov-slb">Ready</span>
-        <span id="ov-hsc" style="display:none;font-size:8px;color:#6c63ff;font-weight:700;margin-left:auto"></span>
-      </div>
-      <div class="ov-action-row">
-        <button class="ov-act-btn danger" onclick="clearChat();toggleOverflowMenu()">🗑 Clear chat</button>
-        <button class="ov-act-btn" onclick="openSkillsModal();toggleOverflowMenu()">⚡ Skills</button>
       </div>
       <div class="ov-sem-indicator" onclick="ovOpenPanel('sem')">
         <div class="ov-sem-dot" id="ov-semdot"></div>
         <span class="ov-sem-label">Semantic Memory</span>
-        <span class="ov-sem-count" id="ov-semcount"></span>
       </div>
     </div>
 
     <div id="body">
-<div id="sb">
-        <div id="stabs">
-          <button id="tb-proj" onclick="switchTab('proj')">📂 PROJ</button>
-          <button
-            style="background:none;border:none;color:#2a2a48;cursor:pointer;font-size:11px;padding:0 8px;flex-shrink:0;transition:color .15s;font-family:inherit"
-            onclick="toggleSidebar()" title="Close panel">✕</button>
-        </div>
-        <div id="thistory" style="display:none">
-        <div id="ch-topbar">
-          <button onclick="closeChatHistoryPanel()"
-            style="background:none;border:none;color:#555578;cursor:pointer;font-size:12px;padding:5px 0;font-family:inherit;display:flex;align-items:center;gap:5px;transition:color .12s"
-            onmouseover="this.style.color='#9898c8'" onmouseout="this.style.color='#555578'">← Back</button>
-          <h2>Chat History</h2>
-          <button onclick="startFreshChat();closeChatHistoryPanel()"
-            style="background:linear-gradient(135deg,#5b51e8,#4f46e5);border:none;color:#fff;font-weight:700;border-radius:8px;cursor:pointer;font-size:12px;padding:9px 18px;font-family:inherit;transition:all .15s;display:flex;align-items:center;gap:6px;flex-shrink:0">＋
-            New chat</button>
-        </div>
-        <div id="ch-search-row">
-          <input id="ch-search-inp" placeholder="Search chats…" oninput="filterChatHistory_standalone(this.value)" />
-        </div>
-        <div id="ch-bulk-bar">
-          <span class="ch-bulk-count" id="ch-bulk-count">0 selected</span>
-          <button class="ch-bulk-btn ch-bulk-del" onclick="_chDeleteSelected()">🗑 Delete selected</button>
-          <button class="ch-bulk-btn ch-bulk-cancel" onclick="_chClearSelection()">Cancel</button>
-        </div>
-        <div id="ch-list-scroll">
-          <div id="ch-list"></div>
-        </div>
-      </div>
-<div id="stabs-bottom" style="position:absolute;bottom:0;left:0;right:0;padding:10px;display:flex;flex-direction:column;gap:5px;border-top:1px solid rgba(255,255,255,.04);background:rgba(0,0,0,0.1)">
-          <button id="tb-settings" onclick="openSettings()" style="background:none;border:none;color:#6c6c8a;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:11px;padding:6px 12px;border-radius:6px;transition:all 0.15s;width:100%;font-family:inherit">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            <span>Settings</span>
+      <div id="sb">
+        <!-- Modern Sidebar Header -->
+        <div id="sb-header">
+          <button id="sb-toggle-rail" onclick="toggleSidebar()" title="Collapse sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+          </button>
+          <button id="sb-new-chat" onclick="startFreshChat()" title="Start fresh conversation">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span class="lbl">New chat</span>
           </button>
         </div>
 
-        <!-- FILES tab hidden — files now appear in Code Panel tree only -->
-        <div id="tf" style="display:none">
-          <div class="sbar">
-            <button class="bp" style="flex:1;font-size:10px;padding:6px;border-radius:6px" onclick="doOpenFiles()">+
-              Files</button>
-            <button class="bg2" style="flex:1;font-size:10px;padding:6px;color:#00c9a7" onclick="doOpenFolder()">📁
-              Folder</button>
-            <button class="bg2" id="rfbtn" style="font-size:10px;padding:6px;min-width:32px"
-              title="Sync all files from disk" onclick="refreshAllFiles()">↻</button>
+        <!-- Navigation Rail / Horizontal Tabs (Vertical in Sidebar) -->
+        <div id="sb-nav">
+          <button class="nav-item" id="tb-history" onclick="switchTab('history')" title="Chat History">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <span class="lbl">History</span>
+          </button>
+          <button class="nav-item" id="tb-proj" onclick="switchTab('proj')" title="Projects">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <span class="lbl">Projects</span>
+          </button>
+          <button class="nav-item" id="tb-tool" onclick="switchTab('tool')" title="Tools & Browser">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+            <span class="lbl">Tools</span>
+          </button>
+          <button class="nav-item" id="tb-graph" onclick="switchTab('graph')" title="Knowledge Graph">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+            <span class="lbl">Graph</span>
+          </button>
+        </div>
+
+        <!-- Active View Container -->
+        <div id="sb-content">
+          <!-- History Tab -->
+          <div id="thistory" style="display:none">
+            <div id="ch-search-row">
+              <input id="chat-search-input" placeholder="Search chats…" oninput="filterChatHistory(this.value)" />
+              <button class="chat-search-clear" id="chat-search-clear" onclick="clearChatSearch()" style="display:none">✕</button>
+            </div>
+            <div id="ch-bulk-bar" style="display:none"> <!-- Bulk actions hidden by default -->
+              <span class="ch-bulk-count" id="ch-bulk-count">0 selected</span>
+              <button class="ch-bulk-btn ch-bulk-del" onclick="_chDeleteSelected()">🗑 Delete</button>
+              <button class="ch-bulk-btn ch-bulk-cancel" onclick="_chClearSelection()">✕</button>
+            </div>
+            <div id="ch-list-scroll">
+              <div id="chat-hist-list"></div>
+            </div>
           </div>
-          <div id="fsrow"
-            style="display:none;padding:5px 9px;border-bottom:1px solid rgba(255,255,255,.04);flex-shrink:0">
-            <div class="srow"><span style="color:#1e1e38;font-size:10px">🔍</span><input id="fsr" placeholder="Filter…"
-                oninput="renderFiles()" /><span style="display:none;color:#2a2a48;cursor:pointer;font-size:10px"
-                id="fscl" onclick="clrFS()">✕</span></div>
+
+          <!-- Projects Tab -->
+          <div id="tproj" style="display:none">
+            <div class="proj-header">
+              <span class="proj-header-title">PROJECTS</span>
+              <button class="proj-create-btn" onclick="openProjCreateModal()">+ New</button>
+            </div>
+            <div class="proj-list" id="proj-list"></div>
+            <div class="proj-detail" id="proj-detail">
+              <div class="proj-detail-hdr">
+                <div class="proj-dot proj-detail-dot" id="proj-detail-dot"></div>
+                <span class="proj-detail-name" id="proj-detail-name">Project Name</span>
+                <button class="proj-deactivate-btn" onclick="deactivateProject()" title="Deactivate project">Deactivate</button>
+              </div>
+              <div class="proj-pipeline" id="proj-pipeline"></div>
+              <div class="proj-ctx">
+                <div style="font-size:8px;color:#333358;font-weight:700;letter-spacing:1px;margin-bottom:3px">CONTEXT</div>
+                <textarea id="proj-ctx-input" placeholder="Project notes…" oninput="debounceSaveProjectContext()"></textarea>
+              </div>
+              <div class="chat-hist-hdr">
+                <span>HISTORY</span>
+                <button class="chat-hist-new-btn" onclick="startNewProjectChat()" title="New chat">+ Chat</button>
+              </div>
+              <div class="chat-hist-list" id="chat-hist-list"></div>
+            </div>
           </div>
-          <div id="fl"></div>
-          <div id="facts"
-            style="display:none;padding:6px 9px;border-top:1px solid rgba(255,255,255,.04);display:flex;gap:4px;flex-shrink:0">
-            <button class="bg2" style="flex:1;font-size:9px;padding:4px" onclick="selAll()">All</button>
-            <button class="bg2" style="flex:1;font-size:9px;padding:4px" onclick="selNone()">None</button>
-            <button class="bg2" style="flex:1;font-size:9px;padding:4px;color:#f87171"
-              onclick="clrFiles()">Clear</button>
+
+
+          <!-- Tools & Browser Tab -->
+          <div id="ttool" style="display:none">
+             <div style="padding:16px; color:#6c6c8a; font-size:12px; line-height:1.6">
+                Active tools and background processes.
+                <div id="active-tools-list" style="margin-top:12px">
+                   <div style="padding:8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-bottom:4px">🌐 Web Search</div>
+                   <div style="padding:8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-bottom:4px">🧩 Codebase Analytics</div>
+                </div>
+             </div>
+          </div>
+
+          <!-- Knowledge Graph Tab -->
+          <div id="tgraph" style="display:none; flex:1; flex-direction:column">
+             <div id="sg-network" style="flex:1; width:100%; background:#09090b"></div>
+          </div>
+
+          <!-- Files Tab -->
+          <div id="tf" style="display:none">
+            <div class="sbar" style="padding:12px; display:flex; gap:6px">
+              <button class="bp" style="flex:1;font-size:10px;padding:6px;border-radius:6px" onclick="doOpenFiles()">+ Files</button>
+              <button class="bg2" style="flex:1;font-size:10px;padding:6px;color:#00c9a7" onclick="doOpenFolder()">📁 Folder</button>
+            </div>
+            <div id="fl" style="flex:1; overflow-y:auto; padding:0 8px"></div>
           </div>
         </div>
 
-        <!-- PROJ tab -->
-        <div id="tproj" style="display:none">
-          <!-- Header: projects list section -->
-          <div class="proj-header">
-            <span class="proj-header-title">PROJECTS</span>
-            <button class="proj-create-btn" onclick="openProjCreateModal()">+ New</button>
-          </div>
-          <div class="proj-list" id="proj-list"></div>
-
-          <!-- Active project detail (shown below list when a project is active) -->
-          <div class="proj-detail" id="proj-detail">
-            <div class="proj-detail-hdr">
-              <div class="proj-dot proj-detail-dot" id="proj-detail-dot"></div>
-              <span class="proj-detail-name" id="proj-detail-name">Project Name</span>
-              <button class="proj-deactivate-btn" onclick="deactivateProject()"
-                title="Deactivate project">Deactivate</button>
-            </div>
-
-            <!-- Phase pipeline stepper -->
-            <div class="proj-pipeline" id="proj-pipeline"></div>
-
-            <!-- Context notes -->
-            <div class="proj-ctx">
-              <div style="font-size:8px;color:#1e1e38;font-weight:700;letter-spacing:1px;margin-bottom:3px">PROJECT
-                CONTEXT</div>
-              <textarea id="proj-ctx-input" placeholder="Project notes, background, goals…"
-                oninput="debounceSaveProjectContext()"></textarea>
-            </div>
-
-            <!-- Chat history for this project -->
-            <div class="chat-hist-hdr">
-              <span>CHAT HISTORY</span>
-              <button class="chat-hist-new-btn" onclick="startNewProjectChat()" title="New chat in this project">+
-                Chat</button>
-            </div>
-            <div class="chat-search-row">
-              <input id="chat-search-input" placeholder="🔍 Search chats…" oninput="filterChatHistory(this.value)" />
-              <button class="chat-search-clear" id="chat-search-clear" onclick="clearChatSearch()"
-                title="Clear search">✕</button>
-            </div>
-            <div class="chat-hist-list" id="chat-hist-list"></div>
-          </div>
+        <!-- Bottom Footer -->
+        <div id="sb-footer">
+          <button id="sb-settings-btn" onclick="openSettings()" title="Settings and Profile">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span class="lbl">Settings</span>
+          </button>
         </div>
-
-
-      </div>
+      </div> <!-- /#sb -->
 
       <!-- Chat -->
       <div id="chat">

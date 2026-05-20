@@ -3118,33 +3118,28 @@ function switchTab(t) {
   const sb = document.getElementById('sb');
   if (sb && !sb.classList.contains('sb-open')) sb.classList.add('sb-open');
 
-  const tsem = document.getElementById('tsem');
   const ttool = document.getElementById('ttool');
   const tproj = document.getElementById('tproj');
   const tgraph = document.getElementById('tgraph');
   const thistory = document.getElementById('thistory');
   const tf = document.getElementById('tf');
 
-  if (tsem) tsem.style.display = t === 'sem' ? 'flex' : 'none';
   if (ttool) ttool.style.display = t === 'tool' ? 'flex' : 'none';
   if (tproj) tproj.style.display = t === 'proj' ? 'flex' : 'none';
   if (tf) tf.style.display = t === 'files' ? 'flex' : 'none';
   if (tgraph) tgraph.style.display = t === 'graph' ? 'flex' : 'none';
   if (thistory) thistory.style.display = t === 'history' ? 'flex' : 'none';
 
-  const tbSem = document.getElementById('tb-sem');
   const tbTool = document.getElementById('tb-tool');
   const tbProj = document.getElementById('tb-proj');
   const tbGraph = document.getElementById('tb-graph');
   const tbHistory = document.getElementById('tb-history');
 
-  if (tbSem) tbSem.classList.toggle('active', t === 'sem');
   if (tbTool) tbTool.classList.toggle('active', t === 'tool');
   if (tbProj) tbProj.classList.toggle('active', t === 'proj');
   if (tbGraph) tbGraph.classList.toggle('active', t === 'graph');
   if (tbHistory) tbHistory.classList.toggle('active', t === 'history');
 
-  if (t === 'sem' && !SEM_READY) renderSemResults(null, 'not_ready');
   if (t === 'graph') setTimeout(refreshKnowledgeGraph, 50);
 
 
@@ -9827,15 +9822,21 @@ function _renderFilteredChats(query) {
       const item = document.createElement('div');
       item.className = 'chat-hist-item' + (isActive ? ' chat-active' : '');
       const msgCount = chat.messages ? chat.messages.length : 0;
+      
+      // Standard Icons
+      const chatIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
+      const editIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
+      const delIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
+
       item.innerHTML = `
-        <div class="chi-icon">${isActive ? '💬' : '🗒'}</div>
+        <div class="chi-icon">${chatIcon}</div>
         <div class="chi-body">
           <div class="chi-title">${escHtml((chat.title || 'Untitled').slice(0, 55))}</div>
-          <div class="chi-meta">${new Date(chat.updatedAt).toLocaleString()} · ${msgCount} msgs</div>
+          <div class="chi-meta">${new Date(chat.updatedAt).toLocaleDateString()} · ${msgCount} msgs</div>
         </div>
         <div class="chi-actions">
-          <button class="chi-btn" title="Rename chat" onclick="event.stopPropagation();renameChatSession('${chat.id}')">✏</button>
-          <button class="chi-btn danger" title="Delete chat" onclick="event.stopPropagation();deleteChatSession('${chat.id}')">🗑</button>
+          <button class="chi-btn" title="Rename" onclick="event.stopPropagation();renameChatSession('${chat.id}')">${editIcon}</button>
+          <button class="chi-btn danger" title="Delete" onclick="event.stopPropagation();deleteChatSession('${chat.id}')">${delIcon}</button>
         </div>`;
       item.addEventListener('click', () => { if (!isActive) loadChatSession(chat); });
       el.appendChild(item);
