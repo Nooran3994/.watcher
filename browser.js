@@ -19,7 +19,7 @@
 html,body{height:100%;background:#0f0f1a;color:#e0e0f0;font-family:'Segoe UI',system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
 .logo{font-size:48px;font-weight:900;letter-spacing:4px;background:linear-gradient(135deg,#6c63ff,#00c9a7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:28px;user-select:none}
 .search-wrap{position:relative;width:540px;max-width:90vw}
-.search-box{width:100%;padding:14px 50px 14px 22px;font-size:16px;border-radius:30px;border:1.5px solid rgba(108,99,255,.35);background:rgba(255,255,255,.04);color:#e0e0f0;outline:none;font-family:inherit;transition:all .2s}
+.search-box{width:100%;padding:14px 50px 14px 22px;font-size:16px;border-radius:30px;border:1.5px solid rgba(108,99,255,.35);background:rgba(255, 255, 255, 0.03);color:#e0e0f0;outline:none;font-family:inherit;transition:all .2s}
 .search-box:focus{border-color:rgba(108,99,255,.7);background:rgba(108,99,255,.06);box-shadow:0 0 0 3px rgba(108,99,255,.12)}
 .search-box::placeholder{color:#404060}
 .search-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(108,99,255,.25);border:none;color:#a0a0e8;cursor:pointer;font-size:18px;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:all .15s}
@@ -61,17 +61,17 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
   const NEW_TAB_URL = 'data:text/html;charset=utf-8,' + encodeURIComponent(NEW_TAB_HTML);
 
   // ── Constants ──────────────────────────────────────────────────
-  const MAX_TABS        = 8;
-  const PROFILES_KEY    = 'scaai_mb_profiles';
+  const MAX_TABS = 8;
+  const PROFILES_KEY = 'scaai_mb_profiles';
   const ACTIVE_PROF_KEY = 'scaai_mb_active_profile';
   const DEFAULT_PROFILE = { id: 'default', name: 'Default', color: '#6c63ff' };
   const GOOGLE_ACCOUNTS = 'https://accounts.google.com/';
   const OVERLAY_DEBOUNCE_MS = 320;
 
   // ── State ──────────────────────────────────────────────────────
-  let tabs          = [];
-  let activeTabId   = null;
-  let profiles      = [];
+  let tabs = [];
+  let activeTabId = null;
+  let profiles = [];
   let activeProfile = DEFAULT_PROFILE;
   let _resz = { active: false, dir: '', x0: 0, y0: 0, w0: 0, h0: 0, l0: 0, t0: 0 };
   let _drag = false, _ox = 0, _oy = 0;
@@ -94,7 +94,7 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
     try {
       localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
       localStorage.setItem(ACTIVE_PROF_KEY, activeProfile.id);
-    } catch (_) {}
+    } catch (_) { }
   }
 
   function partitionFor(profileId) {
@@ -106,8 +106,8 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
   function el(id) { return document.getElementById(id); }
   function escHtml(s) {
     return String(s)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   // ── Tab strip ──────────────────────────────────────────────────
@@ -166,8 +166,8 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
       switchTab(tabs[0].id);
       return tabs[0].id;
     }
-    const id  = nextTabId();
-    const wv  = createWebview(partitionFor(activeProfile.id));
+    const id = nextTabId();
+    const wv = createWebview(partitionFor(activeProfile.id));
     const tab = { id, url: url || NEW_TAB_URL, title: 'New Tab', favicon: null, wv, loading: false, _overlayTimer: null, _pageContext: null };
 
     wireWebview(tab);
@@ -188,7 +188,7 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
     const tab = tabs.find(t => t.id === tabId);
     if (!tab || !url || url === 'about:blank') return;
     if (!/^https?:\/\//.test(url)) url = 'https://' + url;
-    tab.url   = url;
+    tab.url = url;
     tab.title = 'Loading…';
     tab.loading = true;
     tab.wv.src = url;
@@ -264,7 +264,7 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
       if (!e.isMainFrame) return;       // sub-frame failure — ignore
       // If the tab already has a real URL (navigated successfully), the error is stale
       if (tab.url && tab.url !== 'about:blank' && !tab.url.startsWith('data:') &&
-          e.validatedURL && tab.url !== e.validatedURL) return;
+        e.validatedURL && tab.url !== e.validatedURL) return;
       clearTimeout(tab._overlayTimer);
       tab.loading = false;
       // Map common network error codes to friendly messages
@@ -272,8 +272,8 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
         '-324': 'Site returned no response (ERR_EMPTY_RESPONSE). The server may be down.',
         '-105': 'Host not found. Check the URL or your internet connection.',
         '-106': 'No internet connection.',
-        '-7':   'Timed out waiting for the server to respond.',
-        '-21':  'Network access denied.',
+        '-7': 'Timed out waiting for the server to respond.',
+        '-21': 'Network access denied.',
         '-130': 'Proxy connection failed.',
       };
       const friendlyMsg = NET_ERRORS[String(e.errorCode)] || ('Failed to load: ' + (e.errorDescription || 'Unknown error'));
@@ -339,8 +339,8 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
           window._mbPageContext = ctx;
           updateSummarizeBtn(ctx);
         }
-      } catch (_) {}
-    }).catch(() => {});
+      } catch (_) { }
+    }).catch(() => { });
   }
 
   function syncPageContext(tab) {
@@ -450,7 +450,7 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
   function renderProfilePanel() {
     const panel = el('mb-profile-panel');
     if (!panel) return;
-    const colors = ['#6c63ff','#00c9a7','#f59e0b','#ef4444','#3b82f6','#8b5cf6','#ec4899','#14b8a6'];
+    const colors = ['#6c63ff', '#00c9a7', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'];
     let pickedColor = colors[0];
 
     panel.innerHTML = `
@@ -485,11 +485,11 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
               style="flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(108,99,255,.2);border-radius:5px;
                      color:#c0c0e8;font-size:10px;padding:5px 8px;outline:none;font-family:inherit;min-width:0;"/>
             <div id="mb-new-profile-colors" style="display:flex;gap:3px;flex-shrink:0;">
-              ${colors.map((c,i) =>
-                `<div class="mb-color-swatch" data-color="${c}"
+              ${colors.map((c, i) =>
+      `<div class="mb-color-swatch" data-color="${c}"
                   style="width:11px;height:11px;border-radius:50%;background:${c};cursor:pointer;box-sizing:border-box;
-                         border:2px solid ${i===0?'#fff':'transparent'};transition:all .12s;" title="${c}"></div>`
-              ).join('')}
+                         border:2px solid ${i === 0 ? '#fff' : 'transparent'};transition:all .12s;" title="${c}"></div>`
+    ).join('')}
             </div>
             <button id="mb-add-profile-btn"
               style="background:rgba(108,99,255,.18);border:1px solid rgba(108,99,255,.3);color:#a0a0e8;
@@ -541,13 +541,13 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
          background:${isActive ? 'rgba(108,99,255,.1)' : 'rgba(255,255,255,.02)'};transition:all .15s;`;
       row.innerHTML =
         `<div style="width:7px;height:7px;border-radius:50%;background:${p.color};flex-shrink:0;"></div>
-         <span style="flex:1;font-size:10px;color:${isActive?'#e0e0ff':'#7070a0'};font-weight:${isActive?'700':'400'};">${escHtml(p.name)}</span>
+         <span style="flex:1;font-size:10px;color:${isActive ? '#e0e0ff' : '#7070a0'};font-weight:${isActive ? '700' : '400'};">${escHtml(p.name)}</span>
          ${isActive ? '<span style="font-size:8px;color:#6c63ff;flex-shrink:0;">● Active</span>' : ''}
          ${p.id !== 'default'
-           ? `<button class="mb-del-profile" data-id="${p.id}"
+          ? `<button class="mb-del-profile" data-id="${p.id}"
                 style="background:none;border:none;color:#2a2a48;cursor:pointer;font-size:9px;padding:1px 4px;border-radius:3px;transition:all .15s;flex-shrink:0;"
                 title="Delete">✕</button>`
-           : ''}`;
+          : ''}`;
       row.addEventListener('click', e => {
         if (e.target.classList.contains('mb-del-profile')) return;
         switchProfile(p);
@@ -599,10 +599,10 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
       { dir: 'ne', s: 'top:0;right:0;width:12px;height:12px;cursor:ne-resize;' },
       { dir: 'sw', s: 'bottom:0;left:0;width:12px;height:12px;cursor:sw-resize;' },
       { dir: 'se', s: 'bottom:0;right:0;width:12px;height:12px;cursor:se-resize;' },
-      { dir: 'n',  s: 'top:0;left:12px;right:12px;height:5px;cursor:n-resize;' },
-      { dir: 's',  s: 'bottom:0;left:12px;right:12px;height:5px;cursor:s-resize;' },
-      { dir: 'w',  s: 'left:0;top:12px;bottom:12px;width:5px;cursor:w-resize;' },
-      { dir: 'e',  s: 'right:0;top:12px;bottom:12px;width:5px;cursor:e-resize;' },
+      { dir: 'n', s: 'top:0;left:12px;right:12px;height:5px;cursor:n-resize;' },
+      { dir: 's', s: 'bottom:0;left:12px;right:12px;height:5px;cursor:s-resize;' },
+      { dir: 'w', s: 'left:0;top:12px;bottom:12px;width:5px;cursor:w-resize;' },
+      { dir: 'e', s: 'right:0;top:12px;bottom:12px;width:5px;cursor:e-resize;' },
     ].forEach(({ dir, s }) => {
       const h = document.createElement('div');
       h.className = 'mb-resize-handle';
@@ -633,9 +633,9 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
     if (dir.includes('s')) nH = Math.max(MIN_H, h0 + dy);
     if (dir.includes('w')) { nW = Math.max(MIN_W, w0 - dx); nL = l0 + (w0 - nW); }
     if (dir.includes('n')) { nH = Math.max(MIN_H, h0 - dy); nT = t0 + (h0 - nH); }
-    nL = Math.max(0, Math.min(window.innerWidth  - MIN_W, nL));
-    nT = Math.max(0, Math.min(window.innerHeight - 40,   nT));
-    Object.assign(mb.style, { width: nW+'px', height: nH+'px', left: nL+'px', top: nT+'px', right: 'auto', bottom: 'auto' });
+    nL = Math.max(0, Math.min(window.innerWidth - MIN_W, nL));
+    nT = Math.max(0, Math.min(window.innerHeight - 40, nT));
+    Object.assign(mb.style, { width: nW + 'px', height: nH + 'px', left: nL + 'px', top: nT + 'px', right: 'auto', bottom: 'auto' });
   }
 
   function onResizeEnd() {
@@ -665,9 +665,9 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
   function onDragMove(e) {
     if (!_drag) return;
     const mb = el('mini-browser'); if (!mb) return;
-    let nx = Math.max(0, Math.min(window.innerWidth  - 100, e.clientX - _ox));
-    let ny = Math.max(0, Math.min(window.innerHeight - 36,  e.clientY - _oy));
-    Object.assign(mb.style, { left: nx+'px', top: ny+'px', right: 'auto', bottom: 'auto' });
+    let nx = Math.max(0, Math.min(window.innerWidth - 100, e.clientX - _ox));
+    let ny = Math.max(0, Math.min(window.innerHeight - 36, e.clientY - _oy));
+    Object.assign(mb.style, { left: nx + 'px', top: ny + 'px', right: 'auto', bottom: 'auto' });
   }
 
   // ── Public window API ──────────────────────────────────────────
@@ -703,14 +703,14 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
     if (mb.dataset.max === '1') {
       const p = mb.dataset.prev
         ? JSON.parse(mb.dataset.prev)
-        : { top:'55px', left:'auto', right:'18px', bottom:'auto', width:'760px', height:'560px' };
+        : { top: '55px', left: 'auto', right: '18px', bottom: 'auto', width: '760px', height: '560px' };
       Object.assign(mb.style, p);
       mb.dataset.max = '';
       if (btn) btn.textContent = '⬜';
     } else {
       const r = mb.getBoundingClientRect();
-      mb.dataset.prev = JSON.stringify({ top:r.top+'px', left:r.left+'px', right:'auto', bottom:'auto', width:r.width+'px', height:r.height+'px' });
-      Object.assign(mb.style, { top:'4px', left:'4px', right:'4px', bottom:'4px', width:'calc(100vw - 8px)', height:'calc(100vh - 8px)' });
+      mb.dataset.prev = JSON.stringify({ top: r.top + 'px', left: r.left + 'px', right: 'auto', bottom: 'auto', width: r.width + 'px', height: r.height + 'px' });
+      Object.assign(mb.style, { top: '4px', left: '4px', right: '4px', bottom: '4px', width: 'calc(100vw - 8px)', height: 'calc(100vh - 8px)' });
       mb.dataset.max = '1';
       if (btn) btn.textContent = '❐';
     }
@@ -718,9 +718,9 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
 
   window.mbNav = function (a) {
     const tab = tabs.find(t => t.id === activeTabId); if (!tab) return;
-    if (a === 'back'   && tab.wv.canGoBack())    tab.wv.goBack();
+    if (a === 'back' && tab.wv.canGoBack()) tab.wv.goBack();
     else if (a === 'fwd' && tab.wv.canGoForward()) tab.wv.goForward();
-    else if (a === 'reload')                       tab.wv.reload();
+    else if (a === 'reload') tab.wv.reload();
   };
 
   window.mbGo = function (url) {
@@ -783,9 +783,9 @@ document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='
     document.addEventListener('keydown', e => {
       const mb = el('mini-browser');
       if (!mb || mb.style.display === 'none') return;
-      if ((e.ctrlKey||e.metaKey) && e.key === 't') { e.preventDefault(); openNewTab(NEW_TAB_URL); }
-      if ((e.ctrlKey||e.metaKey) && e.key === 'w') { e.preventDefault(); if (activeTabId) closeTab(activeTabId); }
-      if ((e.ctrlKey||e.metaKey) && /^[1-8]$/.test(e.key)) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 't') { e.preventDefault(); openNewTab(NEW_TAB_URL); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'w') { e.preventDefault(); if (activeTabId) closeTab(activeTabId); }
+      if ((e.ctrlKey || e.metaKey) && /^[1-8]$/.test(e.key)) {
         const t = tabs[parseInt(e.key) - 1]; if (t) switchTab(t.id);
       }
     });

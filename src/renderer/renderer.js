@@ -2214,19 +2214,24 @@ function renderAll() { renderStats(); renderActiveBar(); renderFiles(); renderPe
 function renderStats() {
   const fc = Object.keys(FILES).length, sc = SEL.size;
   const hfc = document.getElementById('hfc'); if (hfc) hfc.textContent = fc;
-  document.getElementById('fc').textContent = fc;
+  const fcEl = document.getElementById('fc'); if (fcEl) fcEl.textContent = fc;
   const hsc = document.getElementById('hsc');
-  hsc.style.display = sc > 0 ? '' : 'none'; hsc.textContent = sc > 0 ? `✓${sc}` : '';
+  if (hsc) { hsc.style.display = sc > 0 ? '' : 'none'; hsc.textContent = sc > 0 ? `✓${sc}` : ''; }
   const fb = document.getElementById('fbadge');
   if (fb) { fb.style.display = fc > 0 ? '' : 'none'; fb.textContent = fc; }
-  document.getElementById('facts').style.display = fc > 0 ? 'flex' : 'none';
-  document.getElementById('fsrow').style.display = fc > 0 ? '' : 'none';
+  const factsEl = document.getElementById('facts');
+  if (factsEl) factsEl.style.display = fc > 0 ? 'flex' : 'none';
+  const fsrowEl = document.getElementById('fsrow');
+  if (fsrowEl) fsrowEl.style.display = fc > 0 ? '' : 'none';
 }
 function renderBadge() {
   const p = PROVIDERS[CONFIG.provider] || PROVIDERS.groq;
-  document.getElementById('pdot').style.background = p.color;
-  document.getElementById('pname').textContent = CONFIG.provider === 'custom' ? (CONFIG.customModel || 'Custom').split('/').pop().slice(0, 12) : p.name;
-  document.getElementById('pmdl').textContent = CONFIG.model;
+  const pdotEl = document.getElementById('pdot');
+  if (pdotEl) pdotEl.style.background = p.color;
+  const pnameEl = document.getElementById('pname');
+  if (pnameEl) pnameEl.textContent = CONFIG.provider === 'custom' ? (CONFIG.customModel || 'Custom').split('/').pop().slice(0, 12) : p.name;
+  const pmdlEl = document.getElementById('pmdl');
+  if (pmdlEl) pmdlEl.textContent = CONFIG.model;
 }
 
 async function _switchToBackupProvider(info) {
@@ -2304,8 +2309,10 @@ function renderPersona() {
 function setStatus(s) {
   const map = { ready: ['#1e1e38', 'Ready'], online: ['#4ade80', 'Online'], offline: ['#fbbf24', 'Offline'], auth: ['#f87171', 'Auth Error'] };
   const [c, l] = map[s] || map.ready;
-  document.getElementById('sdot').style.background = c;
-  document.getElementById('slb').textContent = l;
+  const sdot = document.getElementById('sdot');
+  if (sdot) sdot.style.background = c;
+  const slb = document.getElementById('slb');
+  if (slb) slb.textContent = l;
 }
 
 // ── Messages ──
@@ -2315,8 +2322,6 @@ function addMsg(role, text, provInfo = '') {
   const c = document.getElementById('msgs');
   const wrap = document.createElement('div'); wrap.className = `msg msg-${role}`;
 
-  // ── FEATURE: Message Bundling ──
-  if (_lastSender === role) { wrap.classList.add('bundled'); }
   _lastSender = role;
 
   // ── FEATURE: Status Message Miniaturization ──
