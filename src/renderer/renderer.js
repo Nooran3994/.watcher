@@ -3145,6 +3145,7 @@ function switchTab(t) {
   if (tbGraph) tbGraph.classList.toggle('active', t === 'graph');
   if (tbHistory) tbHistory.classList.toggle('active', t === 'history');
 
+  if (t === 'history') renderChatHistory(null); // Load global history
   if (t === 'graph') setTimeout(refreshKnowledgeGraph, 50);
 
 
@@ -9780,55 +9781,67 @@ let _allChatsCache = [];
 
 async function renderChatHistory(projectId) {
   const el = document.getElementById('chat-hist-list'); if (!el) return;
-  el.innerHTML = '<div style="padding:8px;color:#1e1e38;font-size:10px;text-align:center">Loading…</div>';
+  el.innerHTML = '<div style="padding:16px;color:#454565;font-size:11px;text-align:center">Loading history…</div>';
   try {
-    const r = await A.chats.loadByProject(projectId);
-    _allChatsCache = (r && r.chats) || [];
+    let chats = [];
+    if (!projectId) {
+      chats = await A.chats.load(); // Load ALL across projects
+    } else {
+      const r = await A.chats.loadByProject(projectId);
+      chats = (r && r.chats) || [];
+    }
+    _allChatsCache = chats || [];
     _renderFilteredChats(_chatSearchQuery);
-  } catch (e) { el.innerHTML = '<div style="padding:8px;color:#f87171;font-size:10px">Error loading chats</div>'; }
+  } catch (e) { el.innerHTML = `<div style="padding:16px;color:#f87171;font-size:11px">Error: ${e.message}</div>`; }
 }
 
 function _renderFilteredChats(query) {
   const el = document.getElementById('chat-hist-list'); if (!el) return;
-  let chats = _allChatsCache;
+  let chats = [..._allChatsCache];
   if (query && query.trim()) {
     const q = query.toLowerCase();
-    chats = chats.filter(c => {
-      if ((c.title || '').toLowerCase().includes(q)) return true;
-      if (c.phase && c.phase.toLowerCase().includes(q)) return true;
-      if (c.messages && c.messages.some(m => (m.content || '').toLowerCase().includes(q))) return true;
-      return false;
-    });
+    chats = chats.filter(c => 
+      (c.title || '').toLowerCase().includes(q) || 
+      (c.phase || '').toLowerCase().includes(q) ||
+      (c.messages && c.messages.some(m => (m.content || '').toLowerCase().includes(q)))
+    );
   }
   if (!chats.length) {
-    el.innerHTML = `<div style="padding:12px;color:#6060a0;font-size:10px;text-align:center">${query ? 'No chats match <em>' + escHtml(query) + '</em>.' : 'No chats yet for this project.<br><span style="color:#454575">Start a conversation!</span>'}</div>`;
+    el.innerHTML = `<div style="padding:32px 16px; color:#454565; font-size:11px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:12px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+      <div>${query ? 'No matching conversations.' : 'No chat history found.'}</div>
+    </div>`;
     return;
   }
   el.innerHTML = '';
-  // Group by phase — current phase first, then rest in PHASES order
-  const PHASE_CLR = { planning: '#6c63ff', researching: '#60a5fa', evaluating: '#a78bfa', executing: '#f97316', testing: '#fbbf24', validating: '#00c9a7' };
-  const grouped = {};
-  chats.forEach(c => { const ph = c.phase || 'general'; if (!grouped[ph]) grouped[ph] = []; grouped[ph].push(c); });
-  const phaseOrder = ACTIVE_PROJECT ? [ACTIVE_PROJECT.phase, ...PHASES.filter(p => p !== ACTIVE_PROJECT.phase)] : PHASES;
-  const orderedPhases = [...phaseOrder, ...Object.keys(grouped).filter(p => !phaseOrder.includes(p))];
-  orderedPhases.forEach(phase => {
-    const pChats = grouped[phase]; if (!pChats || !pChats.length) return;
-    // Phase group header
+
+  const now = new Date();
+  const grouped = { 'Today': [], 'Yesterday': [], 'Previous 7 Days': [], 'Older': [] };
+  
+  chats.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).forEach(c => {
+    const d = new Date(c.updatedAt || Date.now());
+    const dayDiff = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+    
+    let g = 'Older';
+    if (dayDiff === 0) g = 'Today';
+    else if (dayDiff === 1) g = 'Yesterday';
+    else if (dayDiff < 7) g = 'Previous 7 Days';
+    grouped[g].push(c);
+  });
+
+  ['Today', 'Yesterday', 'Previous 7 Days', 'Older'].forEach(group => {
+    const pChats = grouped[group]; if (!pChats || !pChats.length) return;
     const hdr = document.createElement('div'); hdr.className = 'chat-phase-group-hdr';
-    const isCurrentPhase = ACTIVE_PROJECT && phase === ACTIVE_PROJECT.phase;
-    const dot = document.createElement('span'); dot.className = 'phdr-dot'; dot.style.background = PHASE_CLR[phase] || '#555580';
-    hdr.appendChild(dot);
-    const lbl = document.createElement('span'); lbl.textContent = (PHASE_EMOJIS[phase] || '') + ' ' + (phase.toUpperCase());
-    hdr.appendChild(lbl);
-    if (isCurrentPhase) { const badge = document.createElement('span'); badge.style.cssText = 'color:#6c63ff;font-size:7px;margin-left:3px;font-weight:400'; badge.textContent = '● active'; hdr.appendChild(badge); }
+    hdr.textContent = group;
     el.appendChild(hdr);
+
     pChats.forEach(chat => {
       const isActive = chat.id === ACTIVE_CHAT_ID;
       const item = document.createElement('div');
       item.className = 'chat-hist-item' + (isActive ? ' chat-active' : '');
-      const msgCount = chat.messages ? chat.messages.length : 0;
+      const msgCount = (chat.messages || []).length;
+      const projFlag = chat.projectId ? PROJECTS_LIST.find(p => p.id === chat.projectId) : null;
       
-      // Standard Icons
       const chatIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
       const editIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
       const delIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
@@ -9836,8 +9849,11 @@ function _renderFilteredChats(query) {
       item.innerHTML = `
         <div class="chi-icon">${chatIcon}</div>
         <div class="chi-body">
-          <div class="chi-title">${escHtml((chat.title || 'Untitled').slice(0, 55))}</div>
-          <div class="chi-meta">${new Date(chat.updatedAt).toLocaleDateString()} · ${msgCount} msgs</div>
+          <div class="chi-title" title="${escHtml(chat.title || 'Untitled')}">${escHtml((chat.title || 'Untitled').slice(0, 55))}</div>
+          <div class="chi-meta">
+            ${msgCount} messages
+            ${projFlag ? ` · <span style="color:${projFlag.color || '#6c63ff'};opacity:0.8">${escHtml(projFlag.name)}</span>` : ''}
+          </div>
         </div>
         <div class="chi-actions">
           <button class="chi-btn" title="Rename" onclick="event.stopPropagation();renameChatSession('${chat.id}')">${editIcon}</button>
@@ -9907,21 +9923,30 @@ function renameChatSession(id) {
   });
 }
 
-function startNewProjectChat() {
+function startFreshChat() {
   if (CONV_HISTORY.length >= 2) autoSaveChat();
   document.getElementById('msgs').innerHTML = '';
   CONV_HISTORY = [];
   ACTIVE_CHAT_ID = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-  _chatLinkedToProject = true;  // ← explicitly a project chat
-  if (ACTIVE_PROJECT) renderChatHistory(ACTIVE_PROJECT.id);
-  addMsg('ai', `New chat started in **${ACTIVE_PROJECT.name}** — ${PHASE_EMOJIS[ACTIVE_PROJECT.phase] || ''} **${ACTIVE_PROJECT.phase}** phase. How can I help?`);
+  
+  if (ACTIVE_PROJECT) {
+    _chatLinkedToProject = true;
+    renderChatHistory(ACTIVE_PROJECT.id);
+    addMsg('ai', `New chat started in **${ACTIVE_PROJECT.name}** — ${PHASE_EMOJIS[ACTIVE_PROJECT.phase] || ''} **${ACTIVE_PROJECT.phase}** phase. How can I help?`);
+  } else {
+    _chatLinkedToProject = false;
+    renderChatHistory(null);
+    addMsg('ai', `New chat started. How can I help?`);
+  }
 }
 
 // ── Auto-save hook: every 6 non-sys messages ──
 const _origAddMsg = addMsg;
 addMsg = function (role, text, provInfo = '') {
   _origAddMsg(role, text, provInfo);
-  if (role !== 'sys' && CONV_HISTORY.length > 0 && CONV_HISTORY.length % 6 === 0) autoSaveChat();
+  // Trigger auto-save/title after first response (length 2) then every 6 messages
+  const len = CONV_HISTORY.length;
+  if (role !== 'sys' && len > 0 && (len === 2 || len % 6 === 0)) autoSaveChat();
 };
 
 window.addEventListener('beforeunload', () => { if (CONV_HISTORY.length >= 2) autoSaveChat(); }, { once: false });
