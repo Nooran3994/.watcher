@@ -56,6 +56,24 @@ def init_graph_db():
             FOREIGN KEY (target) REFERENCES entities (id)
         )
     ''')
+    # ── Schema migrations (additive, safe to re-run) ──
+    for col, ctype, default in [
+        ('access_count', 'INTEGER', '0'),
+        ('last_accessed', 'INTEGER', '0'),
+        ('importance', 'REAL', '0.0'),
+    ]:
+        try:
+            c.execute(f'ALTER TABLE entities ADD COLUMN {col} {ctype} DEFAULT {default}')
+        except Exception:
+            pass  # column already exists
+    for col, ctype, default in [
+        ('weight', 'REAL', '1.0'),
+        ('access_count', 'INTEGER', '0'),
+    ]:
+        try:
+            c.execute(f'ALTER TABLE edges ADD COLUMN {col} {ctype} DEFAULT {default}')
+        except Exception:
+            pass  # column already exists
     conn.commit()
     return conn
 
@@ -1411,6 +1429,334 @@ def cmd_graph_all(args):
     except Exception as e:
         out({"ok": False, "error": str(e)})
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ALGORITHMIC GRAPH INTELLIGENCE COMMANDS
+# These power the autonomous cognitive engine — no LLM needed.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def cmd_graph_centrality(args):
+    """
+    Compute importance scores for all entities using degree centrality
+    weighted by recency and access frequency.
+
+    Algorithm:
+      importance = (degree_centrality * 0.4) + (recency_score * 0.3) + (access_score * 0.3)
+
+    Returns top-N entities ranked by importance.
+    """
+    try:
+        n = int(args.get("n", 20))
+        conn = init_graph_db()
+        c = conn.cursor()
+
+        # Get all entities
+        c.execute("SELECT id, label, type, access_count, last_accessed, importance FROM entities")
+        entities = {}
+        for row in c.fetchall():
+            entities[row[0]] = {
+                "id": row[0], "label": row[1], "type": row[2],
+                "access_count": row[3] or 0, "last_accessed": row[4] or 0,
+                "importance": row[5] or 0.0,
+            }
+
+        if not entities:
+            conn.close()
+            out({"ok": True, "ranked": [], "total": 0})
+            return
+
+        # Compute degree centrality (number of edges per entity)
+        degree = {eid: 0 for eid in entities}
+        c.execute("SELECT source, target FROM edges")
+        edge_count = 0
+        for src, tgt in c.fetchall():
+            edge_count += 1
+            if src in degree: degree[src] += 1
+            if tgt in degree: degree[tgt] += 1
+
+        max_degree = max(degree.values()) if degree else 1
+        now = int(time.time())
+        day_seconds = 86400
+
+        ranked = []
+        for eid, ent in entities.items():
+            # Degree centrality normalized [0,1]
+            dc = degree.get(eid, 0) / max(max_degree, 1)
+
+            # Recency score: exponential decay, 14-day half-life
+            last_acc = ent["last_accessed"] or 0
+            age_days = max((now - last_acc) / day_seconds, 0) if last_acc > 0 else 999
+            half_life = 14.0
+            recency = 2 ** (-age_days / half_life) if age_days < 999 else 0.01
+
+            # Access frequency score (log scale to prevent domination)
+            import math
+            acc = ent["access_count"] or 0
+            access_score = min(math.log2(acc + 1) / 10.0, 1.0)
+
+            # Composite importance
+            importance = (dc * 0.4) + (recency * 0.3) + (access_score * 0.3)
+
+            # Persist computed importance back
+            c.execute("UPDATE entities SET importance = ? WHERE id = ?", (round(importance, 4), eid))
+
+            ranked.append({
+                "id": eid, "label": ent["label"], "type": ent["type"],
+                "importance": round(importance, 4),
+                "degree": degree.get(eid, 0),
+                "access_count": acc,
+                "recency": round(recency, 4),
+            })
+
+        conn.commit()
+        conn.close()
+
+        ranked.sort(key=lambda x: x["importance"], reverse=True)
+        out({"ok": True, "ranked": ranked[:n], "total": len(ranked), "edge_count": edge_count})
+    except Exception as e:
+        out({"ok": False, "error": str(e)})
+
+
+def cmd_graph_cluster(args):
+    """
+    Detect knowledge clusters using connected component analysis.
+    Each cluster represents a domain the system has built understanding in.
+
+    Algorithm: Union-Find on entity graph → connected components.
+    Each cluster gets a label from its highest-importance member.
+    """
+    try:
+        conn = init_graph_db()
+        c = conn.cursor()
+
+        c.execute("SELECT id, label, type, importance FROM entities")
+        entities = {}
+        for row in c.fetchall():
+            entities[row[0]] = {"id": row[0], "label": row[1], "type": row[2], "importance": row[3] or 0.0}
+
+        if not entities:
+            conn.close()
+            out({"ok": True, "clusters": [], "total_entities": 0})
+            return
+
+        # Union-Find
+        parent = {eid: eid for eid in entities}
+
+        def find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]  # path compression
+                x = parent[x]
+            return x
+
+        def union(a, b):
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[ra] = rb
+
+        c.execute("SELECT source, target FROM edges")
+        for src, tgt in c.fetchall():
+            if src in entities and tgt in entities:
+                union(src, tgt)
+
+        conn.close()
+
+        # Group into clusters
+        clusters_map = {}
+        for eid in entities:
+            root = find(eid)
+            if root not in clusters_map:
+                clusters_map[root] = []
+            clusters_map[root].append(entities[eid])
+
+        # Build cluster summaries
+        clusters = []
+        for root, members in clusters_map.items():
+            members.sort(key=lambda x: x["importance"], reverse=True)
+            top = members[0]
+            # Cluster label = most important entity's label
+            cluster_label = top["label"]
+            # Cluster type = most common type among members
+            type_counts = {}
+            for m in members:
+                t = m.get("type", "Concept")
+                type_counts[t] = type_counts.get(t, 0) + 1
+            dominant_type = max(type_counts, key=type_counts.get) if type_counts else "Concept"
+
+            clusters.append({
+                "label": cluster_label,
+                "dominant_type": dominant_type,
+                "size": len(members),
+                "importance": round(sum(m["importance"] for m in members) / len(members), 4),
+                "members": [m["label"] for m in members[:10]],  # top 10 by importance
+            })
+
+        clusters.sort(key=lambda x: x["importance"], reverse=True)
+        out({"ok": True, "clusters": clusters, "total_entities": len(entities)})
+    except Exception as e:
+        out({"ok": False, "error": str(e)})
+
+
+def cmd_graph_decay(args):
+    """
+    Apply time-based decay to entity importance scores.
+    Uses a 14-day half-life: importance *= 2^(-age_days / 14).
+
+    Profile-type entities (Person, Identity) are EXEMPT from decay.
+    Runs as a background maintenance task.
+    """
+    try:
+        half_life = float(args.get("half_life_days", 14.0))
+        exempt_types = set(args.get("exempt_types", ["Person", "Identity", "User"]))
+        conn = init_graph_db()
+        c = conn.cursor()
+
+        now = int(time.time())
+        day_seconds = 86400
+
+        c.execute("SELECT id, type, last_accessed, importance FROM entities")
+        updated = 0
+        for eid, etype, last_acc, importance in c.fetchall():
+            if etype in exempt_types:
+                continue  # never decay profile facts
+            if not last_acc or last_acc == 0:
+                continue  # never accessed = already at baseline
+
+            age_days = max((now - last_acc) / day_seconds, 0)
+            import math
+            decay_factor = 2 ** (-age_days / half_life)
+            new_importance = (importance or 0.0) * decay_factor
+
+            if abs(new_importance - (importance or 0.0)) > 0.001:
+                c.execute("UPDATE entities SET importance = ? WHERE id = ?",
+                          (round(new_importance, 4), eid))
+                updated += 1
+
+        conn.commit()
+        conn.close()
+        out({"ok": True, "updated": updated, "half_life_days": half_life})
+    except Exception as e:
+        out({"ok": False, "error": str(e)})
+
+
+def cmd_graph_boost(args):
+    """
+    Reinforce entities that were just accessed/mentioned.
+    Increments access_count and updates last_accessed timestamp.
+    Also boosts connected edges.
+
+    This is the "remembering" algorithm — frequently accessed
+    entities naturally rise in importance over time.
+    """
+    try:
+        entity_ids = args.get("ids", [])
+        if not entity_ids:
+            out({"ok": False, "error": "no entity ids provided"})
+            return
+
+        conn = init_graph_db()
+        c = conn.cursor()
+        now = int(time.time())
+        boosted = 0
+
+        for eid in entity_ids:
+            c.execute(
+                "UPDATE entities SET access_count = access_count + 1, last_accessed = ? WHERE id = ?",
+                (now, eid)
+            )
+            if c.rowcount > 0:
+                boosted += 1
+
+            # Also boost connected edges
+            c.execute(
+                "UPDATE edges SET access_count = access_count + 1 WHERE source = ? OR target = ?",
+                (eid, eid)
+            )
+
+        conn.commit()
+        conn.close()
+        out({"ok": True, "boosted": boosted, "total_ids": len(entity_ids)})
+    except Exception as e:
+        out({"ok": False, "error": str(e)})
+
+
+def cmd_graph_traverse(args):
+    """
+    Deep graph traversal: 1-hop and 2-hop neighbors with weighted scoring.
+    Returns entities ranked by combined proximity + importance.
+
+    This replaces the simple graph_query for cognitive use:
+    given seed entities, find the most relevant connected knowledge.
+    """
+    try:
+        seed_ids = args.get("ids", [])
+        seed_labels = args.get("labels", [])
+        max_results = int(args.get("n", 20))
+
+        conn = init_graph_db()
+        c = conn.cursor()
+
+        # Resolve labels to IDs
+        resolved_ids = set(seed_ids)
+        for label in seed_labels:
+            c.execute("SELECT id FROM entities WHERE label LIKE ?", (f'%{label}%',))
+            for row in c.fetchall():
+                resolved_ids.add(row[0])
+
+        if not resolved_ids:
+            conn.close()
+            out({"ok": True, "results": [], "seeds_found": 0})
+            return
+
+        # 1-hop neighbors
+        hop1 = {}  # entity_id -> {entity_data, hop_distance, edge_relation}
+        for seed in resolved_ids:
+            c.execute("SELECT source, target, relation, weight FROM edges WHERE source = ? OR target = ?", (seed, seed))
+            for src, tgt, rel, weight in c.fetchall():
+                neighbor = tgt if src == seed else src
+                if neighbor in resolved_ids:
+                    continue  # skip seeds themselves
+                edge_weight = weight or 1.0
+                if neighbor not in hop1 or hop1[neighbor]["score"] < edge_weight:
+                    hop1[neighbor] = {"hop": 1, "relation": rel, "score": edge_weight, "via": seed}
+
+        # 2-hop neighbors (neighbors of 1-hop neighbors)
+        hop2 = {}
+        for h1_id in list(hop1.keys())[:30]:  # limit fan-out
+            c.execute("SELECT source, target, relation, weight FROM edges WHERE source = ? OR target = ?", (h1_id, h1_id))
+            for src, tgt, rel, weight in c.fetchall():
+                neighbor = tgt if src == h1_id else src
+                if neighbor in resolved_ids or neighbor in hop1:
+                    continue
+                edge_weight = (weight or 1.0) * 0.5  # diminish for 2nd hop
+                if neighbor not in hop2 or hop2[neighbor]["score"] < edge_weight:
+                    hop2[neighbor] = {"hop": 2, "relation": rel, "score": edge_weight, "via": h1_id}
+
+        # Fetch entity data for all discovered nodes
+        all_ids = list(hop1.keys()) + list(hop2.keys())
+        results = []
+        for eid in all_ids:
+            c.execute("SELECT id, label, type, importance, access_count FROM entities WHERE id = ?", (eid,))
+            row = c.fetchone()
+            if not row:
+                continue
+            hop_data = hop1.get(eid) or hop2.get(eid)
+            combined_score = (hop_data["score"] * 0.5) + ((row[3] or 0.0) * 0.5)
+            results.append({
+                "id": row[0], "label": row[1], "type": row[2],
+                "importance": row[3] or 0.0,
+                "hop": hop_data["hop"],
+                "relation": hop_data["relation"],
+                "via": hop_data["via"],
+                "combined_score": round(combined_score, 4),
+            })
+
+        conn.close()
+        results.sort(key=lambda x: x["combined_score"], reverse=True)
+        out({"ok": True, "results": results[:max_results], "seeds_found": len(resolved_ids),
+             "hop1_count": len(hop1), "hop2_count": len(hop2)})
+    except Exception as e:
+        out({"ok": False, "error": str(e)})
+
+
 # ── Module-level entrypoint ──
 cmd, args = parse_args()
 if not cmd:
@@ -1438,6 +1784,12 @@ _dispatch = {
     "graph_store":           lambda: cmd_graph_store(args),
     "graph_query":           lambda: cmd_graph_query(args),
     "graph_all":             lambda: cmd_graph_all(args),
+    # ── Algorithmic Graph Intelligence ──
+    "graph_centrality":      lambda: cmd_graph_centrality(args),
+    "graph_cluster":         lambda: cmd_graph_cluster(args),
+    "graph_decay":           lambda: cmd_graph_decay(args),
+    "graph_boost":           lambda: cmd_graph_boost(args),
+    "graph_traverse":        lambda: cmd_graph_traverse(args),
 }
 _fn = _dispatch.get(cmd)
 if _fn:

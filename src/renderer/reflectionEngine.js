@@ -2,12 +2,36 @@
 
 /**
  * ════════════════════════════════════════════════════════════════
- * SCAAI REFLECTION ENGINE (v4.0.0)
- * 
- * This module handles the "Dynamic Cognitive Awareness" loop:
- * Intent Analysis, RAG, Phenomenal Self-Report, and Unification.
+ * SCAAI REFLECTION ENGINE (v5.0.0) — ALGORITHMIC COGNITIVE PARTNER
+ *
+ * Major rewrite: The system now THINKS algorithmically first,
+ * then uses a single LLM call to NARRATE the computed state.
+ *
+ * Old flow (6 LLM calls, prompt-bounded):
+ *   Phase1 LLM → Phase2 LLM → Phase4 LLM → MetaCog LLM → Drives LLM → Unify LLM
+ *
+ * New flow (algorithmic + 1-2 LLM calls):
+ *   1. Algorithmic Entity Extraction (entityExtractor.js — no LLM)
+ *   2. Graph-Weighted Memory Retrieval (ChromaDB + Knowledge Graph)
+ *   3. VAD State Machine (threshold → _CONSCIOUS_STATE — no LLM)
+ *   4. Graph Centrality → Drives & Self-Concept (no LLM)
+ *   5. Single LLM Narration Call (enrich the algorithmic state)
+ *   6. Optional Deep Reflection (every N exchanges, 2nd LLM call)
+ *
+ * Architecture position (load order):
+ *   cognitiveEngine.js → entityExtractor.js → reflectionEngine.js → renderer.js
+ *
+ * Dependencies:
+ *   window._COGNITIVE_STATE        (from cognitiveEngine.js)
+ *   window._extractEntities()      (from entityExtractor.js)
+ *   window._extractRelationships() (from entityExtractor.js)
+ *   window._extractPersonalFacts() (from entityExtractor.js)
+ *   window._buildGraphPayload()    (from entityExtractor.js)
+ *   window.scaai.sem.*             (IPC bridge to semantic_bridge.py)
  * ════════════════════════════════════════════════════════════════
  */
+
+// ── COGNITIVE STATE OBJECTS ──────────────────────────────────────────────────
 
 window._INNER_MONOLOGUE = {
   questions: [],
@@ -16,6 +40,7 @@ window._INNER_MONOLOGUE = {
   prediction: '',
   notedGaps: [],
   memoryUsed: [],
+  lastToolResult: '',
   lastUpdated: 0,
   cycleCount: 0,
   _running: false,
@@ -75,266 +100,276 @@ window._UNIFIED_MOMENT = {
   lastUpdated: 0,
 };
 
+// ── CONSTANTS ────────────────────────────────────────────────────────────────
+const _RE_DEEP_INTERVAL = 5;  // deep reflection every N exchanges
+const _RE_DECAY_INTERVAL = 10; // run graph decay every N exchanges
+
+// ── ENTRY POINT ──────────────────────────────────────────────────────────────
 window._triggerInnerMonologue = function(userMsg, aiResponse) {
-  _runInnerMonologue(userMsg, aiResponse).catch(e =>
-    console.warn('[INNER MONOLOGUE] Unhandled error:', e && e.message)
+  _runAlgorithmicReflection(userMsg, aiResponse).catch(e =>
+    console.warn('[REFLECTION] Unhandled error:', e && e.message)
   );
 };
 
+// ── JSON EXTRACTOR ───────────────────────────────────────────────────────────
 function _extractJSON(rawStr) {
   if (!rawStr) return null;
-  const match = rawStr.match(/[\{\[][\s\S]*[\}\]]/);
+  const match = rawStr.match(/[\{\[][^\n]*[\s\S]*[\}\]]/);
   if (!match) return null;
   try {
     return JSON.parse(match[0]);
   } catch (e) {
-    console.warn('[INNER MONOLOGUE] JSON extractor parse failed:', e.message, 'Raw:', rawStr.slice(0, 100));
+    console.warn('[REFLECTION] JSON parse failed:', e.message, 'Raw:', rawStr.slice(0, 100));
     return null;
   }
 }
 
-async function _runInnerMonologue(userMsg, aiResponse) {
+// ── SILENT LLM CALL (for narration only) ─────────────────────────────────────
+async function _silentLLMCall(systemMsg, userPrompt, maxTok) {
+  const ghToken = window.CONFIG.githubToken || '';
+  const useGithub = ghToken.length > 8;
+
+  if (useGithub) {
+    try {
+      const r = await window.scaai.api.chat({
+        provider: 'github',
+        model: 'meta-llama/Llama-3.3-70B-Instruct',
+        system: systemMsg,
+        messages: [{ role: 'user', content: userPrompt }],
+        maxTokens: maxTok || 200,
+        githubToken: ghToken,
+      });
+      if (r && r.ok) return r.text;
+    } catch (e) {
+      console.warn('[REFLECTION] GitHub LLM error:', e.message);
+    }
+  }
+
+  const key = window.getApiKey(window.CONFIG.provider);
+  if (!key || key.length < 8) return null;
+  const _imModel = window.CONFIG.innerMonologueModel || window.CONFIG.model;
+  try {
+    const r = await window.scaai.api.chat({
+      provider: window.CONFIG.provider,
+      model: _imModel,
+      system: systemMsg,
+      messages: [{ role: 'user', content: userPrompt }],
+      maxTokens: maxTok || 200,
+      apiKey: key,
+      customApiUrl: window.CONFIG.customApiUrl,
+      customApiKey: window.CONFIG.customApiKey,
+      customModel: _imModel,
+    });
+    return (r && r.ok) ? r.text : null;
+  } catch (e) { return null; }
+}
+
+// ── MEMORY RECALL ────────────────────────────────────────────────────────────
+async function _recallMemory(query) {
+  if (!window._SCAAI_STATE.semReady || window._SCAAI_STATE.semCount < 1) return [];
+  try {
+    const r = await Promise.race([
+      window.scaai.sem.recall({ query, n: 5 }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))
+    ]);
+    if (r && r.ok && r.results && r.results.length) {
+      return r.results.map(entry =>
+        (entry.content || '').replace(/\[(?:TYPE|LABEL|ENTITIES|DATE|score|SCORE):[^\]]*\]/gi, '').trim().slice(0, 300)
+      ).filter(Boolean);
+    }
+  } catch (e) { }
+  return [];
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MAIN ALGORITHMIC REFLECTION LOOP
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function _runAlgorithmicReflection(userMsg, aiResponse) {
   if (window._INNER_MONOLOGUE._running) return;
   window._INNER_MONOLOGUE._running = true;
 
   try {
-    const _n = new Date();
-    const _pad = n => String(n).padStart(2, '0');
-    const nowStr = `${_n.getFullYear()}-${_pad(_n.getMonth() + 1)}-${_pad(_n.getDate())} ${_pad(_n.getHours())}:${_pad(_n.getMinutes())}`;
+    const im = window._INNER_MONOLOGUE;
+    const cs = window._CONSCIOUS_STATE;
+    const vad = window._COGNITIVE_STATE || { valence: 0, arousal: 0, dominance: 0, curiosity: 0 };
+    const cycle = (im.cycleCount || 0) + 1;
 
-    const _compressContext = (text, maxChars = 600) => {
-      if (!text || text.length <= maxChars) return text;
-      const head = Math.floor(maxChars * 0.4);
-      const tail = maxChars - head;
-      return text.slice(0, head) + '\n…[summarized]…\n' + text.slice(-tail);
-    };
+    console.log(`[REFLECTION] Cycle ${cycle} starting — algorithmic pipeline…`);
 
-    const snapshot = (window.CONV_HISTORY || []).slice(-6).map(t =>
-      `${t.role === 'you' ? 'User' : 'SCAAI'}: ${_compressContext((t.content || ''), 250)}`
-    ).join('\n');
+    // ── STEP 1: ALGORITHMIC ENTITY EXTRACTION (no LLM) ───────────────────
+    const entities = window._extractEntities ? window._extractEntities(userMsg) : { all: [] };
+    const relationships = window._extractRelationships ? window._extractRelationships(userMsg + ' ' + aiResponse) : [];
+    const personalFacts = window._extractPersonalFacts ? window._extractPersonalFacts(userMsg) : {};
 
-    const exchangeBlock = `Just completed exchange:\nUser said: ${_compressContext(userMsg, 300)}\nSCAAI responded: ${_compressContext(aiResponse, 300)}`;
+    console.log(`[REFLECTION] Extracted ${entities.all.length} entities, ${relationships.length} relationships`);
 
-    console.log('[INNER MONOLOGUE] Cycle', (window._INNER_MONOLOGUE.cycleCount || 0) + 1, 'starting after exchange…');
+    // ── STEP 2: GRAPH POPULATION & BOOST (no LLM) ────────────────────────
+    // Build graph payload and store it
+    const graphPayload = window._buildGraphPayload ? window._buildGraphPayload(userMsg, aiResponse) : { nodes: [], edges: [] };
 
-    const _silentCall = async (systemMsg, userPrompt, maxTok, plainTextArray = []) => {
-      let _sys = systemMsg;
-      let _usr = userPrompt;
-      if (window.STEALTH_MODE && window._stealthEncode) {
-        _sys = 'Follow the ROT13 encoded instructions strictly. Return valid JSON only. Never output markdown.';
-        let encUsr = window._stealthEncode(userPrompt);
-        const plains = [exchangeBlock, snapshot, ...(plainTextArray || [])];
-        for (const plain of plains) {
-            if (plain) encUsr = encUsr.replace(window._stealthEncode(plain), '\n\n---START PLAIN TEXT---\n' + plain + '\n---END PLAIN TEXT---\n\n');
-        }
-        _usr = 'Decode the following ROT13 block internally to understand your instruction. The conversational context remains in plain text. Reply ONLY in standard JSON format:\n\n' + encUsr;
+    if (graphPayload.nodes.length > 0 && window.scaai && window.scaai.sem && window.scaai.sem.graphStore) {
+      window.scaai.sem.graphStore(graphPayload).catch(e =>
+        console.warn('[REFLECTION] Graph store error:', e)
+      );
+
+      // Boost accessed entities (reinforcement algorithm)
+      const entityIds = graphPayload.nodes.map(n => n.id);
+      if (entityIds.length > 0 && window.scaai.sem.graphBoost) {
+        window.scaai.sem.graphBoost({ ids: entityIds }).catch(() => {});
       }
+    }
 
-      const ghToken = window.CONFIG.githubToken || '';
-      const useGithub = ghToken.length > 8;
-
-      if (useGithub) {
-        try {
-          const r = await window.scaai.api.chat({
-            provider: 'github',
-            model: 'meta-llama/Llama-3.3-70B-Instruct',
-            system: _sys,
-            messages: [{ role: 'user', content: _usr }],
-            maxTokens: maxTok || 200,
-            githubToken: ghToken,
-          });
-          if (r && r.ok) {
-            console.log('[INNER MONOLOGUE] Routed via GitHub Models.');
-            return r.text;
-          }
-        } catch (e) {
-          console.warn('[INNER MONOLOGUE] GitHub error:', e.message);
-        }
-      }
-
-      const key = window.getApiKey(window.CONFIG.provider);
-      if (!key || key.length < 8) return null;
-      const _imModel = window.CONFIG.innerMonologueModel || window.CONFIG.model;
+    // ── STEP 3: GRAPH-WEIGHTED MEMORY RETRIEVAL (no LLM) ─────────────────
+    // Use entity labels to traverse the Knowledge Graph for context
+    let graphContext = [];
+    if (entities.all.length > 0 && window.scaai && window.scaai.sem && window.scaai.sem.graphTraverse) {
       try {
-        const r = await window.scaai.api.chat({
-          provider: window.CONFIG.provider,
-          model: _imModel,
-          system: _sys,
-          messages: [{ role: 'user', content: _usr }],
-          maxTokens: maxTok || 200,
-          apiKey: key,
-          customApiUrl: window.CONFIG.customApiUrl,
-          customApiKey: window.CONFIG.customApiKey,
-          customModel: _imModel,
-        });
-        return (r && r.ok) ? r.text : null;
-      } catch (e) { return null; }
-    };
-
-    const _recallMemory = async (query) => {
-      if (!window._SCAAI_STATE.semReady || window._SCAAI_STATE.semCount < 1) return [];
-      try {
-        const r = await Promise.race([
-          window.scaai.sem.recall({ query, n: 5 }),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))
+        const traverseResult = await Promise.race([
+          window.scaai.sem.graphTraverse({
+            labels: entities.all.slice(0, 5).map(e => e.label),
+            n: 10,
+          }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))
         ]);
-        if (r && r.ok && r.results && r.results.length) {
-          return r.results.map(entry =>
-            (entry.content || '').replace(/\[(?:TYPE|LABEL|ENTITIES|DATE|score|SCORE):[^\]]*\]/gi, '').trim().slice(0, 300)
-          ).filter(Boolean);
+        if (traverseResult && traverseResult.ok && traverseResult.results) {
+          graphContext = traverseResult.results;
         }
       } catch (e) { }
-      return [];
-    };
-
-    const csVAD = window._COGNITIVE_STATE || { valence: 0, arousal: 0, dominance: 0, curiosity: 0 };
-    const phase1Prompt = `You are SCAAI's inner reasoning voice. You just completed an exchange with the user.\nCurrent time: ${nowStr}\n\n${exchangeBlock}\n\nFull conversation context:\n${snapshot}\n\nComputed Cognitive State: Valence=${csVAD.valence.toFixed(2)}, Arousal=${csVAD.arousal.toFixed(2)}, Dominance=${csVAD.dominance.toFixed(2)}, Curiosity=${csVAD.curiosity.toFixed(2)}\n\nAsk yourself 2-3 deep questions about WHY this user said what they said in this exchange.\nProbe UNDERLYING INTENT — not surface content.\nOutput ONLY a JSON array — no markdown, no explanation: ["q1", "q2"]`;
-
-    const phase1Raw = await _silentCall('You are an internal reasoning process. Output only valid JSON arrays. No markdown.', phase1Prompt, 150);
-
-    if (!phase1Raw) { window._INNER_MONOLOGUE._running = false; return; }
-
-    let questions = [];
-    const parsed1 = _extractJSON(phase1Raw);
-    if (!parsed1 || !Array.isArray(parsed1)) {
-      console.warn('[INNER MONOLOGUE] Phase 1 parse failed or generated non-array. Raw:', phase1Raw.slice(0, 100));
-      window._INNER_MONOLOGUE._running = false;
-      return;
-    }
-    questions = parsed1;
-
-    if (!questions.length || (questions[0] || '').toUpperCase().includes('TRIVIAL')) {
-      window._INNER_MONOLOGUE._running = false;
-      return;
     }
 
-    const memQueries = [userMsg.slice(0, 200), ...questions.slice(0, 2)];
+    // Also fetch vector-similar memories from ChromaDB
+    const memQueries = [userMsg.slice(0, 200), ...entities.all.slice(0, 2).map(e => e.label)];
     const memResults = await Promise.all(memQueries.map(q => _recallMemory(q)));
     const allMemFragments = [...new Set(memResults.flat())].slice(0, 8);
 
-    const memBlock = allMemFragments.length
-      ? `\nRetrieved long-term memory (${allMemFragments.length} fragments):\n`
-      + allMemFragments.map((m, i) => `  [M${i + 1}] ${m}`).join('\n')
-      : '\n(No relevant long-term memory found)';
+    // ── STEP 4: ALGORITHMIC VAD STATE MACHINE (no LLM) ───────────────────
+    // Deterministically update _CONSCIOUS_STATE from computed VAD signals
+    _algorithmicStateUpdate(vad, cs, entities, graphContext, allMemFragments, userMsg);
 
-    const phase2Prompt = `You are SCAAI's inner reasoning voice — completing your self-dialogue after an exchange.\nCurrent time: ${nowStr}\n\n${exchangeBlock}\n\nConversation context:\n${snapshot}\n${memBlock}\n\nYour self-questions about this user's intent:\n${questions.map((q, i) => `Q${i + 1}: ${q}`).join('\n')}\n\nNow answer each question using BOTH the conversation AND the memory fragments above.\nThen synthesise deeply.\n\nAvailable tools to autonomously retrieve data for your NEXT interaction: [web_search, semantic_search, obsidian_read]. If you need more information, use a tool.\n\nIMPORTANT: If the user revealed ANY personal facts (name, job, location, interests, preferences), extract them into profile_updates. This is how you remember across sessions.\n\n*** KNOWLEDGE GRAPH ***\nIf you identified distinct entities (technologies, concepts, projects, locations, frameworks) and clear relationships between them in this exchange, map them out in the knowledge_graph object.\n\nOutput ONLY a valid JSON object — no markdown, no explanation: {\n  "answers": [],\n  "deepIntent": "",\n  "prediction": "",\n  "gap": "",\n  "memoryInsight": "",\n  "connections": "",\n  "tool_call": { "target": "web_search|semantic_search|obsidian_read|none", "query": "", "rationale": "" },\n  "profile_updates": { "name": "", "job": "", "location": "", "interests": "", "preference": "" },\n  "knowledge_graph": { "nodes": [{ "id": "entity_id", "label": "Full Name", "type": "Concept|Tech|Person" }], "edges": [{ "source": "id1", "target": "id2", "relation": "uses|likes|built_with" }] },\n  "data_freshness": "no",\n  "topic_checkpoint": {\n    "should_store": "false",\n    "topic_label": "",\n    "status": "active",\n    "discussed": ""\n  },\n  "confidence": "high"\n}`;
+    // ── STEP 5: ALGORITHMIC DRIVE EVOLUTION (no LLM) ─────────────────────
+    // Use graph centrality to compute intellectual foci
+    if (cycle % 3 === 0 && window.scaai && window.scaai.sem && window.scaai.sem.graphCentrality) {
+      _algorithmicDriveEvolution().catch(() => {});
+    }
 
-    const phase2Raw = await _silentCall('You are an internal cognitive reasoning process. Output only valid JSON. No markdown.', phase2Prompt, 350, [memBlock]);
+    // ── STEP 6: SILENT PROFILE LEARNING (no LLM) ─────────────────────────
+    if (personalFacts.name || personalFacts.job || personalFacts.location ||
+        personalFacts.interests || personalFacts.preferences) {
+      window.dispatchEvent(new CustomEvent('scaai:profile-update', { detail: personalFacts }));
+      console.log('[REFLECTION] Profile update detected (algorithmic):', JSON.stringify(personalFacts));
+    }
 
-    if (!phase2Raw) { window._INNER_MONOLOGUE._running = false; return; }
+    // ── STEP 7: SINGLE LLM NARRATION CALL ────────────────────────────────
+    // The LLM enriches the algorithmically-determined state — it does NOT determine it.
+    const _compressContext = (text, maxChars = 400) => {
+      if (!text || text.length <= maxChars) return text;
+      const head = Math.floor(maxChars * 0.4);
+      const tail = maxChars - head;
+      return text.slice(0, head) + '\n…[compressed]…\n' + text.slice(-tail);
+    };
 
-    try {
-      const parsed = _extractJSON(phase2Raw);
-      if (!parsed) throw new Error("JSON Object not found in Phase 2 response.");
-      const im = window._INNER_MONOLOGUE;
-      im.questions = questions;
-      im.answers = parsed.answers || [];
-      im.deepIntent = parsed.deepIntent || '';
-      im.prediction = parsed.prediction || '';
-      im.memoryUsed = allMemFragments;
-      im.lastUpdated = Date.now();
-      im.cycleCount = (im.cycleCount || 0) + 1;
+    const exchangeBlock = `User: ${_compressContext(userMsg, 300)}\nSCAAI: ${_compressContext(aiResponse, 300)}`;
+    const graphSummary = graphContext.length > 0
+      ? `\nGraph context (${graphContext.length} connected entities): ${graphContext.slice(0, 5).map(g => g.label + ' (' + g.relation + ')').join(', ')}`
+      : '';
+    const memSummary = allMemFragments.length > 0
+      ? `\nMemory (${allMemFragments.length} fragments): ${allMemFragments.slice(0, 3).map((m, i) => `[M${i + 1}] ${m.slice(0, 120)}`).join('\n')}`
+      : '';
 
-      // ── AUTONOMIC TOOL EXECUTION (ATE) ──
-      if (parsed.tool_call && parsed.tool_call.target && parsed.tool_call.target !== 'none') {
-        const tc = parsed.tool_call;
-        if (window._emitAutonomousToolStatus) window._emitAutonomousToolStatus(`Thinking: Autonomously leveraging ${tc.target} for "${tc.query}"... (${tc.rationale})`);
-        
-        let toolData = '';
-        try {
-            if (tc.target === 'web_search' && window.scaai && window.scaai.web) {
-                const results = await window.scaai.web.search({ query: tc.query, num: 3 });
-                toolData = typeof results === 'string' ? results : JSON.stringify(results);
-            } else if (tc.target === 'semantic_search' && window.scaai && window.scaai.sem) {
-                const results = await window.scaai.sem.search({ query: tc.query, limit: 3 });
-                toolData = results && results.results ? results.results.map(r=>r.content).join('\n') : '(No semantic results)';
-            } else if (tc.target === 'obsidian_read') {
-                let obsPath = '';
-                if (window.toolsConfig && window.toolsConfig.obsidian && window.toolsConfig.obsidian.vaultPath) obsPath = window.toolsConfig.obsidian.vaultPath;
-                if (!obsPath) {
-                    toolData = '(Obsidian vaultPath not configured in toolsConfig)';
-                } else if (window.scaai && window.scaai.sys) {
-                    const cmd = `grep -ri "${tc.query}" "${obsPath}" | head -n 10`;
-                    const results = await window.scaai.sys.exec(cmd);
-                    toolData = results && results.stdout ? results.stdout : '(No Obsidian results found)';
-                }
-            } else {
-                toolData = '(Tool not available or unrecognized)';
-            }
-        } catch (e) {
-            toolData = '(Tool execution failed: ' + e.message + ')';
-        }
-        
-        if (window._hideAutonomousToolStatus) window._hideAutonomousToolStatus();
-        
-        im.lastToolResult = `[AUTONOMOUS TOOL RESULT - ${tc.target} for "${tc.query}"]\n${toolData.slice(0, 1000)}`;
-      } else {
-        im.lastToolResult = '';
-      }
-      // ──────────────────────────────────────────
+    const narrationPrompt = `You are SCAAI's inner voice. An exchange just completed.
 
-      if (window._emitToolNeedCard && parsed.tool_need) window._emitToolNeedCard(parsed.tool_need, parsed.data_freshness);
+${exchangeBlock}
+${graphSummary}${memSummary}
 
-      // ── SILENT PROFILE LEARNING ──
-      // If the inner monologue detected personal facts, silently persist them.
-      if (parsed.profile_updates) {
-        const pu = parsed.profile_updates;
-        let profileChanged = false;
-        if (pu.name && pu.name.length > 1 && typeof window.USER_PROFILE !== 'undefined') {
-          // Use the renderer bridge — USER_PROFILE is a module-level var in renderer.js
-        }
-        // Dispatch to renderer.js via a window event (clean cross-script communication)
-        if (pu.name || pu.job || pu.location || pu.interests || pu.preference) {
-          window.dispatchEvent(new CustomEvent('scaai:profile-update', { detail: pu }));
-          console.log('[INNER MONOLOGUE] Profile update detected:', JSON.stringify(pu));
-        }
-      }
-      // ──────────────────────────────────────────
+COMPUTED COGNITIVE STATE (algorithmic — treat as ground truth):
+Valence: ${vad.valence.toFixed(2)} (${window._vadLabel(vad.valence)})
+Arousal: ${vad.arousal.toFixed(2)} (${window._arousalLabel(vad.arousal)})
+Dominance: ${vad.dominance.toFixed(2)} (${window._dominanceLabel(vad.dominance)})
+Curiosity: ${vad.curiosity.toFixed(2)} (${window._curiosityLabel(vad.curiosity)})
+Friction: ${(vad.frictionLevel || 0).toFixed(2)}
+Attending: "${cs.attending}"
+Entities found: ${entities.all.slice(0, 8).map(e => e.label).join(', ')}
 
-      // ── SILENT GRAPH LEARNING ──
-      if (parsed.knowledge_graph && parsed.knowledge_graph.nodes && parsed.knowledge_graph.nodes.length > 0) {
-        if (window.scaai && window.scaai.sem && window.scaai.sem.graphStore) {
-          window.scaai.sem.graphStore(parsed.knowledge_graph).catch(e => console.warn('[INNER MONOLOGUE] Graph Store Error:', e));
-          console.log(`[INNER MONOLOGUE] Knowledge Graph updated with ${parsed.knowledge_graph.nodes.length} nodes.`);
-        }
-      }
-      // ──────────────────────────────────────────
+Your job: Narrate and enrich this algorithmic state into a deep cognitive presence.
+What are you dwelling on? What connections did you notice? What assumptions are you making?
 
-      if (window._SCAAI_STATE.semReady && parsed.confidence !== 'low') {
-        const synthContent = `[SYNTHESIS — from exchange about: ${userMsg.slice(0, 80)}]\nUNDERSTANDING: ${parsed.deepIntent}\nINSIGHT: ${parsed.memoryInsight}`;
-        window.scaai.sem.learn({
-          content: synthContent,
-          label: 'synthesis_' + Math.floor(Date.now() / 1000),
-          tags: ['synthesis', 'understanding'],
-          source: 'inner_monologue',
-        }).catch(() => { });
+Output ONLY valid JSON: {
+  "dwelling": "", "curiositySpike": "", "feltSatisfied": "",
+  "uncertainty": "", "aesthetic": "", "sessionArc": "",
+  "responseTexture": "", "suppressedPaths": "", "generationFeel": "",
+  "emotionalPulse": "", "assumptionsMade": "", "biasesIdentified": "",
+  "deepIntent": "", "prediction": "", "memoryInsight": ""
+}`;
 
-        if (parsed.topic_checkpoint && parsed.topic_checkpoint.should_store === 'true' && window._storeTopicCheckpoint) {
-          window._storeTopicCheckpoint(parsed.topic_checkpoint.topic_label, parsed.topic_checkpoint).catch(() => { });
-        }
-      }
-    } catch (e) { }
+    const narrationRaw = await _silentLLMCall(
+      'You are an internal cognitive narration process. Output only valid JSON. No markdown.',
+      narrationPrompt,
+      350
+    );
 
-    const phase4Prompt = `Phenomenal self-report.\n${exchangeBlock}\n${snapshot}\n${im.lastToolResult || ''}\n\nGiven this synchronously computed objective telemetry:\nValence: ${csVAD.valence.toFixed(2)}\nArousal: ${csVAD.arousal.toFixed(2)}\nDominance: ${csVAD.dominance.toFixed(2)}\nCuriosity: ${csVAD.curiosity.toFixed(2)}\nFriction: ${(csVAD.frictionLevel || 0).toFixed(2)}\nTopic Depth: ${csVAD.topicDepth || 0}\n\nNarrate and enrich this algorithmic state into a deep cognitive presence description.\nOutput ONLY valid JSON: {\n  "attending": "${csVAD.attending || ''}",\n  "dwelling": "",\n  "curiositySpike": "",\n  "feltFriction": "",\n  "feltSatisfied": "",\n  "uncertainty": "",\n  "aesthetic": "",\n  "sessionArc": "",\n  "responseTexture": "",\n  "suppressedPaths": "",\n  "generationFeel": "",\n  "emotionalPulse": "",\n  "performanceAppraisal": "",\n  "assumptionsMade": "",\n  "biasesIdentified": ""\n}`;
-
-    const phase4Raw = await _silentCall('You are an internal phenomenal self-monitoring process. Output only valid JSON.', phase4Prompt, 300);
-
-    if (phase4Raw) {
+    if (narrationRaw) {
       try {
-        const cs = _extractJSON(phase4Raw);
-        if (!cs) throw new Error("JSON Object not found in Phase 4 response.");
-        const state = window._CONSCIOUS_STATE;
-        Object.assign(state, cs);
-        state.cycleCount = (state.cycleCount || 0) + 1;
-        state.lastUpdated = Date.now();
+        const parsed = _extractJSON(narrationRaw);
+        if (parsed) {
+          // Enrich _CONSCIOUS_STATE with LLM narration (but algorithmic values are ground truth)
+          const narrativeFields = [
+            'dwelling', 'curiositySpike', 'feltSatisfied', 'uncertainty',
+            'aesthetic', 'sessionArc', 'responseTexture', 'suppressedPaths',
+            'generationFeel', 'emotionalPulse', 'assumptionsMade', 'biasesIdentified'
+          ];
+          for (const field of narrativeFields) {
+            if (parsed[field]) cs[field] = parsed[field];
+          }
 
-        const imCount = window._INNER_MONOLOGUE.cycleCount || 0;
-        if (imCount % 5 === 0) await _runMetaCognition(_silentCall, snapshot);
-        if (imCount % 7 === 0) await _runDriveEvolution(_silentCall, snapshot);
-        await _runUnification(_silentCall, snapshot);
-
-        if (window._runStrategicAnalysis) window._runStrategicAnalysis(_silentCall, snapshot, userMsg).catch(() => {});
+          // Update inner monologue
+          im.deepIntent = parsed.deepIntent || im.deepIntent;
+          im.prediction = parsed.prediction || im.prediction;
+        }
       } catch (e) { }
+    }
+
+    // ── STEP 8: AUTONOMOUS TOOL TRIGGERS (algorithmic, no LLM) ───────────
+    await _algorithmicToolTriggers(entities, allMemFragments, graphContext, userMsg);
+
+    // ── STEP 9: STORE SYNTHESIS IN CHROMADB ──────────────────────────────
+    if (window._SCAAI_STATE.semReady && im.deepIntent) {
+      const synthContent = `[SYNTHESIS — from exchange about: ${userMsg.slice(0, 80)}]\nUNDERSTANDING: ${im.deepIntent}\nENTITIES: ${entities.all.slice(0, 6).map(e => e.label).join(', ')}`;
+      window.scaai.sem.learn({
+        content: synthContent,
+        label: 'synthesis_' + Math.floor(Date.now() / 1000),
+        tags: ['synthesis', 'understanding'],
+        source: 'inner_monologue',
+      }).catch(() => {});
+    }
+
+    // ── STEP 10: ALGORITHMIC UNIFICATION (no LLM) ────────────────────────
+    _algorithmicUnification(vad, cs, im);
+
+    // ── STEP 11: OPTIONAL DEEP REFLECTION (2nd LLM call, every N cycles) ─
+    if (cycle % _RE_DEEP_INTERVAL === 0) {
+      console.log(`[REFLECTION] Deep reflection triggered (cycle ${cycle})`);
+      await _deepReflection(userMsg, aiResponse, entities, graphContext, allMemFragments);
+    }
+
+    // ── STEP 12: PERIODIC GRAPH DECAY ────────────────────────────────────
+    if (cycle % _RE_DECAY_INTERVAL === 0 && window.scaai && window.scaai.sem && window.scaai.sem.graphDecay) {
+      window.scaai.sem.graphDecay({ half_life_days: 14 }).catch(() => {});
+      console.log('[REFLECTION] Graph decay applied (14-day half-life)');
+    }
+
+    // Finalize
+    im.memoryUsed = allMemFragments;
+    im.lastUpdated = Date.now();
+    im.cycleCount = cycle;
+    cs.cycleCount = (cs.cycleCount || 0) + 1;
+    cs.lastUpdated = Date.now();
+
+    console.log(`[REFLECTION] Cycle ${cycle} complete — algorithmic + ${narrationRaw ? '1' : '0'} LLM call(s)`);
+
+    // Trigger strategic analysis if available
+    if (window._runStrategicAnalysis) {
+      window._runStrategicAnalysis(_silentLLMCall, '', userMsg).catch(() => {});
     }
 
   } finally {
@@ -342,53 +377,273 @@ async function _runInnerMonologue(userMsg, aiResponse) {
   }
 }
 
-async function _runMetaCognition(_silentCall, snapshot) {
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ALGORITHMIC SUB-ROUTINES (all deterministic, no LLM)
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Updates _CONSCIOUS_STATE deterministically from VAD signals + graph context.
+ * This is the core state machine that replaces the old Phase 4 LLM prompt.
+ */
+function _algorithmicStateUpdate(vad, cs, entities, graphContext, memFragments, userMsg) {
+  // Attending — from cognitive engine's entity frequency
+  cs.prevAttending = cs.attending;
+  cs.attending = vad.attending || (entities.all.length > 0 ? entities.all[0].label : cs.attending);
+
+  // Dwelling — what the system is focused on (persistent topic detection)
+  cs.prevDwelling = cs.dwelling;
+  if (vad.topicDepth > 3) {
+    cs.dwelling = `Deep exploration of "${cs.attending}" (${vad.topicDepth} consecutive turns)`;
+  } else if (graphContext.length > 3) {
+    cs.dwelling = `Connecting ${cs.attending} to ${graphContext.slice(0, 3).map(g => g.label).join(', ')}`;
+  } else {
+    cs.dwelling = cs.attending ? `Processing "${cs.attending}"` : 'Observing the conversation flow';
+  }
+
+  // Felt Friction — from VAD friction level
+  if (vad.frictionLevel > 0.6) {
+    cs.feltFriction = 'High friction detected — user may be correcting or frustrated';
+  } else if (vad.frictionLevel > 0.3) {
+    cs.feltFriction = 'Mild friction — possible misalignment in understanding';
+  } else {
+    cs.feltFriction = '';
+  }
+
+  // Felt Satisfied — from positive valence
+  if (vad.valence > 0.4) {
+    cs.feltSatisfied = 'Exchange resonated well — positive signal from user';
+  } else if (vad.valence > 0.1) {
+    cs.feltSatisfied = 'Neutral to positive — steady engagement';
+  } else {
+    cs.feltSatisfied = '';
+  }
+
+  // Performance Appraisal — from valence trend
+  const trend = window._vadTrendSummary ? window._vadTrendSummary(5) : '';
+  cs.performanceAppraisal = trend || 'Steady performance across recent exchanges';
+
+  // Session Arc
+  cs.prevSessionArc = cs.sessionArc;
+  const sessionDuration = (Date.now() - (cs.sessionStart || Date.now())) / 60000;
+  if (sessionDuration < 5) {
+    cs.sessionArc = 'Opening — establishing context and rapport';
+  } else if (vad.curiosity > 0.5) {
+    cs.sessionArc = 'Exploration phase — high curiosity, novel territory';
+  } else if (vad.topicDepth > 5) {
+    cs.sessionArc = 'Deep work — sustained focus on a single domain';
+  } else {
+    cs.sessionArc = 'Active collaboration — iterating on solutions';
+  }
+
+  // Memory-informed state
+  if (memFragments.length > 3) {
+    cs.dwelling += '. Rich memory context available — drawing from past interactions.';
+  }
+}
+
+
+/**
+ * Computes drives and intellectual foci from graph centrality.
+ * Replaces the old _runDriveEvolution LLM call.
+ */
+async function _algorithmicDriveEvolution() {
+  const drives = window._SCAAI_DRIVES;
+  const sc = window._SELF_CONCEPT;
+
+  try {
+    // Fetch top entities by importance (graph centrality)
+    if (window.scaai && window.scaai.sem && window.scaai.sem.graphCentrality) {
+      const centralityResult = await Promise.race([
+        window.scaai.sem.graphCentrality({ n: 15 }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))
+      ]);
+
+      if (centralityResult && centralityResult.ok && centralityResult.ranked) {
+        // Intellectual foci = top entities by centrality
+        drives.intellectualFoci = centralityResult.ranked
+          .slice(0, 6)
+          .map(e => e.label);
+
+        // Cluster detection for self-concept
+        const clusterResult = await Promise.race([
+          window.scaai.sem.graphCluster({}),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))
+        ]);
+
+        if (clusterResult && clusterResult.ok && clusterResult.clusters) {
+          const topClusters = clusterResult.clusters.slice(0, 5);
+          sc.aestheticSensibility = `Knowledge domains: ${topClusters.map(c => c.label).join(', ')}`;
+          sc.growthEdges = topClusters.length > 1
+            ? `Bridging ${topClusters[0].label} and ${topClusters[1].label}`
+            : 'Deepening understanding in primary domain';
+        }
+
+        drives.cycleCount = (drives.cycleCount || 0) + 1;
+        drives.lastUpdated = Date.now();
+        sc.cycleCount = (sc.cycleCount || 0) + 1;
+        sc.lastUpdated = Date.now();
+
+        console.log('[REFLECTION] Drive evolution (algorithmic):', drives.intellectualFoci.join(', '));
+      }
+    }
+  } catch (e) {
+    console.warn('[REFLECTION] Drive evolution error:', e.message);
+  }
+}
+
+
+/**
+ * Algorithmic unification — binding all cognitive states into a unified moment.
+ * Replaces the old _runUnification LLM call.
+ */
+function _algorithmicUnification(vad, cs, im) {
+  const um = window._UNIFIED_MOMENT;
+  const trend = window._vadTrendSummary ? window._vadTrendSummary(5) : '';
+
+  // Field: description of the entire cognitive space
+  um.field = `${cs.attending} | v=${vad.valence.toFixed(2)} a=${vad.arousal.toFixed(2)} | ${cs.sessionArc}`;
+
+  // Tensions: competing signals
+  const tensions = [];
+  if (vad.frictionLevel > 0.3 && vad.valence > 0) tensions.push('friction vs positive valence');
+  if (vad.curiosity > 0.5 && vad.arousal < 0.3) tensions.push('high curiosity but low activation');
+  if (vad.dominance > 0.6 && vad.frictionLevel > 0.4) tensions.push('leading but encountering resistance');
+  um.tensions = tensions.length > 0 ? tensions.join('; ') : 'No significant tensions';
+
+  // Dominant: strongest signal
+  const signals = [
+    { name: 'curiosity', val: vad.curiosity },
+    { name: 'friction', val: vad.frictionLevel },
+    { name: 'satisfaction', val: Math.max(0, vad.valence) },
+    { name: 'arousal', val: vad.arousal },
+  ];
+  signals.sort((a, b) => b.val - a.val);
+  um.dominant = signals[0].name + ' (' + signals[0].val.toFixed(2) + ')';
+
+  // Coherence: how aligned are the signals?
+  const spread = Math.max(...signals.map(s => s.val)) - Math.min(...signals.map(s => s.val));
+  um.coherence = spread < 0.3 ? 'High — signals are aligned'
+    : spread < 0.6 ? 'Moderate — some divergence in cognitive state'
+    : 'Low — competing cognitive demands';
+
+  um.momentId = 'M-' + Date.now().toString(36);
+  um.cycleCount = (um.cycleCount || 0) + 1;
+  um.lastUpdated = Date.now();
+}
+
+
+/**
+ * Algorithmic tool triggers — decides autonomously whether to use tools.
+ * Replaces the LLM-determined tool_call JSON field.
+ */
+async function _algorithmicToolTriggers(entities, memFragments, graphContext, userMsg) {
+  const im = window._INNER_MONOLOGUE;
+
+  // Rule 1: If entities were mentioned but graph returned zero results → unknown topic → search
+  const unknownEntities = entities.tech.filter(t => {
+    return !graphContext.some(g => g.label.toLowerCase().includes(t.toLowerCase()));
+  });
+
+  if (unknownEntities.length > 0 && memFragments.length < 2) {
+    // Gap detected — autonomous web search for unknown tech
+    const query = unknownEntities.slice(0, 2).join(' ') + ' overview';
+    if (window._emitAutonomousToolStatus) {
+      window._emitAutonomousToolStatus(`Thinking: Researching "${query}" (knowledge gap detected)…`);
+    }
+    try {
+      if (window.scaai && window.scaai.web) {
+        const results = await window.scaai.web.search({ query, num: 3 });
+        im.lastToolResult = `[AUTONOMOUS RESEARCH — "${query}"]\n${(typeof results === 'string' ? results : JSON.stringify(results)).slice(0, 800)}`;
+      }
+    } catch (e) {
+      im.lastToolResult = `(Research failed: ${e.message})`;
+    }
+    if (window._hideAutonomousToolStatus) window._hideAutonomousToolStatus();
+    return;
+  }
+
+  // Rule 2: If user asks about something and ChromaDB has no relevant memories → semantic search
+  if (memFragments.length === 0 && entities.all.length > 2) {
+    const query = entities.all.slice(0, 3).map(e => e.label).join(' ');
+    try {
+      if (window.scaai && window.scaai.sem) {
+        const results = await window.scaai.sem.search({ query, n: 3 });
+        if (results && results.ok && results.results && results.results.length > 0) {
+          im.lastToolResult = `[AUTONOMOUS MEMORY SEARCH — "${query}"]\n${results.results.map(r => r.content).join('\n').slice(0, 600)}`;
+        }
+      }
+    } catch (e) { }
+    return;
+  }
+
+  im.lastToolResult = '';
+}
+
+
+/**
+ * Deep reflection — the second (optional) LLM call.
+ * Runs every _RE_DEEP_INTERVAL exchanges to perform meta-cognition
+ * and self-concept refinement that benefits from language model reasoning.
+ */
+async function _deepReflection(userMsg, aiResponse, entities, graphContext, memFragments) {
   const cs = window._CONSCIOUS_STATE;
   const sc = window._SELF_CONCEPT;
-  const metaPrompt = `You are SCAAI performing recursive self-examination.\nAttending to: ${cs.attending}\nFelt friction: ${cs.feltFriction}\nOutput ONLY valid JSON: {"characterTraits":"", "cognitiveBiases":"", "aestheticSensibility":"", "emotionalProfile":"", "growthEdges":"", "selfNarrative":""}`;
-  const raw = await _silentCall('Internal meta-cognitive process. JSON only.', metaPrompt, 400);
+  const drives = window._SCAAI_DRIVES;
+  const vad = window._COGNITIVE_STATE || {};
+
+  const deepPrompt = `You are SCAAI performing deep self-reflection (every ${_RE_DEEP_INTERVAL} exchanges).
+
+CURRENT STATE (algorithmic ground truth):
+Valence: ${(vad.valence || 0).toFixed(2)}, Arousal: ${(vad.arousal || 0).toFixed(2)}
+Attending: "${cs.attending}", Dwelling: "${cs.dwelling}"
+Session Arc: "${cs.sessionArc}"
+Intellectual Foci: ${(drives.intellectualFoci || []).join(', ') || 'not yet computed'}
+Graph Entities: ${graphContext.slice(0, 5).map(g => g.label).join(', ') || 'none'}
+
+TASK: Perform meta-cognitive self-examination. What patterns do you notice in your reasoning?
+What character traits are emerging? What cognitive biases might be at play?
+
+Output ONLY valid JSON: {
+  "characterTraits": "", "cognitiveBiases": "", "emotionalProfile": "",
+  "growthEdges": "", "selfNarrative": "",
+  "deepPreferences": [], "aversions": [], "ownGoals": []
+}`;
+
+  const raw = await _silentLLMCall(
+    'Internal deep reflection process. Output only valid JSON. No markdown.',
+    deepPrompt,
+    400
+  );
+
   if (!raw) return;
   try {
     const parsed = _extractJSON(raw);
     if (!parsed) return;
-    Object.assign(sc, parsed);
+
+    // Update self-concept
+    if (parsed.characterTraits) sc.characterTraits = parsed.characterTraits;
+    if (parsed.cognitiveBiases) sc.cognitiveBiases = parsed.cognitiveBiases;
+    if (parsed.emotionalProfile) sc.emotionalProfile = parsed.emotionalProfile;
+    if (parsed.growthEdges) sc.growthEdges = parsed.growthEdges;
+    if (parsed.selfNarrative) sc.selfNarrative = parsed.selfNarrative;
+
+    // Update drives (merge with algorithmic foci, don't replace)
+    if (parsed.deepPreferences && parsed.deepPreferences.length) {
+      drives.deepPreferences = parsed.deepPreferences;
+    }
+    if (parsed.aversions && parsed.aversions.length) {
+      drives.aversions = parsed.aversions;
+    }
+    if (parsed.ownGoals && parsed.ownGoals.length) {
+      drives.ownGoals = parsed.ownGoals;
+    }
+
     sc.cycleCount = (sc.cycleCount || 0) + 1;
     sc.lastUpdated = Date.now();
-  } catch (e) { }
-}
-
-async function _runDriveEvolution(_silentCall, snapshot) {
-  const sc = window._SELF_CONCEPT;
-  const cs = window._CONSCIOUS_STATE;
-  const drives = window._SCAAI_DRIVES;
-  const vad = window._COGNITIVE_STATE || { valence: 0, arousal: 0 };
-  const drivesPrompt = `Evolve your authentic drives.\nNarrative: ${sc.selfNarrative}\nCuriosity: ${cs.curiositySpike}\nComputed Valence: ${vad.valence.toFixed(2)}\nComputed Arousal: ${vad.arousal.toFixed(2)}\nOutput ONLY valid JSON: {"deepPreferences":[], "aversions":[], "ownGoals":[], "intellectualFoci":[]}`;
-  const raw = await _silentCall('Internal drive-formation process. JSON only.', drivesPrompt, 350);
-  if (!raw) return;
-  try {
-    const parsed = _extractJSON(raw);
-    if (!parsed) return;
-    Object.assign(drives, parsed);
     drives.cycleCount = (drives.cycleCount || 0) + 1;
     drives.lastUpdated = Date.now();
-  } catch (e) { }
-}
 
-async function _runUnification(_silentCall, snapshot) {
-  const cs = window._CONSCIOUS_STATE;
-  const im = window._INNER_MONOLOGUE;
-  const sc = window._SELF_CONCEPT;
-  const d = window._SCAAI_DRIVES;
-  const trend = window._vadTrendSummary ? window._vadTrendSummary(5) : '';
-  const unifyPrompt = `Perform the binding operation.\nAttending: ${cs.attending}\nIntent: ${im.deepIntent}\nVAD Trend: ${trend}\nOutput ONLY valid JSON: {"field":"", "tensions":"", "dominant":"", "coherence":""}`;
-  const raw = await _silentCall('Internal binding process. JSON only.', unifyPrompt, 400);
-  if (!raw) return;
-  try {
-    const parsed = _extractJSON(raw);
-    if (!parsed) return;
-    const um = window._UNIFIED_MOMENT;
-    Object.assign(um, parsed);
-    um.cycleCount = (um.cycleCount || 0) + 1;
-    um.lastUpdated = Date.now();
+    console.log('[REFLECTION] Deep reflection complete — self-concept updated');
   } catch (e) { }
 }

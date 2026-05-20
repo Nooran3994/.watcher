@@ -114,6 +114,12 @@ contextBridge.exposeInMainWorld('scaai', {
     graphStore:          (args) => ipcRenderer.invoke('sem:graph_store',            args||{}),
     graphQuery:          (args) => ipcRenderer.invoke('sem:graph_query',            args||{}),
     graphAll:            ()     => ipcRenderer.invoke('sem:graph_all'),
+    // ── Algorithmic Graph Intelligence ──
+    graphCentrality:     (args) => ipcRenderer.invoke('sem:graph_centrality',  args||{}),
+    graphCluster:        (args) => ipcRenderer.invoke('sem:graph_cluster',     args||{}),
+    graphDecay:          (args) => ipcRenderer.invoke('sem:graph_decay',       args||{}),
+    graphBoost:          (args) => ipcRenderer.invoke('sem:graph_boost',       args||{}),
+    graphTraverse:       (args) => ipcRenderer.invoke('sem:graph_traverse',    args||{}),
   },
   // ── Upgrade 2: Skills ──
   skills: {

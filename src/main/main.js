@@ -2565,6 +2565,12 @@ ipcMain.handle('sem:score', async (_, args) => runBridge('score_relevance', args
 ipcMain.handle('sem:graph_store', async (_, args) => runBridge('graph_store', args || {}));
 ipcMain.handle('sem:graph_query', async (_, args) => runBridge('graph_query', args || {}));
 ipcMain.handle('sem:graph_all', async () => runBridge('graph_all', {}));
+// ── Algorithmic Graph Intelligence ──
+ipcMain.handle('sem:graph_centrality', async (_, args) => runBridge('graph_centrality', args || {}));
+ipcMain.handle('sem:graph_cluster', async (_, args) => runBridge('graph_cluster', args || {}));
+ipcMain.handle('sem:graph_decay', async (_, args) => runBridge('graph_decay', args || {}));
+ipcMain.handle('sem:graph_boost', async (_, args) => runBridge('graph_boost', args || {}));
+ipcMain.handle('sem:graph_traverse', async (_, args) => runBridge('graph_traverse', args || {}));
 
 // Install chromadb if missing
 ipcMain.handle('sem:install', async () => new Promise(resolve => {
