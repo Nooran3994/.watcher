@@ -2254,6 +2254,7 @@ async function _switchToBackupProvider(info) {
 }
 function renderActiveBar() {
   const bar = document.getElementById('abar');
+  if (!bar) return;
   if (!SEL.size) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
   bar.innerHTML = '<span style="font-size:9px;color:#1e1e38;flex-shrink:0">Active:</span>';
@@ -2267,8 +2268,11 @@ function renderActiveBar() {
 }
 function renderFiles() {
   const list = document.getElementById('fl');
-  const q = (document.getElementById('fsr').value || '').toLowerCase();
-  document.getElementById('fscl').style.display = q ? '' : 'none';
+  const fsrEl = document.getElementById('fsr');
+  const fsclEl = document.getElementById('fscl');
+  if (!list || !fsrEl || !fsclEl) return;
+  const q = (fsrEl.value || '').toLowerCase();
+  fsclEl.style.display = q ? '' : 'none';
   const entries = Object.entries(FILES).filter(([p]) => !q || p.toLowerCase().includes(q));
   if (!entries.length && !Object.keys(FILES).length) { list.innerHTML = `<div class="empty">No files loaded.<br/><span style="color:#6c63ff">+ Files</span> or <span style="color:#00c9a7">📁 Folder</span><br/>or ask me to find files</div>`; return; }
   if (!entries.length) { list.innerHTML = `<div class="empty">No matches for "${x(q)}"</div>`; return; }
@@ -2290,7 +2294,9 @@ function renderFiles() {
 }
 function renderMem() { /* short-term memory removed */ }
 function renderPersona() {
-  document.getElementById('pbars').innerHTML =
+  const pbars = document.getElementById('pbars');
+  if (!pbars) return;
+  pbars.innerHTML =
     [['CONF', PERSONA.confidence, '#6c63ff'], ['CURI', PERSONA.curiosity, '#00c9a7'], ['ATTE', PERSONA.attention, '#fbbf24']]
       .map(([l, v, c]) => `<div class="prow"><span class="pl">${l}</span><div class="pt"><div class="pf" style="width:${v * 100}%;background:${c}"></div></div><span class="pv" style="color:${c}">${Math.round(v * 100)}%</span></div>`)
       .join('');
