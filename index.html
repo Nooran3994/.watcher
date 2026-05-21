@@ -62,7 +62,8 @@
       </div>
     </div>
 
-    <div id="body">
+    <div id="main-container">
+      <div id="workspace">
       <div id="sb">
         <!-- Modern Sidebar Header -->
         <div id="sb-header">
@@ -125,20 +126,18 @@
                 <div class="proj-dot proj-detail-dot" id="proj-detail-dot"></div>
                 <span class="proj-detail-name" id="proj-detail-name">Project Name</span>
                 <button class="proj-deactivate-btn" onclick="deactivateProject()" title="Deactivate project">Deactivate</button>
-              </div>
-              <div class="proj-pipeline" id="proj-pipeline"></div>
               <div class="proj-ctx">
                 <div style="font-size:8px;color:#333358;font-weight:700;letter-spacing:1px;margin-bottom:3px">CONTEXT</div>
                 <textarea id="proj-ctx-input" placeholder="Project notes…" oninput="debounceSaveProjectContext()"></textarea>
               </div>
               <div class="chat-hist-hdr">
                 <span>HISTORY</span>
-                <button class="chat-hist-new-btn" onclick="startNewProjectChat()" title="New chat">+ Chat</button>
+                <button class="chat-hist-new-btn" onclick="startFreshChat()" title="New chat">+ Chat</button>
               </div>
               <div class="chat-hist-list" id="chat-hist-list"></div>
-            </div>
+             </div>
           </div>
-
+          </div> <!-- /#tproj -->
 
           <!-- Tools & Browser Tab -->
           <div id="ttool" style="display:none">
@@ -191,31 +190,44 @@
           <span id="tlbl">Thinking…</span>
         </div>
         <div id="iwrap">
-          <!-- ── Agent + Skills bar (Upgrade 2) ── -->
-          <div id="agent-bar">
-            <span id="agent-label">🤖</span>
-            <select id="agent-select" title="Active agent — changes routing on next send"
-              onchange="setActiveAgent(this.value)">
-              <option value="agent_main">SCAAI (default)</option>
-            </select>
-            <button id="skills-bar-btn" onclick="openSkillsModal()" title="Skills — click to manage prompt skills">⚡
-              Skills <span id="skill-badge">0</span></button>
-            <div id="vc-badge" title="Vector compression — prompt filtered to most relevant context"><span
-                class="vc-dot"></span></div>
-          </div>
           <div id="irow">
-            <div class="itools" style="margin-bottom:1px">
-              <button class="ibtn" id="wsbtn" onclick="toggleWebSearch()"
-                title="Web Search (Google) — click to enable/disable">🌐</button>
-              <button class="ibtn" id="cbbtn" onclick="toggleCodebaseMode()"
-                title="Codebase Mode — click to toggle">🧩</button>
+            <div class="itools-left">
+              <button class="pill-btn" onclick="doOpenFiles()" title="Add files or context">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </button>
+              <button class="pill-btn" id="wsbtn" onclick="toggleWebSearch()" title="Toggle Web Search">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+              </button>
+              <button class="pill-btn" id="cbbtn" onclick="toggleCodebaseMode()" title="Toggle Codebase Mode">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7v10l10 5 10-5V7L12 2z"></path><polyline points="12 22 12 12 22 7"></polyline><polyline points="2 7 12 12"></polyline></svg>
+              </button>
             </div>
-            <textarea id="ci" rows="1" placeholder="Ask anything… load files, run commands, browse your PC"></textarea>
-            <div class="itools" style="margin-bottom:1px">
-              <button id="sbtn" onclick="send()">Send ↵</button>
+            
+            <textarea id="ci" rows="1" placeholder="Ask Gemini..."></textarea>
+            
+            <div class="itools-right">
+              <div id="model-pill-selector" title="Switch active AI model">
+                <select id="agent-select" onchange="setActiveAgent(this.value)">
+                  <option value="agent_main">SCAAI (default)</option>
+                </select>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+
+              <button class="pill-btn mic-btn" title="Voice input (Coming soon)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+              </button>
+              
+              <button id="sbtn" onclick="send()" title="Send">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+              </button>
             </div>
           </div>
-          <div class="hint">Enter=send · Shift+Enter=newline · AI can browse your PC, run commands &amp; search the web</div>
+          
+          <div id="iwrap-footer">
+            <div class="hint">Enter to send · Shift+Enter for newline</div>
+            <div id="vc-badge" title="Vector compression active"><span class="vc-dot"></span> Compressed</div>
+            <button id="skills-bar-btn" onclick="openSkillsModal()">⚡ Skills <span id="skill-badge">0</span></button>
+          </div>
         </div>
         <div id="cb-toolbar" class="cb-off">
           <span class="cb-tb-label">🧩 CODEBASE</span>
@@ -237,7 +249,8 @@
           <button class="cb-tb-btn cb-tb-danger" onclick="cbTbForget()"
             title="Remove active codebase from memory">✕</button>
         </div>
-      </div><!-- /#chat -->
+        </div>
+      </div><!-- /#workspace -->
 
 
 
@@ -912,9 +925,9 @@
       ACTIVE_AGENT = id;
       const agent = AGENTS_LIST.find(a => a.id === id);
       if (agent) {
-        const label = document.getElementById('agent-label');
-        const colors = { main: '#6c63ff', specialist: '#00c9a7', orchestrator: '#e879f9' };
-        if (label) label.style.color = colors[agent.role] || '#6c63ff';
+        const selector = document.getElementById('model-pill-selector');
+        const colors = { main: 'var(--accent)', specialist: 'var(--accent2)', orchestrator: '#e879f9' };
+        if (selector) selector.style.borderColor = colors[agent.role] || 'var(--border-faint)';
       }
     }
 

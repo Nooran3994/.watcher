@@ -13,6 +13,20 @@ const PROVIDERS = {
   custom: { name: 'Custom', color: '#a78bfa' },
 };
 
+// ── Token budget constants used by smart maxTokens ──
+// Mirrors GITHUB_MODEL_BUDGETS from main.js so the renderer can
+// estimate output headroom without an IPC round-trip.
+// IMPORTANT: must be declared here (top-level) before any function that
+// references it — a const/let in the TDZ crashes on first access.
+const GITHUB_MODEL_BUDGETS = {
+  'deepseek/DeepSeek-V3-0324': { inputBudget: 2800, maxOut: 800 },
+  'deepseek/DeepSeek-R1': { inputBudget: 2800, maxOut: 800 },
+  'openai/gpt-4o-mini': { inputBudget: 10000, maxOut: 2000 },
+  'meta/Llama-3.3-70B-Instruct': { inputBudget: 10000, maxOut: 2000 },
+  'microsoft/phi-4': { inputBudget: 8000, maxOut: 1500 },
+  'mistral-ai/Mistral-Nemo': { inputBudget: 6000, maxOut: 1500 },
+};
+
 // ── State ──
 let FILES = {}, SEL = new Set(), LOADING = false, EDIT_PATH = null, SYS_INFO = {};
 let _lastSender = null;
@@ -2454,7 +2468,7 @@ function addToolMsg(cmd, result) {
   </svg>`;
   const right = document.createElement('div'); right.className = 'mright';
   const meta = document.createElement('div'); meta.className = 'mmeta';
-  const rl = document.createElement('span'); rl.className = 'mrole'; rl.textContent = 'SCAAI';
+  const rl = document.createElement('span'); rl.className = 'mrole'; rl.textContent = 'PROCESS';
   const tm = document.createElement('span'); tm.className = 'mtm'; tm.textContent = fmt();
   meta.appendChild(rl); meta.appendChild(tm);
   const body = document.createElement('div'); body.className = 'mbody';
@@ -3114,7 +3128,6 @@ async function saveSettings() {
   closeSettings();
   
   if (prevProvider !== SP || prevModel !== CONFIG.model) addMsg('ai', `Switched to **${PROVIDERS[SP]?.name || 'Custom'}** · **${CONFIG.model}**\nContext carried over.`);
-  addMsg('sys', '✅ Settings saved successfully.');
 }
 
 // ── Tabs ──
@@ -3285,7 +3298,12 @@ function buildSystemPrompt(semContext = '') {
     p += '- Limitations: Results from `read_file`, `list_directory`, and `execute_command` may be capped. You CANNOT read binary files (PDFs, Images, EXEs) as text.\n';
     p += '- Can run shell commands, find files, write code directly to disk, and open apps/URLs.\n';
     p += '- Persistent memory: ' + (SEM_READY ? SEM_COUNT + ' stored — you KNOW these things natively' : 'memory offline') + '.\n';
-    p += '- Current Target: ' + (sys.platform || 'windows') + ' | Identity: ' + (sys.username || 'user') + '\n';
+    const u = window.USER_PROFILE || {};
+    const nameStr = u.name || sys.username || 'user';
+    p += '- Current Target: ' + (sys.platform || 'windows') + ' | Identity: ' + nameStr + '\n';
+    if (u.name) p += 'RULE: The user\'s preferred name is ' + u.name + '. Address them as such.\n';
+    if (u.workingStyle) p += 'Context: User working style is ' + u.workingStyle + '.\n';
+    if (u.projects && u.projects.length) p += 'Known Projects: ' + u.projects.slice(0, 5).join(', ') + '\n';
     p += '\n';
   }
 
@@ -7536,18 +7554,10 @@ function toggleWebSearch() {
     const recentTopic = (DialogueContext.turns || []).slice(-1)[0]?.topic || '';
     if (recentTopic && recentTopic.length > 5) contextParts.push(`current work: _${recentTopic.slice(0, 50)}_`);
 
-    if (contextParts.length > 0) {
-      addMsg('sys', `🌐 **Web search enabled** (${ename}) — searches will stay anchored to your current context: ${contextParts.join(' · ')}.\n\n_Searches are enriched with your session context, not just the raw message._`);
-    } else {
-      addMsg('sys', `🌐 **Web search enabled** (${ename}). Searches will run before each answer.`);
-    }
+    // Quietly log to console instead of spamming chat
+    console.log(`[WS] Web search enabled (${ename})`);
   } else {
-    // On disable — show what's still active
-    const stillActive = [];
-    if (CODEBASE_MODE && CODEBASE_MODE_LABEL) stillActive.push(`🧩 Codebase: **${CODEBASE_MODE_LABEL}**`);
-    if (SEL && SEL.size > 0) stillActive.push(`📎 **${SEL.size}** file${SEL.size > 1 ? 's' : ''} active`);
-    const suffix = stillActive.length > 0 ? `\n\nStill active: ${stillActive.join(' · ')}` : '';
-    addMsg('sys', `🌐 Web search disabled — answering from memory and local context only.${suffix}`);
+    console.log(`[WS] Web search disabled`);
   }
 }
 
@@ -9157,6 +9167,8 @@ buildSystemPrompt = function (semContext) {
     }
   } catch (e) { }
 
+
+
   // ════════════════════════════════════════════════════════════════
   // ── FINAL IDENTITY RE-ANCHOR ──
   // Placed at the END of the system prompt so these rules are the
@@ -9397,9 +9409,7 @@ console.log('[DISK AWARENESS + UNIFIED TOOL INTELLIGENCE] Upgrades 1 & 2 ready')
 // Per-phase chats · Chat search · Draggable 📌 button
 // ════════════════════════════════════════════════════════════════
 
-const PHASES = ['planning', 'researching', 'evaluating', 'executing', 'testing', 'validating'];
-const PHASE_LABELS = { planning: '📋 Plan', researching: '🔍 Research', evaluating: '⚖️ Evaluate', executing: '⚡ Execute', testing: '🧪 Test', validating: '✅ Validate' };
-const PHASE_EMOJIS = { planning: '📋', researching: '🔍', evaluating: '⚖️', executing: '⚡', testing: '🧪', validating: '✅' };
+
 
 // ── Load projects on init ──
 (async () => {
@@ -9425,7 +9435,7 @@ function renderProjects() {
       <div class="proj-dot" style="background:${proj.color || '#6c63ff'}"></div>
       <div class="proj-info">
         <div class="proj-name">${escHtml(proj.name)}</div>
-        <div class="proj-meta">${PHASE_EMOJIS[proj.phase] || ''} ${proj.phase} · ${new Date(proj.updatedAt).toLocaleDateString()}</div>
+        <div class="proj-meta">${new Date(proj.updatedAt).toLocaleDateString()}</div>
       </div>
       <div class="proj-actions">
         <button class="proj-act-btn" title="Rename" onclick="event.stopPropagation();promptRenameProject('${proj.id}')">✏</button>
@@ -9442,7 +9452,6 @@ function openProjCreateModal() {
   _pcmColor = '#6c63ff';
   document.getElementById('pcm-name').value = '';
   document.getElementById('pcm-desc').value = '';
-  document.getElementById('pcm-phase').value = 'planning';
   document.querySelectorAll('.color-swatch').forEach(s => s.classList.toggle('sel', s.dataset.color === '#6c63ff'));
   document.getElementById('proj-create-modal').classList.add('open');
   setTimeout(() => document.getElementById('pcm-name').focus(), 60);
@@ -9456,8 +9465,7 @@ async function confirmCreateProject() {
   const name = document.getElementById('pcm-name').value.trim();
   if (!name) { document.getElementById('pcm-name').focus(); return; }
   const desc = document.getElementById('pcm-desc').value.trim();
-  const phase = document.getElementById('pcm-phase').value;
-  const r = await A.projects.create({ name, description: desc, color: _pcmColor, phase });
+  const r = await A.projects.create({ name, description: desc, color: _pcmColor });
   if (r && r.ok) {
     PROJECTS_LIST.push(r.project);
     closeProjCreateModal();
@@ -9531,15 +9539,8 @@ async function activateProject(proj) {
   if (CONV_HISTORY.length >= 2) autoSaveChat();
   ACTIVE_PROJECT = { ...proj };
 
-  // ── Store project in semantic memory so it's recalled across sessions ──
-  // Fires non-blocking; if SEM not ready yet it's a no-op
   if (SEM_READY) {
-    const projContent = `[TYPE:project][LABEL:${proj.name}]
-Project name: ${proj.name}
-Description: ${proj.description || ''}
-Phase: ${proj.phase}
-Context: ${proj.context || ''}
-The user is building this project. Remember its name, description, and context.`;
+    const projContent = `Active Project: ${proj.name}\nDescription: ${proj.description || ''}\nContext: ${proj.context || ''}\nThe user is building this project. Remember its name, description, and context.`;
     A.sem.learn({
       content: projContent,
       label: 'project_' + proj.id,
@@ -9550,24 +9551,24 @@ The user is building this project. Remember its name, description, and context.`
 
   try {
     const r = await A.chats.loadByProject(proj.id);
-    const phaseChats = ((r && r.chats) || []).filter(c => c.phase === proj.phase);
-    if (phaseChats.length) {
-      const latest = phaseChats[0];
+    const chats = (r && r.chats) || [];
+    if (chats.length) {
+      const latest = chats[0];
       ACTIVE_CHAT_ID = latest.id;
-      _chatLinkedToProject = true;  // ← restoring an existing project chat
+      _chatLinkedToProject = true;
       document.getElementById('msgs').innerHTML = '';
       CONV_HISTORY = latest.messages.slice();
       CONV_HISTORY.forEach(m => { if (m.role && m.content) addMsg(m.role, m.content); });
-      addMsg('sys', `📂 **${proj.name}** — restored last ${PHASE_EMOJIS[proj.phase] || ''} ${proj.phase} chat (${latest.messages.length} messages)`);
+      addMsg('sys', `📂 **${proj.name}** — resumed last conversation (${latest.messages.length} messages)`);
     } else {
       ACTIVE_CHAT_ID = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-      _chatLinkedToProject = true;  // ← new chat inside the project
-      addMsg('ai', `📂 **${proj.name}** is now the active project.\n\nPhase: **${proj.phase}** · Each phase has its own chat history. Use the PROJ tab to advance phases and review past conversations.`);
+      _chatLinkedToProject = true;
+      addMsg('ai', `📂 **${proj.name}** is now the active project. How can I help?`);
     }
   } catch (e) {
     ACTIVE_CHAT_ID = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
     _chatLinkedToProject = true;
-    addMsg('ai', `📂 **${proj.name}** activated (${proj.phase} phase).`);
+    addMsg('ai', `📂 **${proj.name}** activated.`);
   }
   _renderProjectDetail();
   _renderProjTitleBadge();
@@ -9595,69 +9596,8 @@ function _renderProjectDetail() {
   document.getElementById('proj-detail-dot').style.background = ACTIVE_PROJECT.color || '#6c63ff';
   const ctxEl = document.getElementById('proj-ctx-input');
   if (ctxEl) ctxEl.value = ACTIVE_PROJECT.context || '';
-  _renderPhasePipeline();
-  _updateChatHistPhaseLabel();
 }
 
-function _updateChatHistPhaseLabel() {
-  const el = document.getElementById('chat-hist-phase-label');
-  if (!el || !ACTIVE_PROJECT) return;
-  el.textContent = `${PHASE_EMOJIS[ACTIVE_PROJECT.phase] || ''} ${ACTIVE_PROJECT.phase.toUpperCase()} CHATS`;
-}
-
-// ── Phase pipeline ──
-function _renderPhasePipeline() {
-  const el = document.getElementById('proj-pipeline'); if (!el || !ACTIVE_PROJECT) return;
-  const currentIdx = PHASES.indexOf(ACTIVE_PROJECT.phase);
-  el.innerHTML = '';
-  PHASES.forEach((phase, i) => {
-    const step = document.createElement('div'); step.className = 'phase-step';
-    const btn = document.createElement('button'); btn.className = 'phase-btn';
-    btn.textContent = PHASE_LABELS[phase] || phase;
-    if (i < currentIdx) btn.classList.add('phase-done');
-    else if (i === currentIdx) btn.classList.add('phase-active');
-    btn.title = `Switch to ${phase} phase`;
-    btn.addEventListener('click', () => setProjectPhase(phase));
-    step.appendChild(btn);
-    if (i < PHASES.length - 1) { const arr = document.createElement('span'); arr.className = 'phase-arrow'; arr.textContent = '›'; step.appendChild(arr); }
-    el.appendChild(step);
-  });
-}
-
-// ── Set phase — saves current chat, switches to that phase's last chat ──
-async function setProjectPhase(phase) {
-  if (!ACTIVE_PROJECT || phase === ACTIVE_PROJECT.phase) return;
-  if (CONV_HISTORY.length >= 2) await autoSaveChat();
-  ACTIVE_PROJECT.phase = phase;
-  await A.projects.update(ACTIVE_PROJECT.id, { phase });
-  const idx = PROJECTS_LIST.findIndex(p => p.id === ACTIVE_PROJECT.id);
-  if (idx !== -1) PROJECTS_LIST[idx].phase = phase;
-  try {
-    const r = await A.chats.loadByProject(ACTIVE_PROJECT.id);
-    const phaseChats = ((r && r.chats) || []).filter(c => c.phase === phase);
-    if (phaseChats.length) {
-      const latest = phaseChats[0];
-      ACTIVE_CHAT_ID = latest.id;
-      document.getElementById('msgs').innerHTML = '';
-      CONV_HISTORY = latest.messages.slice();
-      CONV_HISTORY.forEach(m => { if (m.role && m.content) addMsg(m.role, m.content); });
-      addMsg('sys', `${PHASE_EMOJIS[phase]} Switched to **${phase}** — restored last chat (${latest.messages.length} messages)`);
-    } else {
-      ACTIVE_CHAT_ID = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-      document.getElementById('msgs').innerHTML = '';
-      CONV_HISTORY = [];
-      addMsg('ai', `${PHASE_EMOJIS[phase] || ''} Phase set to **${phase.toUpperCase()}**.\n\nThis is a fresh chat for this phase of **${ACTIVE_PROJECT.name}**. Previous phases' chats are preserved and accessible in the PROJ tab.`);
-    }
-  } catch (e) {
-    ACTIVE_CHAT_ID = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-    CONV_HISTORY = [];
-    addMsg('ai', `Phase set to **${phase.toUpperCase()}**.`);
-  }
-  _renderPhasePipeline();
-  _updateChatHistPhaseLabel();
-  renderProjects();
-  renderChatHistory(ACTIVE_PROJECT.id);
-}
 
 // ── Context notes (debounced) ──
 function debounceSaveProjectContext() {
@@ -9897,7 +9837,7 @@ function loadChatSession(chat) {
   }
   CONV_HISTORY.forEach(m => { if (m.role && m.content) addMsg(m.role, m.content); });
   if (ACTIVE_PROJECT) renderChatHistory(ACTIVE_PROJECT.id);
-  addMsg('sys', `📂 Restored: **${chat.title || 'Chat'}** — ${PHASE_EMOJIS[chat.phase] || ''} ${chat.phase || ''} phase (${chat.messages.length} messages)`);
+  addMsg('sys', `📂 restored: **${chat.title || 'Chat'}** (${chat.messages.length} messages)`);
 }
 
 async function deleteChatSession(id) {
@@ -9998,6 +9938,23 @@ console.log('[PROJECTS & CHAT HISTORY v2] Module ready');
 // ════════════════════════════════════════════════════════════════
 
 const PHASE_CLR = { planning: '#6c63ff', researching: '#60a5fa', evaluating: '#a78bfa', executing: '#f97316', testing: '#fbbf24', validating: '#00c9a7' };
+const PHASES = ['planning', 'researching', 'evaluating', 'executing', 'testing', 'validating'];
+const PHASE_LABELS = { 
+  planning: 'Planning', 
+  researching: 'Researching', 
+  evaluating: 'Evaluating', 
+  executing: 'Executing', 
+  testing: 'Testing', 
+  validating: 'Validating' 
+};
+const PHASE_EMOJIS = { 
+  planning: '📋', 
+  researching: '🔍', 
+  evaluating: '⚖️', 
+  executing: '⚡', 
+  testing: '🧪', 
+  validating: '✅' 
+};
 
 // ── Show/hide overlay ──
 function showProjectOverlay() {
@@ -10630,7 +10587,7 @@ async function _chOpenChat(chat) {
 
   CONV_HISTORY.forEach(m => { if (m.role && m.content) addMsg(m.role, m.content); });
   closeChatHistoryPanel();
-  addMsg('sys', '📂 Restored: **' + _chEsc(chat.title || 'Untitled') + '** (' + chat.messages.length + ' messages)');
+  addMsg('sys', '📂 restored: **' + _chEsc(chat.title || 'Untitled') + '** (' + chat.messages.length + ' messages)');
 }
 
 // ── Start a completely fresh chat ────────────────────────────────
@@ -10922,17 +10879,7 @@ async function _vectorCompress(systemPrompt, messages, currentQuery) {
 // Sankey flow diagram (pure SVG — no external deps).
 // ════════════════════════════════════════════════════════════════
 
-// ── Token budget constants used by smart maxTokens ──
-// Mirrors GITHUB_MODEL_BUDGETS from main.js so the renderer can
-// estimate output headroom without an IPC round-trip.
-const GITHUB_MODEL_BUDGETS = {
-  'deepseek/DeepSeek-V3-0324': { inputBudget: 2800, maxOut: 800 },
-  'deepseek/DeepSeek-R1': { inputBudget: 2800, maxOut: 800 },
-  'openai/gpt-4o-mini': { inputBudget: 10000, maxOut: 2000 },
-  'meta/Llama-3.3-70B-Instruct': { inputBudget: 10000, maxOut: 2000 },
-  'microsoft/phi-4': { inputBudget: 8000, maxOut: 1500 },
-  'mistral-ai/Mistral-Nemo': { inputBudget: 6000, maxOut: 1500 },
-};
+// GITHUB_MODEL_BUDGETS declared at top of file (near PROVIDERS) to avoid TDZ.
 
 /**
  * Build the Sankey SVG from sankeyNodes + sankeyLinks.
