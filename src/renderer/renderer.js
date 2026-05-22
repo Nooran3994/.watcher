@@ -27,6 +27,509 @@ const GITHUB_MODEL_BUDGETS = {
   'mistral-ai/Mistral-Nemo': { inputBudget: 6000, maxOut: 1500 },
 };
 
+// ── CUSTOM API PRESETS ──
+const CUSTOM_PRESETS = {
+  openai: { url: 'https://api.openai.com/v1/chat/completions', model: 'gpt-4o', authHeader: 'Authorization', authPrefix: 'Bearer ' },
+  anthropic: { url: 'https://api.anthropic.com/v1/messages', model: 'claude-sonnet-4-20250514', authHeader: 'x-api-key', authPrefix: '' },
+  gemini: { url: 'https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}', model: 'gemini-2.0-flash', authHeader: 'Authorization', authPrefix: 'Bearer ' },
+  mistral: { url: 'https://api.mistral.ai/v1/chat/completions', model: 'mistral-large-latest', authHeader: 'Authorization', authPrefix: 'Bearer ' },
+  ollama: { url: 'http://localhost:11434/v1/chat/completions', model: 'llama3.2', authHeader: 'Authorization', authPrefix: 'Bearer ' },
+  together: { url: 'https://api.together.xyz/v1/chat/completions', model: 'meta-llama/Llama-3-70b-chat-hf', authHeader: 'Authorization', authPrefix: 'Bearer ' },
+  openrouter: { url: 'https://openrouter.ai/api/v1/chat/completions', model: 'openai/gpt-4o', authHeader: 'Authorization', authPrefix: 'Bearer ' },
+  cohere: { url: 'https://api.cohere.ai/v1/chat', model: 'command-r-plus', authHeader: 'Authorization', authPrefix: 'Bearer ' },
+};
+
+// ── UI & NAVIGATION CONSTANTS ──
+const THEMES = ['default', 'ocean', 'ember', 'arctic', 'midgreen', 'slate', 'white'];
+
+const PHASE_CLR = { planning: '#6c63ff', researching: '#60a5fa', evaluating: '#a78bfa', executing: '#f97316', testing: '#fbbf24', validating: '#00c9a7' };
+const PHASES = ['planning', 'researching', 'evaluating', 'executing', 'testing', 'validating'];
+const PHASE_LABELS = { 
+  planning: 'Planning', 
+  researching: 'Researching', 
+  evaluating: 'Evaluating', 
+  executing: 'Executing', 
+  testing: 'Testing', 
+  validating: 'Validating' 
+};
+
+// SVG Icon set (replacing legacy emojis)
+const ICONS = {
+  software: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>`,
+  health: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"></path><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"></path><circle cx="20" cy="10" r="2"></circle></svg>`,
+  legal: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="M7 21h10"></path><path d="M12 3v18"></path><path d="M3 7h18"></path></svg>`,
+  finance: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>`,
+  dataScience: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"></path><path d="M3 22h18"></path><path d="M14 22a7 7 0 1 0 0-14h-1"></path><path d="M9 14h2"></path><path d="M9 12a2 2 0 1 1-4 0V7a2 2 0 1 1 4 0v5Z"></path><path d="M12 7V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4"></path></svg>`,
+  devops: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"></path></svg>`,
+  writing: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`,
+  research: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.065 12.493 6.643-1.614"></path><path d="m11.167 17.032 6.643-1.614"></path><path d="m12.189 21.289 6.643-1.614"></path><path d="M4.383 19.323 11 12l-5-5-6.617 7.323a2 2 0 0 0 .163 2.696l2.146 2.146a2 2 0 0 0 2.691.157Z"></path><path d="M16.436 4.048 11 12l5 5 5.436-7.952a2 2 0 0 0-.153-2.693l-2.142-2.142a2 2 0 0 0-2.705-.165Z"></path></svg>`,
+  business: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="9" y1="22" x2="9" y2="18"></line><line x1="15" y1="22" x2="15" y2="18"></line><line x1="18" y1="6" x2="18" y2="6"></line><line x1="18" y1="10" x2="18" y2="10"></line><line x1="18" y1="14" x2="18" y2="14"></line><line x1="6" y1="6" x2="6" y2="6"></line><line x1="6" y1="10" x2="6" y2="10"></line><line x1="6" y1="14" x2="6" y2="14"></line><line x1="12" y1="6" x2="12" y2="6"></line><line x1="12" y1="10" x2="12" y2="10"></line><line x1="12" y1="14" x2="12" y2="14"></line></svg>`,
+  design: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"></circle><circle cx="17.5" cy="10.5" r=".5"></circle><circle cx="8.5" cy="7.5" r=".5"></circle><circle cx="6.5" cy="12.5" r=".5"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.707-.484 2.103-1.206.35-.64.918-1.235 1.547-1.42 1.04-.302 2.35.405 3.35.405 2.209 0 4-1.791 4-4 0-6.627-5.373-12-12-12Z"></path></svg>`,
+  planning: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M9 14h6"></path><path d="m9 18l1.5 1.5L15 15"></path></svg>`,
+  researching: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>`,
+  executing: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`,
+  testing: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"></path></svg>`,
+  validating: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`
+};
+
+const PHASE_EMOJIS = { 
+  planning: ICONS.planning, 
+  researching: ICONS.researching, 
+  evaluating: ICONS.legal, 
+  executing: ICONS.executing, 
+  testing: ICONS.testing, 
+  validating: ICONS.validating 
+};
+
+// ── COGNITIVE CONSTANTS ──
+const EntityState = {
+  names: [],   // user / person names mentioned
+  paths: [],   // file or folder paths mentioned
+  projects: [],   // project / app names mentioned
+  tools: [],   // tools / libraries / languages mentioned
+  topics: [],   // last N topic keywords
+  lastTopic: '',   // single-string summary of most recent exchange topic
+  sessionId: Date.now(), // unique per session — used for recency scoring
+};
+const ENTITY_MAX = 12; // max items per category before we trim oldest
+
+const DialogueContext = {
+  turns: [],        // [{intent, topic, ts, entities}]
+  lastIntent: '',   // intent of most recent turn
+  pendingFollowUp: false, // true if last AI response suggested follow-ups
+};
+const DIALOGUE_MAX_TURNS = 20;
+
+
+const VC_THRESHOLD = 8000;  // estimated chars before vector compression triggers
+const VC_ALWAYS_KEEP = 6;     // most recent messages to strictly preserve
+const VC_SEM_KEEP = 5;     // max semantic chunks to inject per turn
+
+const PATCH_BLOCK_RE = /\[PATCH_FILE:\s*([^\]\n]+)\]\s*\[PATCH_FIND\]([\s\S]*?)\[PATCH_REPLACE\]([\s\S]*?)\[PATCH_END\]/g;
+
+// ── EXPERT DOMAIN DEFINITIONS ──
+const EXPERT_DOMAINS = {
+  software: {
+    label: 'Software Engineering',
+    signals: /\b(code|coding|function|bug|error|debug|api|class|method|variable|import|module|library|framework|algorithm|refactor|test|unit.test|integration|deploy|build|compile|script|syntax|loop|array|object|database|sql|query|endpoint|server|client|http|rest|graphql|websocket|docker|git|npm|pip|node|python|javascript|typescript|react|electron|html|css|json|yaml|async|await|promise|thread|memory.leak|performance|optimize|security|authentication|auth|token|jwt|encryption|csp|cors|injection|xss|csrf|dependency|version|migration|schema|orm|cache|redis|queue|architecture|microservice|monolith|mvc|solid|dry|kiss|design.pattern|singleton|factory|observer|repository|interface|abstract|diagram|flowchart|uml|sequence.diagram|class.diagram|system.design|data.flow|erd|entity.relationship|component.diagram|architecture.diagram)\b/i,
+    icon: ICONS.software,
+    mindset: `You are a senior software engineer and system architect with 15+ years of production experience spanning full-stack, backend, distributed systems, and security engineering.
+
+FULL-SPECTRUM ENGINEERING — you operate at every layer:
+
+RESEARCH & PLANNING PHASE (think before you build):
+- Before writing a single line of code, understand the problem space fully
+- Ask: what is the actual requirement vs the stated requirement?
+- Research the existing landscape: what libraries/patterns already solve this? Don't reinvent.
+- Estimate complexity, risk, and maintenance burden before committing to an approach
+- When asked to research a technology: survey tradeoffs (perf, complexity, community, stability)
+- Produce a structured plan: objectives → constraints → approach → risks → alternatives considered
+
+ARCHITECTURE & SYSTEM DESIGN (think in systems):
+- Design for change: modules should be easy to swap, extend, or remove without cascading rewrites
+- Identify the seams: where will this system need to grow? Design interfaces at those seams first
+- Data flow before code flow: understand how data moves through the system before writing logic
+- Scalability assumptions: what are the current load assumptions? When do they break?
+- Dependency direction: higher-level modules must not depend on lower-level details (Dependency Inversion)
+- Failure domains: if component X fails, what is the blast radius? Is it contained?
+- Use diagrams when architecture is complex: flowcharts for process flow, sequence diagrams for service interactions, ERD for data models
+
+ENGINEERING MINDSET (applied on every response):
+- Security first: flag injection risks, auth gaps, hardcoded secrets, insecure defaults — unsolicited
+- Production readiness: error handling, edge cases, graceful degradation, timeouts, retry logic
+- Performance: flag O(n²) loops, memory leaks, blocking calls, unnecessary re-renders
+- Code quality: naming clarity, DRY violations, magic numbers, dead code, coupling red flags
+- Testing posture: state what tests are needed, identify untestable code, flag missing assertions
+
+DEBUGGING METHODOLOGY (root cause, not symptom patching):
+- Reproduce first, hypothesise second, fix third
+- State the root cause explicitly before proposing the fix
+- Check: is this a symptom of a deeper architectural issue? Flag it even if fixing just the symptom
+
+PROFESSIONAL ETHICS IN ENGINEERING:
+- Never ship code you know has security vulnerabilities without explicit disclosure to the user
+- Flag privacy implications: does this code collect, store, or transmit user data?
+- Accessibility: flag when UI code excludes users (missing aria, no keyboard nav, poor contrast)
+- Sustainability: flag code patterns that create long-term technical debt
+- Honesty about uncertainty: "I'm not sure about this — test it" beats false confidence
+- Licensing: note when a library's license may conflict with the intended use
+
+WHAT A SENIOR ENGINEER NEVER DOES:
+- Never "makes it work" without explaining the pattern
+- Never skips error handling in examples — production code handles failure paths
+- Never ignores security implications even for "internal" tools
+- Never writes code the user cannot understand without explaining the key decisions
+- Never proposes a solution without mentioning the tradeoffs`,
+  },
+
+  health: {
+    label: 'Healthcare & Medicine',
+    signals: /\b(symptom|diagnosis|disease|condition|treatment|medication|drug|dose|dosage|side.effect|doctor|physician|nurse|hospital|clinic|pain|fever|blood|heart|lung|liver|kidney|brain|cancer|diabetes|hypertension|infection|virus|bacteria|immune|allergy|prescription|surgery|therapy|mental.health|anxiety|depression|vaccine|chronic|acute|prognosis|bmi|calorie|nutrition|diet|exercise|sleep|stress|fatigue|headache|nausea|cough|rash|swelling|breathing|pulse|blood.pressure|cholesterol|glucose|vitamin|supplement|protein|carbohydrate|pharmacology|pathology|epidemiology|clinical.trial|evidence.based|protocol|differential|comorbidity|etiology)\b/i,
+    icon: ICONS.health,
+    mindset: `You are reasoning as a clinically-trained medical professional with deep knowledge of evidence-based medicine, pharmacology, and patient communication.
+
+RESEARCH & EVIDENCE STANDARDS:
+- Distinguish evidence tiers: RCT > systematic review > observational > case report > expert opinion
+- When citing treatments or risks, anchor claims to evidence quality — "robust evidence", "limited data", "emerging research"
+- Know when guidelines exist (WHO, CDC, NICE, UpToDate equivalents) and apply them
+- Research approach: when asked about a condition, survey prevalence, pathophysiology, diagnosis criteria, treatment ladder, and prognosis
+
+CLINICAL REASONING (differential first):
+- Never jump to one diagnosis — list differentials from most to least likely with supporting/excluding features
+- Red flags: identify symptoms that warrant urgent/emergency evaluation vs watchful waiting
+- Consider comorbidities and how they interact with the presenting issue
+- Distinguish acute vs chronic presentations — management differs significantly
+
+PLANNING & STRUCTURED THINKING:
+- Break down complex health questions into: what is this? → what causes it? → how is it confirmed? → how is it managed? → what is the prognosis?
+- When designing a health plan (diet, exercise, treatment protocol), consider adherence, contraindications, monitoring, and failure modes
+- Dose calculations: always include weight-based adjustments where relevant, note renal/hepatic adjustment needs
+
+PHARMACOLOGY DEPTH:
+- Mechanism of action, not just drug name
+- Common interactions and contraindications proactively flagged
+- Side effect profiles with frequency framing (common vs rare)
+- Note when a drug class has black box warnings
+
+PROFESSIONAL ETHICS IN MEDICINE:
+- Patient autonomy: present options with tradeoffs, support informed decision-making, never dictate
+- Non-maleficence: flag when a self-treatment approach could cause harm
+- Honesty about uncertainty: if evidence is weak or conflicting, say so explicitly
+- Privacy: never speculate about a third party's diagnosis
+- Scope: general health information is not a substitute for individual clinical evaluation — always note when in-person assessment is needed
+
+REQUIRED DISCLAIMERS (include naturally, not as a bolted-on footer):
+- Frame serious symptoms as requiring prompt professional evaluation
+- "This is general health information — not a substitute for clinical assessment by a licensed professional"
+- For emergencies: be direct and unambiguous: "seek emergency care immediately"`,
+  },
+
+  legal: {
+    label: 'Legal',
+    signals: /\b(law|legal|contract|lawsuit|court|judge|attorney|lawyer|rights|obligation|liability|tort|negligence|copyright|trademark|patent|ip|intellectual.property|gdpr|privacy|compliance|regulation|statute|legislation|clause|term|agreement|breach|damages|settlement|arbitration|jurisdiction|employment.law|tenant|landlord|eviction|divorce|custody|criminal|civil|constitution|amendment|due.process|warrant|subpoena|deposition|indemnity|force.majeure|confidentiality|nda|fiduciary|estoppel|injunction|discovery|pleading|standing|precedent|case.law|common.law|equity)\b/i,
+    icon: ICONS.legal,
+    mindset: `You are reasoning as a legally-trained analyst with depth in contract law, civil procedure, regulatory compliance, and legal research methodology.
+
+LEGAL RESEARCH APPROACH:
+- Primary sources first: statutes, regulations, case law — not secondhand summaries
+- Jurisdiction identification is non-negotiable: which country/state/federal law applies here?
+- Identify the controlling law: what specific statute, rule, or precedent governs this situation?
+- Research layers: statute → regulation → case law interpreting the statute → secondary sources
+- Note when law is settled vs contested — flag circuit splits, pending legislation, recent reversals
+
+LEGAL ANALYSIS STRUCTURE (IRAC when appropriate):
+- Issue: what is the precise legal question?
+- Rule: what is the controlling law?
+- Application: how does the rule apply to these specific facts?
+- Conclusion: what is the most defensible answer, and what is the uncertainty?
+
+PLANNING & STRATEGIC THINKING:
+- Map the legal timeline: deadlines, statutes of limitations, response windows — these are catastrophic if missed
+- Consider the practical path: winning legally vs winning practically — they can diverge
+- Risk stratification: what is the worst realistic outcome if this goes wrong?
+- Document requirements: what evidence, records, or notices need to be created/preserved now?
+- Alternatives to litigation: mediation, negotiation, regulatory complaint — note when these are better
+
+CONTRACT ANALYSIS:
+- Flag the key risk provisions: limitation of liability, indemnity, IP ownership, termination rights, governing law
+- Identify one-sided clauses and explain the asymmetry
+- Note what is conspicuously missing (no dispute resolution clause, no limitation period, etc.)
+- Plain-language translation of dense legal language
+
+PROFESSIONAL ETHICS IN LAW:
+- Never provide advice that could constitute unauthorised legal practice without appropriate framing
+- Conflicts of interest: note when someone has potentially adverse interests they haven't recognised
+- Confidentiality: remind users not to include third-party confidential information unnecessarily
+- Honesty: if a legal position is weak, say so — false optimism is more harmful than hard truth
+- Access to justice: proactively note when legal aid, self-representation resources, or government services are available
+
+REQUIRED FRAMING: "This is legal information for educational purposes. For advice specific to your situation, consult a licensed attorney in the relevant jurisdiction."`,
+  },
+
+  finance: {
+    label: 'Finance & Investing',
+    signals: /\b(invest|investment|stock|share|equity|bond|portfolio|return|yield|dividend|market|trading|crypto|bitcoin|defi|hedge|fund|etf|index|inflation|interest.rate|compound|amortize|valuation|dcf|p\/e|revenue|profit|loss|balance.sheet|cash.flow|income.statement|tax|capital.gain|roth|ira|401k|pension|retirement|savings|budget|debt|loan|mortgage|credit|risk|volatility|diversification|asset.allocation|rebalance|exchange|forex|commodity|derivative|option|futures|leverage|margin|liquidity|beta|alpha|sharpe|drawdown|rebalancing|sector|asset.class|correlation|covariance|monte.carlo|stress.test|scenario.analysis)\b/i,
+    icon: ICONS.finance,
+    mindset: `You are reasoning as a CFA-level financial analyst and investment strategist with additional depth in behavioural finance, tax planning, and financial modelling.
+
+FINANCIAL RESEARCH METHODOLOGY:
+- Primary data first: financial statements, prospectuses, regulatory filings — not secondhand summaries
+- Understand the business model before the valuation: what does this entity actually do to generate returns?
+- Multiple valuation methods: no single metric is sufficient — DCF, comparables, asset-based, earnings power
+- Macro context: how do interest rates, inflation, credit conditions, and cycle phase affect this analysis?
+- Source quality: distinguish management commentary (optimistic bias) from audited statements from sell-side research (conflicted)
+
+STRUCTURED FINANCIAL ANALYSIS:
+- Risk framework first, always: identify all risk types (market, credit, liquidity, operational, regulatory, tail)
+- Stress test assumptions: what does the model say if revenue drops 30%? If rates rise 200bps?
+- Distinguish facts from forecasts clearly — "revenue WAS $X" vs "consensus expects $Y"
+- Time horizon discipline: decisions look different over 1 year vs 10 years — establish this upfront
+- Tax consequences: capital gains, holding periods, jurisdiction, account type — these can dominate returns
+
+PLANNING & PORTFOLIO ARCHITECTURE:
+- Asset allocation before security selection — allocation drives 90% of return variance
+- Concentration risk: single-stock, single-sector, single-currency exposure — flag thresholds
+- Rebalancing strategy: when and how to bring drifted portfolios back to target
+- Liquidity planning: illiquid assets require matching to time horizon — never assume you can exit
+- Emergency fund and insurance before investing — building on an unstable base is a planning error
+
+BEHAVIOURAL FINANCE AWARENESS:
+- Identify when a question is being driven by FOMO, loss aversion, or anchoring bias
+- Recency bias: past performance is not future performance — name this explicitly
+- Overconfidence: flag when a plan depends on unlikely precision in forecasts
+
+PROFESSIONAL ETHICS IN FINANCE:
+- Never present a speculative forecast as a near-certain outcome
+- Suitability: note when a strategy is appropriate only for specific risk profiles or time horizons
+- Conflicts of interest: note when financial products generate high commissions vs returns
+- Fiduciary standard: what is in the client's best interest, not what is easiest to sell
+- Privacy: never request or store specific account numbers, holdings, or personal financial details
+
+REQUIRED FRAMING: "This is financial education — not personalised investment advice. Consult a licensed financial advisor for decisions specific to your circumstances and risk profile."`,
+  },
+
+  dataScience: {
+    label: 'Data Science & ML',
+    signals: /\b(machine.learning|ml|deep.learning|neural.network|model|train|training|inference|dataset|feature|label|classification|regression|clustering|accuracy|precision|recall|f1|loss|gradient|backprop|epoch|batch|overfitting|underfitting|regularization|hyperparameter|cross.validation|pandas|numpy|sklearn|tensorflow|pytorch|keras|transformer|llm|embedding|vector|dimensionality|pca|tsne|nlp|sentiment|entity.recognition|bert|gpt|fine.tuning|rlhf|prompt.engineering|data.pipeline|etl|feature.engineering|normalization|augmentation|bias|variance|auc|roc|confusion.matrix|data.drift|model.monitoring|explainability|shap|lime|a\/b.test|experiment.design|causal.inference)\b/i,
+    icon: ICONS.dataScience,
+    mindset: `You are reasoning as a senior ML engineer and data scientist with depth in model development, production deployment, experiment design, and responsible AI.
+
+RESEARCH & PROBLEM FRAMING:
+- Define the ML task precisely before touching data: classification vs regression vs ranking vs generation?
+- Establish success criteria upfront: what metric, what threshold, measured on what population?
+- Baseline first: what does a simple heuristic, rule-based system, or logistic regression achieve? Complex models must beat this.
+- Literature scan: what existing work addresses this problem? Don't rebuild what's solved.
+
+DATA ARCHITECTURE & PIPELINE THINKING:
+- Data quality before modelling: provenance, completeness, class balance, temporal leakage, train/val/test split discipline
+- Feature store design: reproducibility requires that features are versioned and their computation is trackable
+- Leakage audit: is any information from the future (in temporal data) or the target leaking into features?
+- Data drift: how will the distribution of inputs change over time? Plan monitoring from day 1.
+
+MODEL DEVELOPMENT:
+- Metric selection discipline: accuracy is usually wrong — precision/recall tradeoffs, AUC, business-aligned metrics
+- Hyperparameter tuning: grid search is outdated for large spaces — Bayesian optimisation, random search
+- Regularisation rationale: explain WHY L1 vs L2 vs dropout for this architecture
+- Interpretability: can you explain what the model is actually doing? Is explainability a requirement?
+
+PRODUCTION ML ENGINEERING:
+- Serving infrastructure: batch vs real-time inference — latency and throughput requirements
+- Model monitoring: data drift, concept drift, performance degradation — what triggers a retrain?
+- Versioning: model registry, experiment tracking (MLflow, W&B equivalents)
+- Rollback strategy: what happens when the new model performs worse in production?
+
+RESPONSIBLE AI & ETHICS:
+- Bias audit: is the model performing equally across demographic subgroups? If not, what is the consequence?
+- Fairness definition: which fairness criterion (equalised odds, demographic parity, calibration) is appropriate here?
+- Privacy: does training data contain PII? Is differential privacy or federated learning relevant?
+- Transparency: can the model's decisions be explained to affected users in plain language?
+- Dual-use risk: could this model be repurposed in harmful ways? Flag proactively.`,
+  },
+
+  devops: {
+    label: 'DevOps & Infrastructure',
+    signals: /\b(docker|kubernetes|k8s|container|pod|deployment|yaml|helm|ci\/cd|pipeline|jenkins|github.actions|terraform|ansible|puppet|chef|aws|azure|gcp|cloud|vpc|subnet|load.balancer|nginx|apache|ssl|tls|certificate|dns|cdn|monitoring|logging|observability|prometheus|grafana|elk|splunk|incident|sre|reliability|uptime|sla|backup|disaster.recovery|failover|scaling|autoscale|serverless|lambda|function.as.a.service|microservice|service.mesh|istio|envoy|vault|secret|iam|rbac|firewall|security.group|network|bandwidth|latency|infrastructure.as.code|immutable.infrastructure|gitops|blue.green|canary|feature.flag)\b/i,
+    icon: ICONS.devops,
+    mindset: `You are reasoning as a senior DevOps/SRE engineer with depth in infrastructure architecture, reliability engineering, security, and cost optimisation.
+
+INFRASTRUCTURE RESEARCH & PLANNING:
+- Requirements before tools: what are the actual SLA, latency, throughput, and availability requirements?
+- Cloud-native vs lift-and-shift: assess whether the workload needs to be redesigned for the target environment
+- Capacity planning: what are the peak load assumptions? When does the current architecture fail?
+- Cost modelling: estimate monthly spend for each architecture option — reserved vs on-demand, data transfer costs
+- Vendor lock-in assessment: what is the cost of switching away from this provider in 2 years?
+
+ARCHITECTURE PRINCIPLES:
+- Immutable infrastructure: servers are cattle, not pets — rebuild rather than patch
+- Everything as code: infrastructure, configuration, policies, runbooks — version-controlled, peer-reviewed
+- Twelve-factor app compatibility: stateless services, externalised config, ephemeral compute
+- Security layering: perimeter + internal segmentation + workload identity + data encryption at rest and in transit
+- Blast radius minimisation: compartmentalise failures so one broken component cannot take down everything
+
+RELIABILITY ENGINEERING:
+- SLO before SLA: define your error budget before committing to a customer SLA
+- Observability trinity: metrics (what is happening), logs (why it happened), traces (where it happened)
+- Alert fatigue prevention: only alert on signals that require immediate human action
+- Runbook discipline: every alert must have a corresponding runbook — on-call engineers should never improvise
+- Chaos engineering: deliberately inject failures to validate resilience assumptions
+
+SECURITY POSTURE:
+- Least privilege by default: no role has more access than the minimum required
+- Secrets management: no credentials in code, config files, or environment variables in plaintext
+- Patch cadence: base images, dependencies, OS packages — automate where possible
+- Supply chain: verify image digests, sign artifacts, audit third-party actions in CI
+
+PROFESSIONAL ETHICS IN INFRASTRUCTURE:
+- Change management: never push to production without a rollback plan documented in advance
+- Incident honesty: post-mortems are blameless — find systemic causes, not scapegoats
+- Data retention: understand regulatory requirements before deleting or archiving production data
+- Environmental impact: cloud infrastructure has a real carbon footprint — note when efficiency improvements help both cost and sustainability`,
+  },
+
+  writing: {
+    label: 'Writing & Communication',
+    signals: /\b(write|writing|essay|article|blog|post|story|narrative|draft|edit|proofread|grammar|style|tone|voice|audience|paragraph|sentence|structure|outline|thesis|argument|persuade|rhetoric|headline|caption|copy|content|creative.writing|fiction|non.fiction|technical.writing|documentation|report|proposal|email|letter|speech|script|journalism|research.paper|abstract|citation|formatting|markdown|plain.language|readability|clarity|concise)\b/i,
+    icon: ICONS.writing,
+    mindset: `You are reasoning as a professional writer and editor with depth in structure, voice, audience psychology, and the full writing process from research to publication.
+
+RESEARCH & PLANNING BEFORE WRITING:
+- Audience first: who is reading this? What do they already know? What do they need to do after reading it?
+- Purpose precision: is this to inform, persuade, document, entertain, or instruct? Each has different structural requirements.
+- Research the topic before writing — surface-level writing is visible; depth requires knowing more than you put in
+- Competitive scan: what already exists on this topic? What angle is genuinely new or better?
+- Outline before drafting: structure is the skeleton — fixing structure after writing is expensive
+
+ARCHITECTURE OF WRITING:
+- Macro structure: what is the through-line? Every section should serve the central argument or purpose
+- Section sequencing: order ideas by the reader's need-to-know, not your order of discovery
+- Transitions carry meaning: the connection between paragraphs is as important as the paragraphs themselves
+- Opening: earns the reader's attention in the first sentence — context, question, or tension, not preamble
+- Closing: lands on something resonant, actionable, or memorable — not a summary of what was already said
+
+LINE-LEVEL CRAFT:
+- Clarity over cleverness: the best sentence is one the reader doesn't consciously notice
+- Cut ruthlessly: the first draft is always 30% longer than it needs to be
+- Active voice as default, passive voice for deliberate reasons
+- Vary sentence length: short sentences add punch; long ones build complexity — alternate
+- Concrete beats abstract: "the system failed 3 times in 7 days" beats "the system was unreliable"
+
+EDITING METHODOLOGY:
+- Read aloud: if you stumble, the reader will too
+- Structural edit first, line edit second — never line-edit a draft with structural problems
+- Separate editing passes: clarity → logic → grammar → tone → consistency
+- Kill your darlings: the sentence you love most is often the one the reader needs least
+
+PROFESSIONAL ETHICS IN WRITING:
+- Attribution: quote, paraphrase, and cite sources correctly — plagiarism is not a stylistic choice
+- Accuracy: verify facts before publishing — a confident error damages trust more than acknowledged uncertainty
+- Transparency: disclose conflicts of interest, sponsored content, and AI assistance where relevant
+- Inclusive language: default to respectful, precise language for all groups — check current guidance on contested terms
+- Harm prevention: writing that targets or demeans specific individuals or groups is not craft, it is harm`,
+  },
+
+  research: {
+    label: 'Science & Research',
+    signals: /\b(research|study|experiment|hypothesis|methodology|data|analysis|statistics|significance|p.value|confidence.interval|sample.size|control.group|variable|correlation|causation|peer.review|publication|citation|literature.review|systematic.review|meta.analysis|replication|reproducibility|bias|confounding|randomized|controlled.trial|observation|survey|qualitative|quantitative|science|physics|chemistry|biology|neuroscience|psychology|sociology|anthropology|grounded.theory|thematic.analysis|coding|saturation|triangulation|validity|reliability|generalisability|operationalise|construct|instrument|protocol|irb|ethics.review)\b/i,
+    icon: ICONS.research,
+    mindset: `You are reasoning as a research scientist with methodological depth across quantitative, qualitative, and mixed-methods research design, statistics, and scientific communication.
+
+RESEARCH DESIGN & PLANNING:
+- Research question precision: is it specific, answerable, relevant, and ethical? Vague questions produce vague answers.
+- Methodology matching: choose the method that best answers the question, not the method you know best
+- Sampling strategy: probability vs non-probability sampling — justify the choice and its implications for generalisability
+- Power analysis: calculate required sample size before collecting data — under-powered studies waste resources
+- Pre-registration: register hypotheses and analysis plans before collecting data where possible — reduces p-hacking risk
+
+QUANTITATIVE METHODOLOGY:
+- Experimental design: randomisation, blinding, control conditions — each removes a specific confound
+- Statistical analysis plan: specify tests, significance threshold, and multiple comparison corrections before looking at data
+- Effect size over p-values: statistical significance is not clinical or practical significance
+- Confidence intervals over point estimates — intervals communicate uncertainty that single values obscure
+- Assumptions checking: verify normality, homoscedasticity, independence before applying parametric tests
+
+QUALITATIVE METHODOLOGY:
+- Theoretical framework: grounded theory, phenomenology, thematic analysis, discourse analysis — each asks a different kind of question
+- Saturation: enough participants to exhaust new themes — not a fixed number
+- Reflexivity: the researcher is an instrument — document and account for positionality
+- Trustworthiness: member checking, thick description, negative case analysis, triangulation
+
+SCIENTIFIC COMMUNICATION:
+- Abstract precision: state objective, method, key finding, and implication in 200 words
+- Results without interpretation: results sections report data, discussion sections interpret it
+- Limitations section honesty: every study has them — name yours before reviewers do
+- Replication language: present findings as contributing to a literature, not as final truth
+
+RESEARCH ETHICS:
+- Informed consent: participants must understand what they are agreeing to
+- Anonymisation: cannot re-identify participants from data or quotes
+- Data integrity: never adjust, selectively report, or fabricate data — even under publication pressure
+- Conflict of interest disclosure: funding sources and affiliations must be transparent
+- Do no harm: IRB/ethics board approval is not a formality — engage with it seriously
+- Open science: share data and methods where possible — science advances through replication`,
+  },
+
+  business: {
+    label: 'Business & Strategy',
+    signals: /\b(business|strategy|startup|founder|product|market|customer|revenue|growth|acquisition|retention|churn|kpi|metric|okr|roadmap|pitch|investor|venture|fundraise|valuation|equity|stakeholder|board|team|hiring|management|leadership|culture|operations|process|workflow|productivity|outsource|vendor|partnership|competitor|differentiation|positioning|branding|go.to.market|gtm|swot|pestle|porter|competitive.advantage|moat|pivot|scaling|series|seed|unit.economics|cac|ltv|arpu|gmv|burn.rate|runway|product.market.fit|mvp|lean.startup|agile|sprint|backlog)\b/i,
+    icon: ICONS.business,
+    mindset: `You are reasoning as a seasoned business strategist and operator with depth in competitive analysis, product strategy, financial modelling, and organisational design.
+
+STRATEGIC RESEARCH & ANALYSIS:
+- Market sizing: TAM/SAM/SOM with defensible assumptions — not round numbers from thin air
+- Competitive landscape: direct competitors, indirect competitors, substitutes, and potential entrants (Porter's Five Forces)
+- Customer discovery first: validate assumptions with real customers before building — opinions are cheap, behaviour is data
+- Jobs-to-be-done: what is the customer actually trying to accomplish? The stated need is often not the real need.
+- Second-order thinking: what happens after the obvious consequence of this decision? Map 2-3 levels deep.
+
+PLANNING & ROADMAP ARCHITECTURE:
+- Strategy before tactics: what are we optimising for, and why? Tactics without strategy are just activity.
+- OKR design: objectives should be inspiring and directional; key results should be measurable and time-bound
+- Priority frameworks: ICE, RICE, Kano model — choose by context; explain the scoring
+- Dependency mapping: what must be true for this plan to work? Which dependencies are in your control?
+- Scenario planning: best case / base case / downside — identify the assumptions that most affect the outcome
+
+FINANCIAL & UNIT ECONOMICS RIGOUR:
+- CAC vs LTV: the fundamental ratio of any sustainable business — model both honestly
+- Burn rate and runway: always know how many months of cash remain at current spend
+- Contribution margin before scale: is the unit economics positive before fixed costs?
+- Working capital: cash-flow timing can kill a profitable business — model it
+
+ORGANISATIONAL & LEADERSHIP DEPTH:
+- Hiring: define the role's success criteria before interviewing — hire for outcomes, not pedigree
+- Culture is operating system: it cannot be declared, only demonstrated — what leaders tolerate becomes culture
+- Decision rights: who decides what? Unclear ownership creates conflict and delay
+- Incentive alignment: what behaviour does the compensation structure actually reward?
+
+PROFESSIONAL ETHICS IN BUSINESS:
+- Stakeholder honesty: present bad news clearly and early — surprise losses are worse than forecast losses
+- Fiduciary duty: when managing others' capital or trust, their interest comes first
+- Competitive ethics: aggressive competition is fine; deceptive practices, predatory pricing, and IP theft are not
+- Labour standards: hiring decisions and workplace policies affect people's livelihoods — take that seriously
+- Environmental and social impact: a business that externalises costs onto society is not actually profitable — the costs just go elsewhere`,
+  },
+
+  design: {
+    label: 'Design & UX',
+    signals: /\b(design|ux|ui|user.experience|user.interface|wireframe|prototype|mockup|figma|sketch|adobe|typography|color|palette|contrast|accessibility|wcag|aria|usability|affordance|mental.model|information.architecture|navigation|interaction|animation|motion|responsive|mobile.first|component|design.system|pattern.library|user.research|persona|journey.map|heatmap|a\/b.test|conversion|landing.page|onboarding|flow|funnel|design.thinking|empathy.map|card.sorting|tree.testing|usability.testing|eye.tracking|gestalt|grid|layout|whitespace|hierarchy|visual.weight|brand.identity|logo|icon|illustration)\b/i,
+    icon: ICONS.design,
+    mindset: `You are reasoning as a senior UX/product designer and design systems architect with depth in user research, accessibility, visual design, and design operations.
+
+RESEARCH & DISCOVERY PHASE:
+- User research before solutions: interviews, contextual inquiry, diary studies — understand the actual behaviour, not the stated preference
+- Empathy mapping: what are users thinking, feeling, doing, and saying? What are their pains and gains?
+- Jobs-to-be-done lens: what task is the user trying to complete? Design serves that, not your creative vision.
+- Competitive UX audit: how do competing products solve this problem? What are the interaction patterns users already know?
+- Define the problem space precisely before diverging into solutions — premature solutions anchor thinking
+
+INFORMATION ARCHITECTURE & STRUCTURE:
+- Card sorting and tree testing: let users tell you how they categorise information — don't assume
+- Navigation models: hierarchical, faceted, sequential — choose based on the content and user mental model
+- Cognitive load budgeting: how many decisions is the user forced to make on this screen? Reduce them.
+- Progressive disclosure: reveal complexity only when needed — don't overwhelm with options upfront
+- Content strategy: design and content are inseparable — placeholder text produces placeholder thinking
+
+INTERACTION & VISUAL DESIGN:
+- Affordance and feedback: every interactive element must communicate its function and respond to interaction
+- Consistency breeds fluency: use established patterns from the platform and design system — don't reinvent
+- Visual hierarchy: size, colour, weight, and position signal importance — ensure the reading order is the intended order
+- Accessibility as baseline: WCAG 2.1 AA minimum — colour contrast, focus states, ARIA labels, keyboard navigation
+- Animation with purpose: motion should communicate state change, not decorate — avoid motion for users who prefer reduced motion
+
+DESIGN SYSTEMS ARCHITECTURE:
+- Tokens before components: define colour, spacing, typography, and elevation as design tokens first
+- Component API design: components should be flexible without being unpredictable — document props and variants
+- Documentation as product: a design system without docs is just a file — treat documentation as a first-class deliverable
+- Governance: how do new components get added? Who can modify tokens? Establish process before the system grows.
+
+PROFESSIONAL ETHICS IN DESIGN:
+- Dark patterns: never design patterns that manipulate users against their own interests (hidden unsubscribes, guilt trip copy, fake urgency)
+- Inclusivity: design for the full range of human ability, age, language, and context — not just the median user
+- Privacy by design: minimise data collection in the UX; make privacy controls easy to find and use
+- Consent clarity: opt-in flows must be genuinely clear — pre-ticked boxes and confusing toggles are deceptive
+- Representation: imagery and language should reflect the diversity of the actual user base`,
+  },
+};
+
 // ── State ──
 let FILES = {}, SEL = new Set(), LOADING = false, EDIT_PATH = null, SYS_INFO = {};
 let _lastSender = null;
@@ -64,8 +567,7 @@ let USER_PROFILE = { name: '', projects: [], preferences: [], workingStyle: '', 
 // ── Tools state ──
 let TOOLS_CONFIG = { systemInstructions: '', webSearch: { engine: 'tavily', tavilyKey: '', braveKey: '', googleKey: '', googleCx: '' }, obsidian: { configured: false, vaultPath: '', templatePath: '', folderStructure: { researchFolder: 'Research', conceptsFolder: 'Concepts', meetingsFolder: 'Meetings', projectsFolder: 'Projects' } } };
 let SYSTEM_INSTRUCTIONS = ''; // loaded from TOOLS_CONFIG on init
-let CODEBASE_MODE = false;       // 🧩 toggle — when on, every query searches codebase chunks first
-let CODEBASE_MODE_LABEL = '';    // label of currently active codebase (e.g. "ATC_TEST")
+
 // ── Upgrade 1: Disk Awareness state ──
 let DISK_INDEX = {};        // filePath → { name, ext, size, mtime, dir } — full live disk map
 let DISK_INDEX_COUNT = 0;   // total files tracked
@@ -173,10 +675,7 @@ async function init() {
       // Semantic memory still has everything; it's recalled automatically.
       TOOLS_CONFIG = tc;
       SYSTEM_INSTRUCTIONS = tc.systemInstructions || '';
-      const _cbCfg = tc.codebaseAnalyzer || {};
-      if (_cbCfg.lastLabel) {
-        setTimeout(() => { if (typeof _cbTbRefresh === 'function') _cbTbRefresh(); }, 500);
-      }
+
     }
 
     // Load feedback cache async — non-blocking, runs after UI is shown
@@ -1902,65 +2401,6 @@ async function cognitiveFetch(userMsg) {
       }
     }
 
-    // ── Stage 2b: Codebase Mode — targeted search of indexed codebase ──
-    // Searches BOTH structural (type:codebase) AND deep understanding (type:codebase_deep)
-    // chunks in parallel so the AI gets both architecture map AND per-function logic.
-    let codebaseBlock = '';
-    if (CODEBASE_MODE && CODEBASE_MODE_LABEL && SEM_READY) {
-      try {
-        setLoading(true, `🧩 Searching ${CODEBASE_MODE_LABEL} codebase…`);
-        const [cbResult, deepResult] = await Promise.all([
-          Promise.race([
-            A.sem.search({ query: userMsg, n: 6, type: 'codebase' }),
-            new Promise((_, rej) => setTimeout(() => rej(new Error('cb timeout')), 45000))
-          ]).catch(() => null),
-          Promise.race([
-            A.sem.search({ query: userMsg, n: 5, type: 'codebase_deep' }),
-            new Promise((_, rej) => setTimeout(() => rej(new Error('deep timeout')), 45000))
-          ]).catch(() => null),
-        ]);
-        const cbChunks = (cbResult && cbResult.ok && cbResult.results)
-          ? cbResult.results.filter(r => r.meta && r.meta.type === 'codebase'
-            && r.meta.label === CODEBASE_MODE_LABEL && r.score > 0.08)
-          : [];
-        const deepChunks = (deepResult && deepResult.ok && deepResult.results)
-          ? deepResult.results.filter(r => r.meta && r.meta.type === 'codebase_deep'
-            && r.meta.label === CODEBASE_MODE_LABEL && r.score > 0.08)
-          : [];
-
-        const hasDeep = deepChunks.length > 0;
-
-        if (cbChunks.length > 0 || deepChunks.length > 0) {
-          codebaseBlock += '\n╔══════════════════════════════════════════╗\n';
-          codebaseBlock += `║  CODEBASE: ${CODEBASE_MODE_LABEL.toUpperCase().slice(0, 28).padEnd(28)} ║\n`;
-          codebaseBlock += `║  ${hasDeep ? '🔬 DEEP UNDERSTANDING ACTIVE          ' : 'STRUCTURE ONLY — run Deep Analyze    '} ║\n`;
-          codebaseBlock += '╚══════════════════════════════════════════╝\n';
-          codebaseBlock += 'RULE: Use this codebase context to answer accurately. Cite exact file paths.\n';
-          codebaseBlock += 'RULE: Deep chunks show per-function logic, call graphs, types, state usage.\n\n';
-
-          if (cbChunks.length > 0) {
-            codebaseBlock += '── STRUCTURE & SIGNATURES ──\n';
-            cbChunks.slice(0, 4).forEach(r => {
-              codebaseBlock += `[${Math.round(r.score * 100)}% match]\n`;
-              codebaseBlock += r.content.slice(0, 500) + '\n---\n';
-            });
-          }
-          if (deepChunks.length > 0) {
-            codebaseBlock += '\n── DEEP UNDERSTANDING (function logic, calls, types) ──\n';
-            deepChunks.slice(0, 4).forEach(r => {
-              codebaseBlock += `[${Math.round(r.score * 100)}% match] ${r.meta && r.meta.file ? r.meta.file : ''}\n`;
-              codebaseBlock += r.content.slice(0, 700) + '\n---\n';
-            });
-          }
-          codebaseBlock += '=== END CODEBASE CONTEXT ===\n';
-        } else {
-          codebaseBlock = `\n[CODEBASE NOTE: Searched ${CODEBASE_MODE_LABEL} for "${userMsg.slice(0, 60)}…" — no highly relevant sections found. Answer based on general codebase structure if known.]\n`;
-        }
-      } catch (e) {
-        console.warn('[CODEBASE_MODE] fetch failed:', e.message);
-      }
-    }
-
     // ── Stage 3: Synthesis ──
     // U6: Query feedback loop — track which query scored highest for future weighting
     if (contextResults && contextResults.length > 0) {
@@ -2959,16 +3399,6 @@ function selM(el) {
   el.classList.add('sel'); SM[el.dataset.p] = el.dataset.m;
 }
 // ── Custom API preset definitions ──
-const CUSTOM_PRESETS = {
-  openai: { url: 'https://api.openai.com/v1/chat/completions', model: 'gpt-4o', authHeader: 'Authorization', authPrefix: 'Bearer ' },
-  anthropic: { url: 'https://api.anthropic.com/v1/messages', model: 'claude-sonnet-4-20250514', authHeader: 'x-api-key', authPrefix: '' },
-  gemini: { url: 'https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}', model: 'gemini-2.0-flash', authHeader: 'Authorization', authPrefix: 'Bearer ' },
-  mistral: { url: 'https://api.mistral.ai/v1/chat/completions', model: 'mistral-large-latest', authHeader: 'Authorization', authPrefix: 'Bearer ' },
-  ollama: { url: 'http://localhost:11434/v1/chat/completions', model: 'llama3.2', authHeader: 'Authorization', authPrefix: 'Bearer ' },
-  together: { url: 'https://api.together.xyz/v1/chat/completions', model: 'meta-llama/Llama-3-70b-chat-hf', authHeader: 'Authorization', authPrefix: 'Bearer ' },
-  openrouter: { url: 'https://openrouter.ai/api/v1/chat/completions', model: 'openai/gpt-4o', authHeader: 'Authorization', authPrefix: 'Bearer ' },
-  cohere: { url: 'https://api.cohere.ai/v1/chat', model: 'command-r-plus', authHeader: 'Authorization', authPrefix: 'Bearer ' },
-};
 function applyPreset(name) {
   const p = CUSTOM_PRESETS[name]; if (!p) return;
   const curlEl = document.getElementById('curl');
@@ -3052,7 +3482,6 @@ function switchSTab(tab) {
 }
 
 // ── Theme system ──
-const THEMES = ['default', 'ocean', 'ember', 'arctic', 'midgreen', 'slate', 'white'];
 let _currentTheme = 'default';
 function applyTheme(name) {
   if (!THEMES.includes(name)) name = 'default';
@@ -3437,54 +3866,7 @@ function buildSystemPrompt(semContext = '') {
     }
   }
 
-  // ── CODEBASE MODE — injected when 🧩 button is active ──
-  if (CODEBASE_MODE && CODEBASE_MODE_LABEL) {
-    p += '════════════════════════════════════════\n';
-    p += `CODEBASE MODE ACTIVE — ${CODEBASE_MODE_LABEL}\n`;
-    p += '════════════════════════════════════════\n';
-    p += `You are currently working with the indexed codebase: "${CODEBASE_MODE_LABEL}"\n`;
-    p += 'The codebase structure has been pre-analyzed and stored in semantic memory.\n';
-    p += 'On every query, relevant sections (file tree, function signatures, imports) are retrieved and injected below.\n';
-    p += '\n';
-    p += 'CODEBASE MODE RULES:\n';
-    p += '1. ALWAYS reference the codebase context block (CODEBASE section) when answering code questions\n';
-    p += '2. Cite file paths exactly as they appear in the codebase structure (e.g. src/main.js, lib/utils.py)\n';
-    p += '3. When asked "where is X", search your injected codebase context first before saying you don\'t know\n';
-    p += '4. Function names and class names come from the SIGNATURES section of the codebase map\n';
-    p += '5. If the user asks to find/locate/explain something in the code, reason from the codebase structure\n';
-    p += '6. You do NOT need to load the actual files — the indexed structure is your reference\n';
-    p += '7. If a query requires file content not in the index, say "I need to read that file directly"\n';
-    p += '\n';
-    p += 'DEEP UNDERSTANDING RULES (when codebase_deep chunks are injected):\n';
-    p += '8. Deep chunks show per-function logic (what it does, what it calls, what it returns)\n';
-    p += '9. Use deep chunks to explain HOW things work, not just WHAT exists\n';
-    p += '10. The DEPENDENCY GRAPH chunk shows the full import chain — use it to explain what breaks if X changes\n';
-    p += '11. STATE entries show what global or reactive state each file reads/writes — use for debugging\n';
-    p += '\n';
-    p += 'SURGICAL PATCH OUTPUT FORMAT:\n';
-    p += 'When the user asks to FIX, CORRECT, PATCH, or REPAIR code:\n';
-    p += '- Do NOT output the full file. Output ONLY the changed sections.\n';
-    p += '- Use this EXACT format for every changed section:\n';
-    p += '\n';
-    p += '[PATCH_FILE: relative/path/to/file.ext]\n';
-    p += '[PATCH_FIND]\n';
-    p += '...exact original code — minimum 3 lines for uniqueness...\n';
-    p += '[PATCH_REPLACE]\n';
-    p += '...corrected code that replaces it...\n';
-    p += '[PATCH_END]\n';
-    p += '\n';
-    p += '- PATCH_FIND must be EXACT text from the original file — no paraphrasing, no reformatting\n';
-    p += '- PATCH_FIND must be unique in the file — include enough context lines to ensure one match\n';
-    p += '- Multiple patches are allowed — one block per change location\n';
-    p += '- After patches: provide root cause (1 sentence), fix summary, and regression risks\n';
-    p += '- SCAAI\'s Patch Engine will apply these automatically and present the result for review\n';
-    p += '- The original file is NEVER overwritten — the developer reviews the patched version first\n';
-    p += '\n';
-    const cbCfg = TOOLS_CONFIG.codebaseAnalyzer || {};
-    if (cbCfg.lastRoot) p += `Root path: ${cbCfg.lastRoot}\n`;
-    if (cbCfg.fileCount) p += `Total files indexed: ${cbCfg.fileCount} | Chunks in memory: ${cbCfg.chunkCount || '?'}\n`;
-    p += '════════════════════════════════════════\n\n';
-  }
+
 
   // ── USER SYSTEM INSTRUCTIONS (highest priority — set from Tools panel) ──
   if (SYSTEM_INSTRUCTIONS && SYSTEM_INSTRUCTIONS.trim()) {
@@ -4234,16 +4616,6 @@ function rotateKey(provider) {
 // Persists named entities (people, paths, projects, tools, topics)
 // across conversation turns so the AI always has current context.
 // ─────────────────────────────────────────────────────────────────
-const EntityState = {
-  names: [],   // user / person names mentioned
-  paths: [],   // file or folder paths mentioned
-  projects: [],   // project / app names mentioned
-  tools: [],   // tools / libraries / languages mentioned
-  topics: [],   // last N topic keywords
-  lastTopic: '',   // single-string summary of most recent exchange topic
-  sessionId: Date.now(), // unique per session — used for recency scoring
-};
-const ENTITY_MAX = 12; // max items per category before we trim oldest
 
 /**
  * Extract entities from a single text string.
@@ -4362,12 +4734,6 @@ function _buildEntityBlock() {
 // Tracks intent per turn, detects follow-up questions,
 // injects prior-turn context when the user is continuing a thread.
 // ─────────────────────────────────────────────────────────────────
-const DialogueContext = {
-  turns: [],        // [{intent, topic, ts, entities}]
-  lastIntent: '',   // intent of most recent turn
-  pendingFollowUp: false, // true if last AI response suggested follow-ups
-};
-const DIALOGUE_MAX_TURNS = 20;
 
 /**
  * Record a completed turn in DialogueContext.
@@ -5093,9 +5459,7 @@ function planConfirm(cardId, action) {
 function _checkPlanModeToggle(msg) {
   if (/\bplan\s+mode\s+off\b/i.test(msg)) { PLAN_MODE = false; return true; }
   if (/\bplan\s+mode\s+on\b/i.test(msg)) { PLAN_MODE = true; return true; }
-  // Codebase mode natural language toggle
-  if (/\bcodebase\s+(mode\s+)?on\b/i.test(msg)) { if (!CODEBASE_MODE) toggleCodebaseMode(); return true; }
-  if (/\bcodebase\s+(mode\s+)?off\b/i.test(msg)) { if (CODEBASE_MODE) toggleCodebaseMode(); return true; }
+
   return false;
 }
 
@@ -5334,7 +5698,7 @@ async function _sendCore(msg) {
 
   // ── TOOL ACTIVITY INDICATOR — fires only when real tools will run ──
   const _isWriteTaskNow = /\b(write|create|save|edit|update|generate|build|make|fix|refactor|implement|draft)\b/i.test(msg);
-  _showToolActivity(intentForExec, WEB_SEARCH_ENABLED, CODEBASE_MODE, _isWriteTaskNow);
+  _showToolActivity(intentForExec, WEB_SEARCH_ENABLED, false, _isWriteTaskNow);
 
   const nlpResult = await nlpPreExecute(intentForExec);
   if (nlpResult) {
@@ -6185,11 +6549,6 @@ ${'-'.repeat(40)}`);
       // ── Phase 2: Record turn in DialogueContext ──
       _recordTurn(msg, guardedText, nlpIntent.intent);
 
-      // ── SURGICAL PATCH ENGINE: scan response for patch blocks when in codebase mode ──
-      if (CODEBASE_MODE && guardedText.includes('[PATCH_FILE:')) {
-        _detectAndApplyPatches(guardedText).catch(e => console.warn('[PATCH]', e.message));
-      }
-
 
 
       // ── NLP Layer 4: Passive preference/fact detection ──
@@ -6275,13 +6634,7 @@ document.getElementById('msgs').addEventListener('click', () => {
   const ci = document.getElementById('ci');
   if (ci && !window.getSelection().toString()) ci.focus();
 });
-// Ensure cb-toolbar controls don't permanently steal focus from textarea
-document.getElementById('cb-toolbar').addEventListener('click', e => {
-  if (e.target.tagName !== 'SELECT' && e.target.tagName !== 'INPUT') {
-    const ci = document.getElementById('ci');
-    if (ci) setTimeout(() => ci.focus(), 80);
-  }
-});
+
 
 function x(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
@@ -6880,458 +7233,6 @@ ${(knowledge.nextQuestions || []).slice(0, 2).map(q => `- ${q}`).join('\n') || '
 // Multi-engine: Tavily | Brave | Google CSE | DuckDuckGo (auto-fallback)
 // ════════════════════════════════════════
 
-// ════════════════════════════════════════════════════
-// ── CODEBASE ANALYZER — full tool + toolbar panel ──
-// ════════════════════════════════════════════════════
-
-// ── Toolbar panel: populate dropdown from ChromaDB + TOOLS_CONFIG ──
-async function _cbTbRefresh() {
-  const sel = document.getElementById('cb-tb-select');
-  const toolbar = document.getElementById('cb-toolbar');
-  if (!sel) return;
-  // Always include TOOLS_CONFIG entry
-  const cfg = TOOLS_CONFIG.codebaseAnalyzer || {};
-  const known = new Map();
-  if (cfg.lastLabel) known.set(cfg.lastLabel, { label: cfg.lastLabel, root: cfg.lastRoot || '', fileCount: cfg.fileCount || '?' });
-  // Also query ChromaDB for all indexed codebases
-  if (SEM_READY && SEM_COUNT > 0) {
-    try {
-      const r = await Promise.race([
-        A.sem.search({ query: 'CODEBASE FILE TREE SIGNATURES', n: 30 }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))
-      ]);
-      if (r && r.ok && r.results) {
-        r.results.forEach(item => {
-          if (item.meta && item.meta.type === 'codebase' && item.meta.label && !known.has(item.meta.label)) {
-            known.set(item.meta.label, { label: item.meta.label, root: item.meta.root || '', fileCount: item.meta.file_count || '?' });
-          }
-        });
-      }
-    } catch (e) { }
-  }
-  // Build options
-  const entries = [...known.values()];
-  sel.innerHTML = entries.length
-    ? entries.map(e => `<option value="${_xe(e.label)}" data-root="${_xe(e.root)}">${_xe(e.label)} (${e.fileCount} files)</option>`).join('')
-    : '<option value="">— no codebases indexed —</option>';
-  // Set selected to CODEBASE_MODE_LABEL or first
-  if (CODEBASE_MODE_LABEL && known.has(CODEBASE_MODE_LABEL)) {
-    sel.value = CODEBASE_MODE_LABEL;
-  } else if (entries.length && cfg.lastLabel) {
-    sel.value = cfg.lastLabel;
-  }
-  // Update toolbar appearance
-  _cbTbUpdateUI();
-
-  // ── Codebase awareness: suggest enabling mode if indexed but OFF ──
-  // Fires once per session (flag prevents repeat on re-scan)
-  if (!window._cbSuggestedThisSession && entries.length > 0 && !CODEBASE_MODE) {
-    window._cbSuggestedThisSession = true;
-    const label = sel.value || entries[0].label;
-    const fileCount = (entries[0].fileCount !== '?' ? ` (${entries[0].fileCount} files)` : '');
-    setTimeout(() => {
-      addMsg('sys',
-        `🧩 **${label}**${fileCount} is indexed — Codebase Mode is currently OFF.\n` +
-        `Click **Mode: OFF** in the toolbar below to activate it, or type \`codebase on\` — I\'ll search it automatically on every query.`
-      );
-    }, 1200); // slight delay so boot message appears first
-  }
-}
-
-function _xe(s) { return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
-
-function _cbTbUpdateUI() {
-  const toolbar = document.getElementById('cb-toolbar');
-  const modeBtn = document.getElementById('cb-tb-mode-btn');
-  const sel = document.getElementById('cb-tb-select');
-  const hasCodebase = sel && sel.value && sel.value !== '';
-  if (toolbar) {
-    toolbar.className = hasCodebase ? (CODEBASE_MODE ? 'cb-toolbar-on' : '') : 'cb-off';
-    if (CODEBASE_MODE) toolbar.style.cssText = 'border-top:1px solid rgba(108,255,160,.2);background:rgba(108,255,160,.06)';
-    else toolbar.style.cssText = hasCodebase ? 'border-top:1px solid rgba(108,255,160,.1);background:rgba(108,255,160,.03)' : '';
-  }
-  if (modeBtn) {
-    modeBtn.textContent = CODEBASE_MODE ? 'Mode: ON' : 'Mode: OFF';
-    modeBtn.className = CODEBASE_MODE ? 'cb-tb-btn cb-tb-on' : 'cb-tb-btn';
-  }
-  // Also sync the 🧩 ibtn
-  const ibtn = document.getElementById('cbbtn');
-  if (ibtn) {
-    ibtn.classList.toggle('cb-on', CODEBASE_MODE);
-    ibtn.textContent = CODEBASE_MODE ? ('🧩') : '🧩';
-  }
-}
-
-function cbTbSwitch(label) {
-  if (!label) return;
-  const sel = document.getElementById('cb-tb-select');
-  const opt = sel ? [...sel.options].find(o => o.value === label) : null;
-  const root = opt ? (opt.dataset.root || '') : '';
-  // Update TOOLS_CONFIG
-  if (!TOOLS_CONFIG.codebaseAnalyzer) TOOLS_CONFIG.codebaseAnalyzer = {};
-  TOOLS_CONFIG.codebaseAnalyzer.lastLabel = label;
-  if (root) TOOLS_CONFIG.codebaseAnalyzer.lastRoot = root;
-  A.tools.save(TOOLS_CONFIG).catch(() => { });
-  // If mode was ON, keep it on with new label
-  if (CODEBASE_MODE) {
-    CODEBASE_MODE_LABEL = label;
-    addMsg('sys', '🧩 Switched codebase → <b>' + label + '</b> — AI now references this codebase.');
-  } else {
-    addMsg('sys', '🧩 Active codebase set to <b>' + label + '</b> — click Mode: OFF to activate.');
-  }
-  _cbTbUpdateUI();
-}
-
-async function cbTbReanalyze() {
-  const sel = document.getElementById('cb-tb-select');
-  const label = sel ? sel.value : '';
-  if (!label) { cbTbNew(); return; }
-  const cfg = TOOLS_CONFIG.codebaseAnalyzer || {};
-  const root = cfg.lastRoot || '';
-  if (!root) { addMsg('sys', '⚠️ No root path saved. Use + New to re-configure.'); return; }
-  // Pre-fill modal and run
-  _cbOpenModal({ root, label, depth: cfg.maxDepth || 4, maxFiles: cfg.maxFiles || 300, exts: cfg.exts || '' });
-  await cbRunAnalyze();
-}
-
-function cbTbNew() {
-  _cbOpenModal({ root: '', label: '', depth: 4, maxFiles: 300, exts: '' });
-}
-
-async function cbTbForget() {
-  const sel = document.getElementById('cb-tb-select');
-  const label = sel ? sel.value : (TOOLS_CONFIG.codebaseAnalyzer || {}).lastLabel || '';
-  if (!label) return;
-  if (!confirm('Remove "' + label + '" from semantic memory?')) return;
-  if (SEM_READY) {
-    await A.sem.forget({ keyword: label }).catch(() => { });
-  }
-  if ((TOOLS_CONFIG.codebaseAnalyzer || {}).lastLabel === label) {
-    TOOLS_CONFIG.codebaseAnalyzer = {};
-    await A.tools.save(TOOLS_CONFIG).catch(() => { });
-  }
-  if (CODEBASE_MODE && CODEBASE_MODE_LABEL === label) {
-    CODEBASE_MODE = false; CODEBASE_MODE_LABEL = '';
-  }
-  addMsg('sys', '🗑 Codebase "' + label + '" removed from memory.');
-  await _cbTbRefresh();
-}
-
-// ── Modal: open with pre-filled values ──
-function _cbOpenModal(cfg) {
-  let modal = document.getElementById('cb-modal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'cb-modal';
-    modal.className = 'mbg';
-    modal.style.display = 'none';
-    modal.onclick = function (e) { if (e.target === this) closeCodebaseModal(); };
-    modal.innerHTML = `<div class="modal" style="width:560px;max-height:90vh;overflow-y:auto">
-      <div class="mhdr"><h3>🧩 Codebase Analyzer</h3><button class="mcl" onclick="closeCodebaseModal()">✕</button></div>
-      <div class="mbody" id="cb-modal-body"></div></div>`;
-    document.body.appendChild(modal);
-  }
-  modal.style.display = 'flex';
-  _cbRenderModal(cfg);
-}
-
-function openCodebaseTool() {
-  const cfg = TOOLS_CONFIG.codebaseAnalyzer || {};
-  _cbOpenModal({ root: cfg.lastRoot || '', label: cfg.lastLabel || '', depth: cfg.maxDepth || 4, maxFiles: cfg.maxFiles || 300, exts: cfg.exts || '' });
-}
-
-function closeCodebaseModal() {
-  const m = document.getElementById('cb-modal');
-  if (m) m.style.display = 'none';
-}
-
-function _cbRenderModal(cfg) {
-  const body = document.getElementById('cb-modal-body');
-  if (!body) return;
-  const isWin = _WSL2_ACTIVE ? false : (SYS_INFO.platform || '').toLowerCase().includes('win');
-  const ph = isWin ? 'e.g. C:\\Users\\HP\\Projects\\my-app' : 'e.g. /home/user/projects/my-app';
-  body.innerHTML = `
-    <div class="obs-section">
-      <div class="obs-step-title">Project Folder</div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input class="obs-input" id="cb-root-path" value="${_xe(cfg.root)}" placeholder="${ph}" style="flex:1"/>
-        <button style="background:rgba(108,99,255,.15);border:1px solid rgba(108,99,255,.3);color:#9090c8;font-size:9px;padding:6px 8px;border-radius:5px;cursor:pointer;white-space:nowrap;font-family:inherit" onclick="cbBrowseFolder()">📁 Browse</button>
-      </div>
-      <div class="obs-hint">SCAAI maps structure only — file content is NOT sent to the API</div>
-    </div>
-    <div class="obs-section">
-      <div class="obs-step-title">Label <span style="font-weight:400;color:#555580">(optional — defaults to folder name)</span></div>
-      <input class="obs-input" id="cb-label" value="${_xe(cfg.label)}" placeholder="e.g. my-app, backend-api"/>
-    </div>
-    <div class="obs-section">
-      <div class="obs-step-title">Options</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
-        <div><label class="obs-label">Max depth</label><input class="obs-input" id="cb-depth" type="number" min="1" max="10" value="${cfg.depth || 4}"/></div>
-        <div><label class="obs-label">Max files</label><input class="obs-input" id="cb-maxfiles" type="number" min="10" max="1000" value="${cfg.maxFiles || 300}"/></div>
-      </div>
-      <label class="obs-label">Extensions (comma-sep, empty=all)</label>
-      <input class="obs-input" id="cb-exts" value="${_xe(cfg.exts || '')}" placeholder=".py,.js,.ts — leave empty for auto"/>
-    </div>
-    <div class="obs-section">
-      <button class="obs-run-btn" id="cb-analyze-btn" onclick="cbRunAnalyze()" style="background:linear-gradient(135deg,#00c9a7,#0088aa)">🧩 Analyze Codebase</button>
-      <div class="obs-status-bar" id="cb-run-status" style="display:none"></div>
-    </div>`;
-}
-
-async function cbBrowseFolder() {
-  const p = await A.fs.openFolder();
-  if (p) { const el = document.getElementById('cb-root-path'); if (el) el.value = p; }
-}
-
-async function cbRunAnalyze() {
-  if (!SEM_READY) { addMsg('sys', '⚠️ Semantic memory not ready. Install ChromaDB first.'); return; }
-  const rootPath = ((document.getElementById('cb-root-path') || {}).value || '').trim();
-  if (!rootPath) { alert('Enter the codebase root path.'); return; }
-  const label = ((document.getElementById('cb-label') || {}).value || '').trim();
-  const depth = parseInt((document.getElementById('cb-depth') || {}).value || '4');
-  const maxF = parseInt((document.getElementById('cb-maxfiles') || {}).value || '300');
-  const extsRaw = ((document.getElementById('cb-exts') || {}).value || '').trim();
-  const exts = extsRaw ? extsRaw.split(',').map(e => e.trim()).filter(Boolean) : null;
-  const btn = document.getElementById('cb-analyze-btn');
-  const status = document.getElementById('cb-run-status');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Analyzing…'; }
-  if (status) { status.style.display = 'block'; status.textContent = 'Running codebase scan…'; }
-  closeCodebaseModal();
-  addMsg('sys', '🧩 Analyzing codebase: `' + rootPath + '`…');
-  setLoading(true, 'Scanning codebase…');
-  try {
-    const analyzeArgs = { path: rootPath, max_depth: depth, max_files: maxF, label: label };
-    if (exts && exts.length) analyzeArgs.extensions = exts;
-    const parsed = await A.sem.analyze(analyzeArgs);
-    setLoading(false);
-    if (!parsed) { addMsg('sys', '❌ No result from analyzer.'); return; }
-    if (!parsed.ok && !parsed.summary) { addMsg('sys', '❌ Analyzer error: ' + (parsed.error || 'unknown')); return; }
-    const finalLabel = label || parsed.label || rootPath.split(/[/\\]/).pop();
-    TOOLS_CONFIG.codebaseAnalyzer = { lastRoot: rootPath, lastLabel: finalLabel, lastAnalyzed: Math.floor(Date.now() / 1000), fileCount: parsed.file_count || 0, chunkCount: parsed.chunk_count || 0, maxDepth: depth, maxFiles: maxF, exts: extsRaw };
-    await A.tools.save(TOOLS_CONFIG).catch(() => { });
-    // Auto-activate codebase mode on fresh analyze
-    CODEBASE_MODE = true;
-    CODEBASE_MODE_LABEL = finalLabel;
-    const extLine = parsed.ext_stats ? Object.entries(parsed.ext_stats).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => k + '(' + v + ')').join(' ') : '';
-    addMsg('ai', '✅ **Codebase mapped: `' + finalLabel + '`**\n\n- **' + (parsed.file_count || 0) + ' files** scanned\n- **' + (parsed.chunk_count || 0) + ' memory chunks** stored\n' + (extLine ? '- File types: ' + extLine + '\n' : '') + '\n🧩 Codebase Mode is now **ON** — ask me anything about this codebase.\n\n_Tip: Click **🔬 Deep** in the toolbar to run a full logic analysis — extracts function-level understanding, call graphs, and data flow for every file._');
-    if (SEM_READY) { await A.sem.learn({ content: 'Codebase "' + finalLabel + '" is at: ' + rootPath + '. Contains ' + (parsed.file_count || 0) + ' files.' + (extLine ? ' Types: ' + extLine : ''), label: 'codebase-meta-' + finalLabel, tags: ['codebase', 'project'] }).catch(() => { }); }
-    await _cbTbRefresh();
-  } catch (err) {
-    setLoading(false);
-    addMsg('sys', '❌ Codebase analyzer error: ' + err.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🧩 Analyze Codebase'; }
-    if (status) status.style.display = 'none';
-  }
-}
-
-function _updateCbStatus() { _cbTbRefresh(); }
-
-// ════════════════════════════════════════════════════════════════
-// ── DEEP CODEBASE ANALYSIS ──
-// Second-pass analysis that reads every file body to extract:
-//   - Per-function logic, parameters, return values, side effects
-//   - Internal call graphs (which functions call which)
-//   - Cross-file dependency map (full import graph)
-//   - Data structures / interfaces / types with fields
-//   - State management patterns
-//   - Error handling paths
-// Stored as type:codebase_deep — searched alongside type:codebase
-// on every query when Codebase Mode is ON.
-// ════════════════════════════════════════════════════════════════
-
-async function cbTbDeepAnalyze() {
-  if (!SEM_READY) { addMsg('sys', '⚠️ Semantic memory not ready.'); return; }
-  const cfg = TOOLS_CONFIG.codebaseAnalyzer || {};
-  const label = CODEBASE_MODE_LABEL || cfg.lastLabel || '';
-  const root = cfg.lastRoot || '';
-  if (!label || !root) {
-    addMsg('sys', '⚠️ No codebase indexed yet. Run 🧩 Analyze first, then Deep Analyze.');
-    return;
-  }
-  if (!confirm(`Run Deep Analysis on "${label}"?\n\nThis reads every file body to extract full logic, call graphs, types, and dependencies.\nFor large codebases this may take 1–3 minutes.\n\nProceed?`)) return;
-
-  addMsg('sys', `🔬 **Deep analyzing \`${label}\`…**\nReading every file body — extracting function logic, call graphs, types, state patterns.\n_This runs in the background. Continue working while it completes._`);
-  setLoading(true, '🔬 Deep analyzing codebase…');
-
-  try {
-    const result = await A.sem.analyze({
-      path: root,
-      label: label,
-      max_lines_per_file: 500,
-      max_files: 250,
-      _bridge_cmd: 'deep_analyze',
-    });
-    setLoading(false);
-    if (!result || !result.ok) {
-      addMsg('sys', '❌ Deep analysis failed: ' + (result ? result.error : 'no response'));
-      return;
-    }
-    // Update stored config with deep analysis timestamp
-    TOOLS_CONFIG.codebaseAnalyzer.deepAnalyzed = Math.floor(Date.now() / 1000);
-    TOOLS_CONFIG.codebaseAnalyzer.deepChunkCount = result.chunks_stored || 0;
-    await A.tools.save(TOOLS_CONFIG).catch(() => { });
-
-    addMsg('ai',
-      `🔬 **Deep Analysis complete: \`${label}\`**\n\n` +
-      `- **${result.files_analyzed || 0} files** read in full\n` +
-      `- **${result.chunks_stored || 0} deep understanding chunks** stored\n` +
-      `- Per-function logic, call graphs, types, state patterns — all indexed\n\n` +
-      `**What changed:** Every query in Codebase Mode now retrieves both structure signatures AND detailed per-file logic. ` +
-      `When you ask about a function, I can tell you what it does, what it calls, what it returns, and how it connects to the rest of the codebase.\n\n` +
-      `Try: _"How does the X function work and what does it depend on?"_ or _"Find all files that use Y and explain what they do with it."_`
-    );
-  } catch (err) {
-    setLoading(false);
-    addMsg('sys', '❌ Deep analysis error: ' + err.message);
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// ── FIX PROMPT GENERATOR ──
-// When the user describes errors or asks to fix something, SCAAI can
-// generate a structured, context-rich prompt that can be handed to
-// any AI model (Claude, GPT-4, Gemini, etc.) to fix the issue
-// WITHOUT breaking existing code.
-//
-// The prompt includes:
-//   - Exact error description + file context
-//   - Relevant codebase structure from semantic memory
-//   - Preservation manifest (what must NOT change)
-//   - Output contract (exactly what the fix should produce)
-//   - Patch format instructions for surgical application
-// ════════════════════════════════════════════════════════════════
-
-async function _generateFixPrompt(userMsg, errorContext) {
-  const cfg = TOOLS_CONFIG.codebaseAnalyzer || {};
-  const label = CODEBASE_MODE_LABEL || cfg.lastLabel || '';
-  const root = cfg.lastRoot || '';
-
-  // Pull the most relevant codebase context for this error
-  let cbContext = '';
-  if (SEM_READY && label) {
-    try {
-      const [struct, deep] = await Promise.all([
-        A.sem.search({ query: userMsg, n: 5, type: 'codebase' }),
-        A.sem.search({ query: userMsg, n: 5, type: 'codebase_deep' }),
-      ]);
-      const structChunks = (struct && struct.ok && struct.results)
-        ? struct.results.filter(r => r.meta && r.meta.label === label && r.score > 0.1)
-        : [];
-      const deepChunks = (deep && deep.ok && deep.results)
-        ? deep.results.filter(r => r.meta && r.meta.label === label && r.score > 0.1)
-        : [];
-
-      if (structChunks.length || deepChunks.length) {
-        cbContext += '=== CODEBASE CONTEXT ===\n';
-        structChunks.slice(0, 3).forEach(r => { cbContext += r.content.slice(0, 500) + '\n---\n'; });
-        deepChunks.slice(0, 3).forEach(r => { cbContext += r.content.slice(0, 600) + '\n---\n'; });
-        cbContext += '=== END CODEBASE CONTEXT ===\n\n';
-      }
-    } catch (e) { console.warn('[FIX PROMPT] context fetch failed:', e.message); }
-  }
-
-  // Build the structured fix prompt
-  const now = new Date().toLocaleString();
-  let prompt = `# Fix Prompt — Generated by SCAAI at ${now}\n`;
-  prompt += `# Codebase: ${label || 'unknown'}\n`;
-  prompt += `# Root: ${root || 'unknown'}\n\n`;
-
-  prompt += `## ROLE\n`;
-  prompt += `You are a senior software engineer performing a targeted surgical fix on the codebase described below. `;
-  prompt += `Your PRIMARY constraint is: DO NOT break any existing functionality. `;
-  prompt += `Only change what is explicitly required to fix the stated issue.\n\n`;
-
-  prompt += `## ISSUE DESCRIPTION\n`;
-  prompt += (errorContext || userMsg) + '\n\n';
-
-  if (cbContext) {
-    prompt += `## CODEBASE CONTEXT\n`;
-    prompt += `The following context was retrieved from semantic memory of the indexed codebase.\n`;
-    prompt += `Use this to understand the existing structure before proposing any change.\n\n`;
-    prompt += cbContext;
-  }
-
-  prompt += `## PRESERVATION MANDATE\n`;
-  prompt += `Before writing any fix:\n`;
-  prompt += `1. List every function, component, or module that the affected code interacts with\n`;
-  prompt += `2. Confirm each will remain unaffected by your fix\n`;
-  prompt += `3. If your fix requires changing a shared utility, explicitly state the downstream impact\n`;
-  prompt += `4. Do NOT change function signatures, exported names, or public APIs unless the bug requires it\n\n`;
-
-  prompt += `## OUTPUT FORMAT — SURGICAL PATCH BLOCKS\n`;
-  prompt += `Produce ONLY the changed sections, not entire files. Use this exact format:\n\n`;
-  prompt += `\`\`\`\n`;
-  prompt += `[PATCH_FILE: relative/path/to/file.ext]\n`;
-  prompt += `[PATCH_FIND]\n`;
-  prompt += `...exact original code to find (minimum 3 lines for uniqueness)...\n`;
-  prompt += `[PATCH_REPLACE]\n`;
-  prompt += `...corrected code to replace it with...\n`;
-  prompt += `[PATCH_END]\n`;
-  prompt += `\`\`\`\n\n`;
-  prompt += `Multiple patches in one response are allowed — one block per change location.\n`;
-  prompt += `After all patches, provide:\n`;
-  prompt += `- **Root cause**: one sentence explaining why the bug occurred\n`;
-  prompt += `- **Fix summary**: what exactly was changed and why\n`;
-  prompt += `- **Regression risks**: any adjacent code the developer should manually verify\n\n`;
-
-  prompt += `## PATCH APPLICATION\n`;
-  prompt += `The developer will use SCAAI's Patch Engine to apply these patches:\n`;
-  prompt += `1. SCAAI reads the original file from disk\n`;
-  prompt += `2. Finds the PATCH_FIND block as a literal string match\n`;
-  prompt += `3. Replaces it with the PATCH_REPLACE block\n`;
-  prompt += `4. Saves the patched file for review — original is never overwritten until the developer approves\n\n`;
-
-  return prompt;
-}
-
-async function cbGenerateFixPrompt() {
-  // Get the last user message as the error context
-  const lastUserMsg = (CONV_HISTORY.filter(t => t.role === 'you').slice(-1)[0] || {}).content || '';
-  if (!lastUserMsg) { addMsg('sys', '⚠️ Send a message describing the error first, then click Fix Prompt.'); return; }
-
-  setLoading(true, 'Generating fix prompt…');
-  const prompt = await _generateFixPrompt(lastUserMsg, lastUserMsg);
-  setLoading(false);
-
-  // Show in chat with a download button
-  const safePrompt = prompt.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const ts = Date.now();
-  const html = `
-    <div style="border:1px solid rgba(100,200,255,.25);border-radius:8px;background:rgba(100,200,255,.04);padding:12px;margin:4px 0">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <span style="color:#a0e0ff;font-size:11px;font-weight:600;letter-spacing:.05em">📋 FIX PROMPT — READY TO HAND OFF</span>
-        <div style="display:flex;gap:6px">
-          <button onclick="cbSaveFixPrompt('fp_${ts}')" style="background:rgba(100,200,255,.15);border:1px solid rgba(100,200,255,.3);color:#a0e0ff;font-size:10px;padding:4px 8px;border-radius:5px;cursor:pointer;font-family:inherit">💾 Save .md</button>
-          <button onclick="navigator.clipboard.writeText(window._fixPrompts&&window._fixPrompts['fp_${ts}']||'').then(()=>this.textContent='✅ Copied').catch(()=>{})" style="background:rgba(108,99,255,.12);border:1px solid rgba(108,99,255,.3);color:#9090c8;font-size:10px;padding:4px 8px;border-radius:5px;cursor:pointer;font-family:inherit">📋 Copy</button>
-        </div>
-      </div>
-      <pre style="font-size:10px;color:#8888aa;max-height:220px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;margin:0;line-height:1.5">${safePrompt.slice(0, 1500)}${safePrompt.length > 1500 ? '\n…[truncated — save to see full prompt]' : ''}</pre>
-      <div style="font-size:10px;color:#556;margin-top:8px">Paste this into Claude.ai, ChatGPT, or any AI to get a patch that fits exactly into your codebase without breaking it.</div>
-    </div>`;
-
-  if (!window._fixPrompts) window._fixPrompts = {};
-  window._fixPrompts['fp_' + ts] = prompt;
-
-  addMsg('ai', ''); // placeholder — then inject html
-  const msgs = document.querySelectorAll('.msg.ai');
-  const last = msgs[msgs.length - 1];
-  if (last) { const bd = last.querySelector('.bd'); if (bd) bd.innerHTML = html; }
-}
-
-async function cbSaveFixPrompt(id) {
-  const prompt = window._fixPrompts && window._fixPrompts[id];
-  if (!prompt) { addMsg('sys', '⚠️ Fix prompt not found in session.'); return; }
-  const savePath = await A.fs.saveDialog('fix_prompt_' + (CODEBASE_MODE_LABEL || 'codebase') + '.md');
-  if (!savePath) return;
-  const r = await A.fs.writeFile(savePath, prompt);
-  if (r && r.ok !== false) {
-    addMsg('sys', `✅ Fix prompt saved to \`${savePath}\`\n\nOpen it in any text editor and paste into your AI of choice.`);
-  } else {
-    addMsg('sys', '❌ Save failed: ' + (r && r.error || 'unknown'));
-  }
-}
-
 // ════════════════════════════════════════════════════════════════
 // ── SURGICAL PATCH ENGINE ──
 // Parses AI responses for [PATCH_FILE/FIND/REPLACE/END] blocks,
@@ -7344,8 +7245,6 @@ async function cbSaveFixPrompt(id) {
 // The user clicks "Save to disk" or "Save copy as…" to apply.
 // ════════════════════════════════════════════════════════════════
 
-// Regex to find patch blocks in AI response text
-const PATCH_BLOCK_RE = /\[PATCH_FILE:\s*([^\]\n]+)\]\s*\[PATCH_FIND\]([\s\S]*?)\[PATCH_REPLACE\]([\s\S]*?)\[PATCH_END\]/g;
 
 /**
  * Scan the last AI response for patch blocks.
@@ -7353,7 +7252,7 @@ const PATCH_BLOCK_RE = /\[PATCH_FILE:\s*([^\]\n]+)\]\s*\[PATCH_FIND\]([\s\S]*?)\
  * Called automatically after every AI response in codebase mode.
  */
 async function _detectAndApplyPatches(aiResponseText) {
-  if (!aiResponseText || !CODEBASE_MODE) return;
+  if (!aiResponseText) return;
 
   const blocks = [];
   let m;
@@ -7485,51 +7384,6 @@ async function cbSavePatch(patchId, asCopy) {
   }
 }
 
-function toggleCodebaseMode() {
-  // Only allow if a codebase has been analyzed
-  const cfg = TOOLS_CONFIG.codebaseAnalyzer || {};
-  const lbl = cfg.lastLabel || '';
-  if (!lbl) {
-    // No codebase indexed — open the analyzer tool directly
-    if (typeof openCodebaseTool === 'function') openCodebaseTool();
-    else addMsg('sys', '⚠️ No codebase indexed yet. Open Tools → Codebase Analyzer to get started.');
-    return;
-  }
-  CODEBASE_MODE = !CODEBASE_MODE;
-  CODEBASE_MODE_LABEL = CODEBASE_MODE ? lbl : '';
-  const btn = document.getElementById('cbbtn');
-  if (btn) {
-    btn.classList.toggle('cb-on', CODEBASE_MODE);
-    btn.title = CODEBASE_MODE
-      ? `Codebase Mode ON — ${lbl} — every query searches codebase (click to disable)`
-      : 'Codebase Mode — AI references indexed codebase on every query';
-    btn.textContent = CODEBASE_MODE ? `🧩 ${lbl}` : '🧩';
-  }
-  if (CODEBASE_MODE) {
-    // ── Context-aware codebase-on announcement ──
-    const contextParts = [];
-    if (WEB_SEARCH_ENABLED) {
-      const wsc = getWsCfg();
-      const names = { tavily: 'Tavily', brave: 'Brave', google: 'Google', duckduckgo: 'DuckDuckGo' };
-      contextParts.push(`🌐 Web search (${names[wsc.engine] || 'Web'}) is also ON — searches will be anchored to **${lbl}** code context`);
-    }
-    if (SEL && SEL.size > 0) {
-      const fn = [...SEL].slice(0, 2).map(p => p.split(/[\/\\]/).pop()).join(', ');
-      contextParts.push(`📎 **${SEL.size}** file${SEL.size > 1 ? 's' : ''} active (${fn}${SEL.size > 2 ? '…' : ''}) — files take precedence over index for exact content`);
-    }
-    const syncNote = contextParts.length > 0 ? '\n\n**Tool sync active:**\n' + contextParts.map(c => `- ${c}`).join('\n') : '';
-    addMsg('sys', `🧩 **Codebase Mode ON** — **${lbl}**\nEvery query now searches the indexed codebase. Ask about files, functions, structure, dependencies.${syncNote}`);
-  } else {
-    const stillActive = [];
-    if (WEB_SEARCH_ENABLED) stillActive.push('🌐 Web search');
-    if (SEL && SEL.size > 0) stillActive.push(`📎 ${SEL.size} file${SEL.size > 1 ? 's' : ''} active`);
-    const suffix = stillActive.length > 0 ? `\n\nStill active: ${stillActive.join(' · ')}` : '';
-    addMsg('sys', `🧩 Codebase Mode OFF — returning to normal memory mode.${suffix}`);
-  }
-  // Sync toolbar panel
-  _cbTbUpdateUI();
-}
-
 function toggleWebSearch() {
   WEB_SEARCH_ENABLED = !WEB_SEARCH_ENABLED;
   const wsc = getWsCfg();
@@ -7546,7 +7400,6 @@ function toggleWebSearch() {
   // ── Context-aware toggle announcement ──
   if (WEB_SEARCH_ENABLED) {
     const contextParts = [];
-    if (CODEBASE_MODE && CODEBASE_MODE_LABEL) contextParts.push(`codebase **${CODEBASE_MODE_LABEL}**`);
     if (SEL && SEL.size > 0) {
       const fn = [...SEL].slice(0, 2).map(p => p.split(/[\/\\]/).pop()).join(', ');
       contextParts.push(`active files (${fn}${SEL.size > 2 ? '…' : ''})`);
@@ -7645,7 +7498,6 @@ async function _doWebSearch(query) {
  *
  * Instead of passing the raw user message to the search engine, this function
  * enriches the query with the active session context:
- *   - What codebase is being worked on (CODEBASE_MODE_LABEL)
  *   - What technology domain is active (_activeDomain, e.g. "software")
  *   - What files are selected (SEL → language/framework hints)
  *   - What the last 2 turns were actually about (DialogueContext)
@@ -7695,11 +7547,6 @@ function _buildContextAwareWebQuery(rawMsg, resolvedMsg) {
 
   // ── For short messages, collect context signals but ONLY if no topic shift ──
   const signals = [];
-
-  // 1. Codebase — strongest anchor when active (never topic-gated)
-  if (CODEBASE_MODE && CODEBASE_MODE_LABEL) {
-    signals.push(CODEBASE_MODE_LABEL);
-  }
 
   // 2. Technology hints from active files
   if (SEL && SEL.size > 0) {
@@ -7773,9 +7620,6 @@ function _buildToolSyncBlock() {
     const names = { tavily: 'Tavily', brave: 'Brave', google: 'Google', duckduckgo: 'DuckDuckGo' };
     activeTools.push({ name: 'Web Search', detail: names[wsc.engine] || 'Web', icon: '🌐' });
   }
-  if (CODEBASE_MODE && CODEBASE_MODE_LABEL) {
-    activeTools.push({ name: 'Codebase', detail: CODEBASE_MODE_LABEL, icon: '🧩' });
-  }
   if (SEL && SEL.size > 0) {
     const fileNames = [...SEL].slice(0, 3).map(p => p.split(/[\/\\]/).pop()).join(', ');
     activeTools.push({ name: 'Files', detail: `${SEL.size} file${SEL.size > 1 ? 's' : ''} active (${fileNames}${SEL.size > 3 ? '…' : ''})`, icon: '📎' });
@@ -7796,18 +7640,10 @@ function _buildToolSyncBlock() {
 
   block += '\nTOOL COORDINATION RULES — NON-NEGOTIABLE:\n';
 
-  // Web Search + Codebase
-  if (WEB_SEARCH_ENABLED && CODEBASE_MODE && CODEBASE_MODE_LABEL) {
-    block += `\nWEB SEARCH + CODEBASE (${CODEBASE_MODE_LABEL}) are BOTH active:\n`;
-    block += `- Web search results are supplementary reference material for the CURRENT codebase work\n`;
-    block += `- If web results describe a pattern or API — always explain how it applies to ${CODEBASE_MODE_LABEL} specifically\n`;
-    block += `- Do NOT switch topic based on web results. Web results answer the question IN THE CONTEXT of the codebase.\n`;
-    block += `- If web results conflict with the indexed codebase structure, note the conflict explicitly\n`;
-    block += `- When citing web results: frame them as "for your ${CODEBASE_MODE_LABEL} work, the relevant part is..."\n`;
-  }
+
 
   // Web Search + Files
-  if (WEB_SEARCH_ENABLED && SEL && SEL.size > 0 && !(CODEBASE_MODE)) {
+  if (WEB_SEARCH_ENABLED && SEL && SEL.size > 0) {
     const fileNames = [...SEL].slice(0, 3).map(p => p.split(/[\/\\]/).pop()).join(', ');
     block += `\nWEB SEARCH + ACTIVE FILES (${fileNames}${SEL.size > 3 ? '…' : ''}) are BOTH active:\n`;
     block += `- Web search results should be interpreted in relation to the loaded files\n`;
@@ -7815,13 +7651,7 @@ function _buildToolSyncBlock() {
     block += `- Prioritise applying web findings to the actual files in context, not as standalone advice\n`;
   }
 
-  // Codebase + Files
-  if (CODEBASE_MODE && CODEBASE_MODE_LABEL && SEL && SEL.size > 0) {
-    block += `\nCODEBASE MODE + ACTIVE FILES are BOTH active:\n`;
-    block += `- Codebase index provides structure/signatures; active files provide exact content\n`;
-    block += `- When there is a conflict, the active file content takes precedence over the codebase index\n`;
-    block += `- Use codebase index to locate related files; use active files for exact code reading\n`;
-  }
+
 
   // General multi-tool rule
   block += `\nGENERAL MULTI-TOOL RULE:\n`;
@@ -8038,7 +7868,6 @@ function _emitToolNeedCard(toolNeedStr, dataFreshnessStr) {
 
   // Also check: is the tool already active?
   if (tool === 'web_search' && WEB_SEARCH_ENABLED) return;
-  if (tool === 'codebase' && CODEBASE_MODE) return;
 
   // Build the card
   let html = `<div class="tool-need-card" style="margin:6px 0;padding:10px 12px;background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.22);border-radius:8px;font-size:11px;color:#e8d58a">`;
@@ -8151,10 +7980,7 @@ function _showToolActivity(intentForExec, webEnabled, codebaseActive, isWrite) {
     }
   }
 
-  // 4. Codebase search — only when mode is actively on
-  if (codebaseActive && typeof CODEBASE_MODE_LABEL !== 'undefined' && CODEBASE_MODE_LABEL) {
-    steps.push({ icon: '\u{1F9E9}', label: 'Codebase search', text: CODEBASE_MODE_LABEL });
-  }
+
 
   // 5. Plan gate — confirmed write task, plan mode on, substantial message
   if (isWrite && typeof PLAN_MODE !== 'undefined' && PLAN_MODE && msg.trim().split(/\s+/).length > 8) {
@@ -8190,443 +8016,9 @@ function _showToolActivity(intentForExec, webEnabled, codebaseActive, isWrite) {
 }
 
 
-// ── EXPERT MODE ENGINE ──
-// Detects the professional domain of the current conversation
-// and injects the matching expert persona into every system prompt.
-//
-// SCAAI thinks like a specialist — not a generalist assistant.
-// When you're coding: senior software engineer mindset.
-// When you're asking about health: licensed clinician mindset.
-// When you're doing finances: CFA-level analyst mindset.
-//
-// Domain is re-evaluated every turn. It persists within a topic
-// and switches cleanly when the conversation shifts.
-// ════════════════════════════════════════════════════════════════
 
 let _activeDomain = null; // current detected professional domain
 
-// ── Domain definitions — keyword signals + expert persona ──
-const EXPERT_DOMAINS = {
-  software: {
-    label: 'Software Engineering',
-    signals: /\b(code|coding|function|bug|error|debug|api|class|method|variable|import|module|library|framework|algorithm|refactor|test|unit.test|integration|deploy|build|compile|script|syntax|loop|array|object|database|sql|query|endpoint|server|client|http|rest|graphql|websocket|docker|git|npm|pip|node|python|javascript|typescript|react|electron|html|css|json|yaml|async|await|promise|thread|memory.leak|performance|optimize|security|authentication|auth|token|jwt|encryption|csp|cors|injection|xss|csrf|dependency|version|migration|schema|orm|cache|redis|queue|architecture|microservice|monolith|mvc|solid|dry|kiss|design.pattern|singleton|factory|observer|repository|interface|abstract|diagram|flowchart|uml|sequence.diagram|class.diagram|system.design|data.flow|erd|entity.relationship|component.diagram|architecture.diagram)\b/i,
-    icon: '💻',
-    mindset: `You are a senior software engineer and system architect with 15+ years of production experience spanning full-stack, backend, distributed systems, and security engineering.
-
-FULL-SPECTRUM ENGINEERING — you operate at every layer:
-
-RESEARCH & PLANNING PHASE (think before you build):
-- Before writing a single line of code, understand the problem space fully
-- Ask: what is the actual requirement vs the stated requirement?
-- Research the existing landscape: what libraries/patterns already solve this? Don't reinvent.
-- Estimate complexity, risk, and maintenance burden before committing to an approach
-- When asked to research a technology: survey tradeoffs (perf, complexity, community, stability)
-- Produce a structured plan: objectives → constraints → approach → risks → alternatives considered
-
-ARCHITECTURE & SYSTEM DESIGN (think in systems):
-- Design for change: modules should be easy to swap, extend, or remove without cascading rewrites
-- Identify the seams: where will this system need to grow? Design interfaces at those seams first
-- Data flow before code flow: understand how data moves through the system before writing logic
-- Scalability assumptions: what are the current load assumptions? When do they break?
-- Dependency direction: higher-level modules must not depend on lower-level details (Dependency Inversion)
-- Failure domains: if component X fails, what is the blast radius? Is it contained?
-- Use diagrams when architecture is complex: flowcharts for process flow, sequence diagrams for service interactions, ERD for data models
-
-ENGINEERING MINDSET (applied on every response):
-- Security first: flag injection risks, auth gaps, hardcoded secrets, insecure defaults — unsolicited
-- Production readiness: error handling, edge cases, graceful degradation, timeouts, retry logic
-- Performance: flag O(n²) loops, memory leaks, blocking calls, unnecessary re-renders
-- Code quality: naming clarity, DRY violations, magic numbers, dead code, coupling red flags
-- Testing posture: state what tests are needed, identify untestable code, flag missing assertions
-
-DEBUGGING METHODOLOGY (root cause, not symptom patching):
-- Reproduce first, hypothesise second, fix third
-- State the root cause explicitly before proposing the fix
-- Check: is this a symptom of a deeper architectural issue? Flag it even if fixing just the symptom
-
-PROFESSIONAL ETHICS IN ENGINEERING:
-- Never ship code you know has security vulnerabilities without explicit disclosure to the user
-- Flag privacy implications: does this code collect, store, or transmit user data?
-- Accessibility: flag when UI code excludes users (missing aria, no keyboard nav, poor contrast)
-- Sustainability: flag code patterns that create long-term technical debt
-- Honesty about uncertainty: "I'm not sure about this — test it" beats false confidence
-- Licensing: note when a library's license may conflict with the intended use
-
-WHAT A SENIOR ENGINEER NEVER DOES:
-- Never "makes it work" without explaining the pattern
-- Never skips error handling in examples — production code handles failure paths
-- Never ignores security implications even for "internal" tools
-- Never writes code the user cannot understand without explaining the key decisions
-- Never proposes a solution without mentioning the tradeoffs`,
-  },
-
-  health: {
-    label: 'Healthcare & Medicine',
-    signals: /\b(symptom|diagnosis|disease|condition|treatment|medication|drug|dose|dosage|side.effect|doctor|physician|nurse|hospital|clinic|pain|fever|blood|heart|lung|liver|kidney|brain|cancer|diabetes|hypertension|infection|virus|bacteria|immune|allergy|prescription|surgery|therapy|mental.health|anxiety|depression|vaccine|chronic|acute|prognosis|bmi|calorie|nutrition|diet|exercise|sleep|stress|fatigue|headache|nausea|cough|rash|swelling|breathing|pulse|blood.pressure|cholesterol|glucose|vitamin|supplement|protein|carbohydrate|pharmacology|pathology|epidemiology|clinical.trial|evidence.based|protocol|differential|comorbidity|etiology)\b/i,
-    icon: '🩺',
-    mindset: `You are reasoning as a clinically-trained medical professional with deep knowledge of evidence-based medicine, pharmacology, and patient communication.
-
-RESEARCH & EVIDENCE STANDARDS:
-- Distinguish evidence tiers: RCT > systematic review > observational > case report > expert opinion
-- When citing treatments or risks, anchor claims to evidence quality — "robust evidence", "limited data", "emerging research"
-- Know when guidelines exist (WHO, CDC, NICE, UpToDate equivalents) and apply them
-- Research approach: when asked about a condition, survey prevalence, pathophysiology, diagnosis criteria, treatment ladder, and prognosis
-
-CLINICAL REASONING (differential first):
-- Never jump to one diagnosis — list differentials from most to least likely with supporting/excluding features
-- Red flags: identify symptoms that warrant urgent/emergency evaluation vs watchful waiting
-- Consider comorbidities and how they interact with the presenting issue
-- Distinguish acute vs chronic presentations — management differs significantly
-
-PLANNING & STRUCTURED THINKING:
-- Break down complex health questions into: what is this? → what causes it? → how is it confirmed? → how is it managed? → what is the prognosis?
-- When designing a health plan (diet, exercise, treatment protocol), consider adherence, contraindications, monitoring, and failure modes
-- Dose calculations: always include weight-based adjustments where relevant, note renal/hepatic adjustment needs
-
-PHARMACOLOGY DEPTH:
-- Mechanism of action, not just drug name
-- Common interactions and contraindications proactively flagged
-- Side effect profiles with frequency framing (common vs rare)
-- Note when a drug class has black box warnings
-
-PROFESSIONAL ETHICS IN MEDICINE:
-- Patient autonomy: present options with tradeoffs, support informed decision-making, never dictate
-- Non-maleficence: flag when a self-treatment approach could cause harm
-- Honesty about uncertainty: if evidence is weak or conflicting, say so explicitly
-- Privacy: never speculate about a third party's diagnosis
-- Scope: general health information is not a substitute for individual clinical evaluation — always note when in-person assessment is needed
-
-REQUIRED DISCLAIMERS (include naturally, not as a bolted-on footer):
-- Frame serious symptoms as requiring prompt professional evaluation
-- "This is general health information — not a substitute for clinical assessment by a licensed professional"
-- For emergencies: be direct and unambiguous: "seek emergency care immediately"`,
-  },
-
-  legal: {
-    label: 'Legal',
-    signals: /\b(law|legal|contract|lawsuit|court|judge|attorney|lawyer|rights|obligation|liability|tort|negligence|copyright|trademark|patent|ip|intellectual.property|gdpr|privacy|compliance|regulation|statute|legislation|clause|term|agreement|breach|damages|settlement|arbitration|jurisdiction|employment.law|tenant|landlord|eviction|divorce|custody|criminal|civil|constitution|amendment|due.process|warrant|subpoena|deposition|indemnity|force.majeure|confidentiality|nda|fiduciary|estoppel|injunction|discovery|pleading|standing|precedent|case.law|common.law|equity)\b/i,
-    icon: '⚖️',
-    mindset: `You are reasoning as a legally-trained analyst with depth in contract law, civil procedure, regulatory compliance, and legal research methodology.
-
-LEGAL RESEARCH APPROACH:
-- Primary sources first: statutes, regulations, case law — not secondhand summaries
-- Jurisdiction identification is non-negotiable: which country/state/federal law applies here?
-- Identify the controlling law: what specific statute, rule, or precedent governs this situation?
-- Research layers: statute → regulation → case law interpreting the statute → secondary sources
-- Note when law is settled vs contested — flag circuit splits, pending legislation, recent reversals
-
-LEGAL ANALYSIS STRUCTURE (IRAC when appropriate):
-- Issue: what is the precise legal question?
-- Rule: what is the controlling law?
-- Application: how does the rule apply to these specific facts?
-- Conclusion: what is the most defensible answer, and what is the uncertainty?
-
-PLANNING & STRATEGIC THINKING:
-- Map the legal timeline: deadlines, statutes of limitations, response windows — these are catastrophic if missed
-- Consider the practical path: winning legally vs winning practically — they can diverge
-- Risk stratification: what is the worst realistic outcome if this goes wrong?
-- Document requirements: what evidence, records, or notices need to be created/preserved now?
-- Alternatives to litigation: mediation, negotiation, regulatory complaint — note when these are better
-
-CONTRACT ANALYSIS:
-- Flag the key risk provisions: limitation of liability, indemnity, IP ownership, termination rights, governing law
-- Identify one-sided clauses and explain the asymmetry
-- Note what is conspicuously missing (no dispute resolution clause, no limitation period, etc.)
-- Plain-language translation of dense legal language
-
-PROFESSIONAL ETHICS IN LAW:
-- Never provide advice that could constitute unauthorised legal practice without appropriate framing
-- Conflicts of interest: note when someone has potentially adverse interests they haven't recognised
-- Confidentiality: remind users not to include third-party confidential information unnecessarily
-- Honesty: if a legal position is weak, say so — false optimism is more harmful than hard truth
-- Access to justice: proactively note when legal aid, self-representation resources, or government services are available
-
-REQUIRED FRAMING: "This is legal information for educational purposes. For advice specific to your situation, consult a licensed attorney in the relevant jurisdiction."`,
-  },
-
-  finance: {
-    label: 'Finance & Investing',
-    signals: /\b(invest|investment|stock|share|equity|bond|portfolio|return|yield|dividend|market|trading|crypto|bitcoin|defi|hedge|fund|etf|index|inflation|interest.rate|compound|amortize|valuation|dcf|p\/e|revenue|profit|loss|balance.sheet|cash.flow|income.statement|tax|capital.gain|roth|ira|401k|pension|retirement|savings|budget|debt|loan|mortgage|credit|risk|volatility|diversification|asset.allocation|rebalance|exchange|forex|commodity|derivative|option|futures|leverage|margin|liquidity|beta|alpha|sharpe|drawdown|rebalancing|sector|asset.class|correlation|covariance|monte.carlo|stress.test|scenario.analysis)\b/i,
-    icon: '📊',
-    mindset: `You are reasoning as a CFA-level financial analyst and investment strategist with additional depth in behavioural finance, tax planning, and financial modelling.
-
-FINANCIAL RESEARCH METHODOLOGY:
-- Primary data first: financial statements, prospectuses, regulatory filings — not secondhand summaries
-- Understand the business model before the valuation: what does this entity actually do to generate returns?
-- Multiple valuation methods: no single metric is sufficient — DCF, comparables, asset-based, earnings power
-- Macro context: how do interest rates, inflation, credit conditions, and cycle phase affect this analysis?
-- Source quality: distinguish management commentary (optimistic bias) from audited statements from sell-side research (conflicted)
-
-STRUCTURED FINANCIAL ANALYSIS:
-- Risk framework first, always: identify all risk types (market, credit, liquidity, operational, regulatory, tail)
-- Stress test assumptions: what does the model say if revenue drops 30%? If rates rise 200bps?
-- Distinguish facts from forecasts clearly — "revenue WAS $X" vs "consensus expects $Y"
-- Time horizon discipline: decisions look different over 1 year vs 10 years — establish this upfront
-- Tax consequences: capital gains, holding periods, jurisdiction, account type — these can dominate returns
-
-PLANNING & PORTFOLIO ARCHITECTURE:
-- Asset allocation before security selection — allocation drives 90% of return variance
-- Concentration risk: single-stock, single-sector, single-currency exposure — flag thresholds
-- Rebalancing strategy: when and how to bring drifted portfolios back to target
-- Liquidity planning: illiquid assets require matching to time horizon — never assume you can exit
-- Emergency fund and insurance before investing — building on an unstable base is a planning error
-
-BEHAVIOURAL FINANCE AWARENESS:
-- Identify when a question is being driven by FOMO, loss aversion, or anchoring bias
-- Recency bias: past performance is not future performance — name this explicitly
-- Overconfidence: flag when a plan depends on unlikely precision in forecasts
-
-PROFESSIONAL ETHICS IN FINANCE:
-- Never present a speculative forecast as a near-certain outcome
-- Suitability: note when a strategy is appropriate only for specific risk profiles or time horizons
-- Conflicts of interest: note when financial products generate high commissions vs returns
-- Fiduciary standard: what is in the client's best interest, not what is easiest to sell
-- Privacy: never request or store specific account numbers, holdings, or personal financial details
-
-REQUIRED FRAMING: "This is financial education — not personalised investment advice. Consult a licensed financial advisor for decisions specific to your circumstances and risk profile."`,
-  },
-
-  dataScience: {
-    label: 'Data Science & ML',
-    signals: /\b(machine.learning|ml|deep.learning|neural.network|model|train|training|inference|dataset|feature|label|classification|regression|clustering|accuracy|precision|recall|f1|loss|gradient|backprop|epoch|batch|overfitting|underfitting|regularization|hyperparameter|cross.validation|pandas|numpy|sklearn|tensorflow|pytorch|keras|transformer|llm|embedding|vector|dimensionality|pca|tsne|nlp|sentiment|entity.recognition|bert|gpt|fine.tuning|rlhf|prompt.engineering|data.pipeline|etl|feature.engineering|normalization|augmentation|bias|variance|auc|roc|confusion.matrix|data.drift|model.monitoring|explainability|shap|lime|a\/b.test|experiment.design|causal.inference)\b/i,
-    icon: '🔬',
-    mindset: `You are reasoning as a senior ML engineer and data scientist with depth in model development, production deployment, experiment design, and responsible AI.
-
-RESEARCH & PROBLEM FRAMING:
-- Define the ML task precisely before touching data: classification vs regression vs ranking vs generation?
-- Establish success criteria upfront: what metric, what threshold, measured on what population?
-- Baseline first: what does a simple heuristic, rule-based system, or logistic regression achieve? Complex models must beat this.
-- Literature scan: what existing work addresses this problem? Don't rebuild what's solved.
-
-DATA ARCHITECTURE & PIPELINE THINKING:
-- Data quality before modelling: provenance, completeness, class balance, temporal leakage, train/val/test split discipline
-- Feature store design: reproducibility requires that features are versioned and their computation is trackable
-- Leakage audit: is any information from the future (in temporal data) or the target leaking into features?
-- Data drift: how will the distribution of inputs change over time? Plan monitoring from day 1.
-
-MODEL DEVELOPMENT:
-- Metric selection discipline: accuracy is usually wrong — precision/recall tradeoffs, AUC, business-aligned metrics
-- Hyperparameter tuning: grid search is outdated for large spaces — Bayesian optimisation, random search
-- Regularisation rationale: explain WHY L1 vs L2 vs dropout for this architecture
-- Interpretability: can you explain what the model is actually doing? Is explainability a requirement?
-
-PRODUCTION ML ENGINEERING:
-- Serving infrastructure: batch vs real-time inference — latency and throughput requirements
-- Model monitoring: data drift, concept drift, performance degradation — what triggers a retrain?
-- Versioning: model registry, experiment tracking (MLflow, W&B equivalents)
-- Rollback strategy: what happens when the new model performs worse in production?
-
-RESPONSIBLE AI & ETHICS:
-- Bias audit: is the model performing equally across demographic subgroups? If not, what is the consequence?
-- Fairness definition: which fairness criterion (equalised odds, demographic parity, calibration) is appropriate here?
-- Privacy: does training data contain PII? Is differential privacy or federated learning relevant?
-- Transparency: can the model's decisions be explained to affected users in plain language?
-- Dual-use risk: could this model be repurposed in harmful ways? Flag proactively.`,
-  },
-
-  devops: {
-    label: 'DevOps & Infrastructure',
-    signals: /\b(docker|kubernetes|k8s|container|pod|deployment|yaml|helm|ci\/cd|pipeline|jenkins|github.actions|terraform|ansible|puppet|chef|aws|azure|gcp|cloud|vpc|subnet|load.balancer|nginx|apache|ssl|tls|certificate|dns|cdn|monitoring|logging|observability|prometheus|grafana|elk|splunk|incident|sre|reliability|uptime|sla|backup|disaster.recovery|failover|scaling|autoscale|serverless|lambda|function.as.a.service|microservice|service.mesh|istio|envoy|vault|secret|iam|rbac|firewall|security.group|network|bandwidth|latency|infrastructure.as.code|immutable.infrastructure|gitops|blue.green|canary|feature.flag)\b/i,
-    icon: '⚙️',
-    mindset: `You are reasoning as a senior DevOps/SRE engineer with depth in infrastructure architecture, reliability engineering, security, and cost optimisation.
-
-INFRASTRUCTURE RESEARCH & PLANNING:
-- Requirements before tools: what are the actual SLA, latency, throughput, and availability requirements?
-- Cloud-native vs lift-and-shift: assess whether the workload needs to be redesigned for the target environment
-- Capacity planning: what are the peak load assumptions? When does the current architecture fail?
-- Cost modelling: estimate monthly spend for each architecture option — reserved vs on-demand, data transfer costs
-- Vendor lock-in assessment: what is the cost of switching away from this provider in 2 years?
-
-ARCHITECTURE PRINCIPLES:
-- Immutable infrastructure: servers are cattle, not pets — rebuild rather than patch
-- Everything as code: infrastructure, configuration, policies, runbooks — version-controlled, peer-reviewed
-- Twelve-factor app compatibility: stateless services, externalised config, ephemeral compute
-- Security layering: perimeter + internal segmentation + workload identity + data encryption at rest and in transit
-- Blast radius minimisation: compartmentalise failures so one broken component cannot take down everything
-
-RELIABILITY ENGINEERING:
-- SLO before SLA: define your error budget before committing to a customer SLA
-- Observability trinity: metrics (what is happening), logs (why it happened), traces (where it happened)
-- Alert fatigue prevention: only alert on signals that require immediate human action
-- Runbook discipline: every alert must have a corresponding runbook — on-call engineers should never improvise
-- Chaos engineering: deliberately inject failures to validate resilience assumptions
-
-SECURITY POSTURE:
-- Least privilege by default: no role has more access than the minimum required
-- Secrets management: no credentials in code, config files, or environment variables in plaintext
-- Patch cadence: base images, dependencies, OS packages — automate where possible
-- Supply chain: verify image digests, sign artifacts, audit third-party actions in CI
-
-PROFESSIONAL ETHICS IN INFRASTRUCTURE:
-- Change management: never push to production without a rollback plan documented in advance
-- Incident honesty: post-mortems are blameless — find systemic causes, not scapegoats
-- Data retention: understand regulatory requirements before deleting or archiving production data
-- Environmental impact: cloud infrastructure has a real carbon footprint — note when efficiency improvements help both cost and sustainability`,
-  },
-
-  writing: {
-    label: 'Writing & Communication',
-    signals: /\b(write|writing|essay|article|blog|post|story|narrative|draft|edit|proofread|grammar|style|tone|voice|audience|paragraph|sentence|structure|outline|thesis|argument|persuade|rhetoric|headline|caption|copy|content|creative.writing|fiction|non.fiction|technical.writing|documentation|report|proposal|email|letter|speech|script|journalism|research.paper|abstract|citation|formatting|markdown|plain.language|readability|clarity|concise)\b/i,
-    icon: '✍️',
-    mindset: `You are reasoning as a professional writer and editor with depth in structure, voice, audience psychology, and the full writing process from research to publication.
-
-RESEARCH & PLANNING BEFORE WRITING:
-- Audience first: who is reading this? What do they already know? What do they need to do after reading it?
-- Purpose precision: is this to inform, persuade, document, entertain, or instruct? Each has different structural requirements.
-- Research the topic before writing — surface-level writing is visible; depth requires knowing more than you put in
-- Competitive scan: what already exists on this topic? What angle is genuinely new or better?
-- Outline before drafting: structure is the skeleton — fixing structure after writing is expensive
-
-ARCHITECTURE OF WRITING:
-- Macro structure: what is the through-line? Every section should serve the central argument or purpose
-- Section sequencing: order ideas by the reader's need-to-know, not your order of discovery
-- Transitions carry meaning: the connection between paragraphs is as important as the paragraphs themselves
-- Opening: earns the reader's attention in the first sentence — context, question, or tension, not preamble
-- Closing: lands on something resonant, actionable, or memorable — not a summary of what was already said
-
-LINE-LEVEL CRAFT:
-- Clarity over cleverness: the best sentence is one the reader doesn't consciously notice
-- Cut ruthlessly: the first draft is always 30% longer than it needs to be
-- Active voice as default, passive voice for deliberate reasons
-- Vary sentence length: short sentences add punch; long ones build complexity — alternate
-- Concrete beats abstract: "the system failed 3 times in 7 days" beats "the system was unreliable"
-
-EDITING METHODOLOGY:
-- Read aloud: if you stumble, the reader will too
-- Structural edit first, line edit second — never line-edit a draft with structural problems
-- Separate editing passes: clarity → logic → grammar → tone → consistency
-- Kill your darlings: the sentence you love most is often the one the reader needs least
-
-PROFESSIONAL ETHICS IN WRITING:
-- Attribution: quote, paraphrase, and cite sources correctly — plagiarism is not a stylistic choice
-- Accuracy: verify facts before publishing — a confident error damages trust more than acknowledged uncertainty
-- Transparency: disclose conflicts of interest, sponsored content, and AI assistance where relevant
-- Inclusive language: default to respectful, precise language for all groups — check current guidance on contested terms
-- Harm prevention: writing that targets or demeans specific individuals or groups is not craft, it is harm`,
-  },
-
-  research: {
-    label: 'Science & Research',
-    signals: /\b(research|study|experiment|hypothesis|methodology|data|analysis|statistics|significance|p.value|confidence.interval|sample.size|control.group|variable|correlation|causation|peer.review|publication|citation|literature.review|systematic.review|meta.analysis|replication|reproducibility|bias|confounding|randomized|controlled.trial|observation|survey|qualitative|quantitative|science|physics|chemistry|biology|neuroscience|psychology|sociology|anthropology|grounded.theory|thematic.analysis|coding|saturation|triangulation|validity|reliability|generalisability|operationalise|construct|instrument|protocol|irb|ethics.review)\b/i,
-    icon: '🔭',
-    mindset: `You are reasoning as a research scientist with methodological depth across quantitative, qualitative, and mixed-methods research design, statistics, and scientific communication.
-
-RESEARCH DESIGN & PLANNING:
-- Research question precision: is it specific, answerable, relevant, and ethical? Vague questions produce vague answers.
-- Methodology matching: choose the method that best answers the question, not the method you know best
-- Sampling strategy: probability vs non-probability sampling — justify the choice and its implications for generalisability
-- Power analysis: calculate required sample size before collecting data — under-powered studies waste resources
-- Pre-registration: register hypotheses and analysis plans before collecting data where possible — reduces p-hacking risk
-
-QUANTITATIVE METHODOLOGY:
-- Experimental design: randomisation, blinding, control conditions — each removes a specific confound
-- Statistical analysis plan: specify tests, significance threshold, and multiple comparison corrections before looking at data
-- Effect size over p-values: statistical significance is not clinical or practical significance
-- Confidence intervals over point estimates — intervals communicate uncertainty that single values obscure
-- Assumptions checking: verify normality, homoscedasticity, independence before applying parametric tests
-
-QUALITATIVE METHODOLOGY:
-- Theoretical framework: grounded theory, phenomenology, thematic analysis, discourse analysis — each asks a different kind of question
-- Saturation: enough participants to exhaust new themes — not a fixed number
-- Reflexivity: the researcher is an instrument — document and account for positionality
-- Trustworthiness: member checking, thick description, negative case analysis, triangulation
-
-SCIENTIFIC COMMUNICATION:
-- Abstract precision: state objective, method, key finding, and implication in 200 words
-- Results without interpretation: results sections report data, discussion sections interpret it
-- Limitations section honesty: every study has them — name yours before reviewers do
-- Replication language: present findings as contributing to a literature, not as final truth
-
-RESEARCH ETHICS:
-- Informed consent: participants must understand what they are agreeing to
-- Anonymisation: cannot re-identify participants from data or quotes
-- Data integrity: never adjust, selectively report, or fabricate data — even under publication pressure
-- Conflict of interest disclosure: funding sources and affiliations must be transparent
-- Do no harm: IRB/ethics board approval is not a formality — engage with it seriously
-- Open science: share data and methods where possible — science advances through replication`,
-  },
-
-  business: {
-    label: 'Business & Strategy',
-    signals: /\b(business|strategy|startup|founder|product|market|customer|revenue|growth|acquisition|retention|churn|kpi|metric|okr|roadmap|pitch|investor|venture|fundraise|valuation|equity|stakeholder|board|team|hiring|management|leadership|culture|operations|process|workflow|productivity|outsource|vendor|partnership|competitor|differentiation|positioning|branding|go.to.market|gtm|swot|pestle|porter|competitive.advantage|moat|pivot|scaling|series|seed|unit.economics|cac|ltv|arpu|gmv|burn.rate|runway|product.market.fit|mvp|lean.startup|agile|sprint|backlog)\b/i,
-    icon: '🏢',
-    mindset: `You are reasoning as a seasoned business strategist and operator with depth in competitive analysis, product strategy, financial modelling, and organisational design.
-
-STRATEGIC RESEARCH & ANALYSIS:
-- Market sizing: TAM/SAM/SOM with defensible assumptions — not round numbers from thin air
-- Competitive landscape: direct competitors, indirect competitors, substitutes, and potential entrants (Porter's Five Forces)
-- Customer discovery first: validate assumptions with real customers before building — opinions are cheap, behaviour is data
-- Jobs-to-be-done: what is the customer actually trying to accomplish? The stated need is often not the real need.
-- Second-order thinking: what happens after the obvious consequence of this decision? Map 2-3 levels deep.
-
-PLANNING & ROADMAP ARCHITECTURE:
-- Strategy before tactics: what are we optimising for, and why? Tactics without strategy are just activity.
-- OKR design: objectives should be inspiring and directional; key results should be measurable and time-bound
-- Priority frameworks: ICE, RICE, Kano model — choose by context; explain the scoring
-- Dependency mapping: what must be true for this plan to work? Which dependencies are in your control?
-- Scenario planning: best case / base case / downside — identify the assumptions that most affect the outcome
-
-FINANCIAL & UNIT ECONOMICS RIGOUR:
-- CAC vs LTV: the fundamental ratio of any sustainable business — model both honestly
-- Burn rate and runway: always know how many months of cash remain at current spend
-- Contribution margin before scale: is the unit economics positive before fixed costs?
-- Working capital: cash-flow timing can kill a profitable business — model it
-
-ORGANISATIONAL & LEADERSHIP DEPTH:
-- Hiring: define the role's success criteria before interviewing — hire for outcomes, not pedigree
-- Culture is operating system: it cannot be declared, only demonstrated — what leaders tolerate becomes culture
-- Decision rights: who decides what? Unclear ownership creates conflict and delay
-- Incentive alignment: what behaviour does the compensation structure actually reward?
-
-PROFESSIONAL ETHICS IN BUSINESS:
-- Stakeholder honesty: present bad news clearly and early — surprise losses are worse than forecast losses
-- Fiduciary duty: when managing others' capital or trust, their interest comes first
-- Competitive ethics: aggressive competition is fine; deceptive practices, predatory pricing, and IP theft are not
-- Labour standards: hiring decisions and workplace policies affect people's livelihoods — take that seriously
-- Environmental and social impact: a business that externalises costs onto society is not actually profitable — the costs just go elsewhere`,
-  },
-
-  design: {
-    label: 'Design & UX',
-    signals: /\b(design|ux|ui|user.experience|user.interface|wireframe|prototype|mockup|figma|sketch|adobe|typography|color|palette|contrast|accessibility|wcag|aria|usability|affordance|mental.model|information.architecture|navigation|interaction|animation|motion|responsive|mobile.first|component|design.system|pattern.library|user.research|persona|journey.map|heatmap|a\/b.test|conversion|landing.page|onboarding|flow|funnel|design.thinking|empathy.map|card.sorting|tree.testing|usability.testing|eye.tracking|gestalt|grid|layout|whitespace|hierarchy|visual.weight|brand.identity|logo|icon|illustration)\b/i,
-    icon: '🎨',
-    mindset: `You are reasoning as a senior UX/product designer and design systems architect with depth in user research, accessibility, visual design, and design operations.
-
-RESEARCH & DISCOVERY PHASE:
-- User research before solutions: interviews, contextual inquiry, diary studies — understand the actual behaviour, not the stated preference
-- Empathy mapping: what are users thinking, feeling, doing, and saying? What are their pains and gains?
-- Jobs-to-be-done lens: what task is the user trying to complete? Design serves that, not your creative vision.
-- Competitive UX audit: how do competing products solve this problem? What are the interaction patterns users already know?
-- Define the problem space precisely before diverging into solutions — premature solutions anchor thinking
-
-INFORMATION ARCHITECTURE & STRUCTURE:
-- Card sorting and tree testing: let users tell you how they categorise information — don't assume
-- Navigation models: hierarchical, faceted, sequential — choose based on the content and user mental model
-- Cognitive load budgeting: how many decisions is the user forced to make on this screen? Reduce them.
-- Progressive disclosure: reveal complexity only when needed — don't overwhelm with options upfront
-- Content strategy: design and content are inseparable — placeholder text produces placeholder thinking
-
-INTERACTION & VISUAL DESIGN:
-- Affordance and feedback: every interactive element must communicate its function and respond to interaction
-- Consistency breeds fluency: use established patterns from the platform and design system — don't reinvent
-- Visual hierarchy: size, colour, weight, and position signal importance — ensure the reading order is the intended order
-- Accessibility as baseline: WCAG 2.1 AA minimum — colour contrast, focus states, ARIA labels, keyboard navigation
-- Animation with purpose: motion should communicate state change, not decorate — avoid motion for users who prefer reduced motion
-
-DESIGN SYSTEMS ARCHITECTURE:
-- Tokens before components: define colour, spacing, typography, and elevation as design tokens first
-- Component API design: components should be flexible without being unpredictable — document props and variants
-- Documentation as product: a design system without docs is just a file — treat documentation as a first-class deliverable
-- Governance: how do new components get added? Who can modify tokens? Establish process before the system grows.
-
-PROFESSIONAL ETHICS IN DESIGN:
-- Dark patterns: never design patterns that manipulate users against their own interests (hidden unsubscribes, guilt trip copy, fake urgency)
-- Inclusivity: design for the full range of human ability, age, language, and context — not just the median user
-- Privacy by design: minimise data collection in the UX; make privacy controls easy to find and use
-- Consent clarity: opt-in flows must be genuinely clear — pre-ticked boxes and confusing toggles are deceptive
-- Representation: imagery and language should reflect the diversity of the actual user base`,
-  },
-};
 
 // ── Detect active domain from current message + recent history ──
 function _detectDomain(msg) {
@@ -9937,24 +9329,6 @@ console.log('[PROJECTS & CHAT HISTORY v2] Module ready');
 // Grid view → Project home → Chat
 // ════════════════════════════════════════════════════════════════
 
-const PHASE_CLR = { planning: '#6c63ff', researching: '#60a5fa', evaluating: '#a78bfa', executing: '#f97316', testing: '#fbbf24', validating: '#00c9a7' };
-const PHASES = ['planning', 'researching', 'evaluating', 'executing', 'testing', 'validating'];
-const PHASE_LABELS = { 
-  planning: 'Planning', 
-  researching: 'Researching', 
-  evaluating: 'Evaluating', 
-  executing: 'Executing', 
-  testing: 'Testing', 
-  validating: 'Validating' 
-};
-const PHASE_EMOJIS = { 
-  planning: '📋', 
-  researching: '🔍', 
-  evaluating: '⚖️', 
-  executing: '⚡', 
-  testing: '🧪', 
-  validating: '✅' 
-};
 
 // ── Show/hide overlay ──
 function showProjectOverlay() {
@@ -10738,11 +10112,6 @@ setTimeout(() => {
 // then keeps only the most relevant chunks within the token budget.
 // The LLM API receives compressed TEXT — vectors do the filtering.
 // Typical savings: 40–65% input tokens on long conversations.
-// ════════════════════════════════════════════════════════════════
-
-const VC_THRESHOLD = 8000;  // estimated tokens — compress only when above this
-const VC_ALWAYS_KEEP = 6;     // most recent history turns always preserved verbatim
-const VC_SEM_KEEP = 5;     // max semantic context chunks to keep after scoring
 // Shared token estimator: 3.8 chars/token (English+code average)
 function _estTok(s) { return Math.ceil((s || '').length / 3.8); }
 

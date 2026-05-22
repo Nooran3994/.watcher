@@ -2846,7 +2846,6 @@
     }
 
     .pill-btn#wsbtn.ws-on { color: #63b6ff; background: rgba(99, 182, 255, 0.1); }
-    .pill-btn#cbbtn.cb-on { color: #6cffa0; background: rgba(108, 255, 160, 0.1); }
 
     #model-pill-selector {
       display: flex;
@@ -2883,17 +2882,26 @@
     }
 
     #sbtn {
+      background: var(--accent2);
+      color: #fff;
+      border: none;
       border-radius: 9px;
       cursor: pointer;
       transition: all .18s;
       flex-shrink: 0;
-      box-shadow: 0 3px 12px rgba(108, 99, 255, .25);
+      width: 38px;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 15px rgba(0, 201, 167, .3);
       font-family: inherit
     }
 
     #sbtn:hover {
       transform: translateY(-1px);
-      box-shadow: 0 5px 18px rgba(108, 99, 255, .38)
+      box-shadow: 0 6px 20px rgba(0, 201, 167, .45);
+      background: #00b899;
     }
 
     #sbtn:disabled {
@@ -2955,98 +2963,6 @@
       border-color: var(--accent);
     }
 
-    #cb-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 10px;
-      background: rgba(108, 255, 160, .04);
-      border-top: 1px solid rgba(108, 255, 160, .1);
-      flex-shrink: 0
-    }
-
-    #cb-toolbar.cb-off {
-      background: rgba(255, 255, 255, .015);
-      border-top: 1px solid rgba(255, 255, 255, .04)
-    }
-
-    .cb-tb-label {
-      font-size: 9px;
-      color: #444466;
-      font-weight: 700;
-      letter-spacing: .5px;
-      white-space: nowrap;
-      flex-shrink: 0
-    }
-
-    .cb-tb-select {
-      flex: 1;
-      min-width: 0;
-      background: rgba(0, 0, 0, .3);
-      border: 1px solid rgba(108, 255, 160, .2);
-      border-radius: 5px;
-      color: #9090b8;
-      font-size: 10px;
-      padding: 3px 6px;
-      font-family: inherit;
-      cursor: pointer;
-      outline: none;
-      max-width: 200px
-    }
-
-    .cb-tb-select:focus {
-      border-color: rgba(108, 255, 160, .45);
-      color: #c0c0e0
-    }
-
-    .cb-tb-btn {
-      background: rgba(108, 99, 255, .1);
-      border: 1px solid rgba(108, 99, 255, .2);
-      color: #8080b8;
-      font-size: 9px;
-      padding: 3px 8px;
-      border-radius: 5px;
-      cursor: pointer;
-      white-space: nowrap;
-      font-family: inherit;
-      transition: all .12s;
-      flex-shrink: 0
-    }
-
-    .cb-tb-btn:hover {
-      background: rgba(108, 99, 255, .2);
-      color: #c0c0ff;
-      border-color: rgba(108, 99, 255, .4)
-    }
-
-    .cb-tb-btn.cb-tb-on {
-      background: rgba(108, 255, 160, .15);
-      border-color: rgba(108, 255, 160, .35);
-      color: #6cffa0
-    }
-
-    .cb-tb-btn.cb-tb-on:hover {
-      background: rgba(108, 255, 160, .25)
-    }
-
-    .cb-tb-btn.cb-tb-danger {
-      background: rgba(248, 113, 113, .08);
-      border-color: rgba(248, 113, 113, .2);
-      color: #888
-    }
-
-    .cb-tb-btn.cb-tb-danger:hover {
-      background: rgba(248, 113, 113, .15);
-      color: #f87171;
-      border-color: rgba(248, 113, 113, .4)
-    }
-
-    .cb-tb-sep {
-      width: 1px;
-      height: 14px;
-      background: rgba(255, 255, 255, .06);
-      flex-shrink: 0
-    }
 
     @keyframes fu {
       from {

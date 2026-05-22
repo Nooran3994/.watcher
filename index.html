@@ -198,21 +198,11 @@
               <button class="pill-btn" id="wsbtn" onclick="toggleWebSearch()" title="Toggle Web Search">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
               </button>
-              <button class="pill-btn" id="cbbtn" onclick="toggleCodebaseMode()" title="Toggle Codebase Mode">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7v10l10 5 10-5V7L12 2z"></path><polyline points="12 22 12 12 22 7"></polyline><polyline points="2 7 12 12"></polyline></svg>
-              </button>
             </div>
             
-            <textarea id="ci" rows="1" placeholder="Ask Gemini..."></textarea>
-            
-            <div class="itools-right">
-              <div id="model-pill-selector" title="Switch active AI model">
-                <select id="agent-select" onchange="setActiveAgent(this.value)">
-                  <option value="agent_main">SCAAI (default)</option>
-                </select>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-              </div>
+            <textarea id="ci" rows="1" placeholder="Ask SCAAI..."></textarea>
 
+            <div class="itools-right">
               <button class="pill-btn mic-btn" title="Voice input (Coming soon)">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
               </button>
@@ -225,30 +215,9 @@
           
           <div id="iwrap-footer">
             <div class="hint">Enter to send · Shift+Enter for newline</div>
-            <div id="vc-badge" title="Vector compression active"><span class="vc-dot"></span> Compressed</div>
+
             <button id="skills-bar-btn" onclick="openSkillsModal()">⚡ Skills <span id="skill-badge">0</span></button>
           </div>
-        </div>
-        <div id="cb-toolbar" class="cb-off">
-          <span class="cb-tb-label">🧩 CODEBASE</span>
-          <select id="cb-tb-select" class="cb-tb-select" onchange="cbTbSwitch(this.value)"
-            title="Select active codebase">
-            <option value="">— none indexed —</option>
-          </select>
-          <button class="cb-tb-btn" id="cb-tb-mode-btn" onclick="toggleCodebaseMode()"
-            title="Toggle Codebase Mode ON/OFF">Mode: OFF</button>
-          <div class="cb-tb-sep"></div>
-          <button class="cb-tb-btn" onclick="cbTbReanalyze()" title="Re-analyze current codebase">↺ Re-scan</button>
-          <button class="cb-tb-btn" onclick="cbTbDeepAnalyze()"
-            title="Deep Analyze — reads every file body for full logic, call graphs, types"
-            style="color:#a0e0ff;border-color:rgba(100,200,255,.3)">🔬 Deep</button>
-          <button class="cb-tb-btn" onclick="cbGenerateFixPrompt()"
-            title="Generate a structured fix prompt for this error — ready to paste into Claude, GPT-4, etc."
-            style="color:#ffc080;border-color:rgba(255,180,80,.3)">📋 Fix Prompt</button>
-          <button class="cb-tb-btn" onclick="cbTbNew()" title="Index a new codebase">+ New</button>
-          <button class="cb-tb-btn cb-tb-danger" onclick="cbTbForget()"
-            title="Remove active codebase from memory">✕</button>
-        </div>
         </div>
       </div><!-- /#workspace -->
 
@@ -1369,7 +1338,6 @@
           SEM_COUNT,
           CONFIG,
           WEB_SEARCH_ENABLED,
-          CODEBASE_MODE,
           FILES,
           SEL,
           TOOLS_CONFIG,

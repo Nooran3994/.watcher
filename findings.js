@@ -56,7 +56,6 @@ const SystemFindings = (() => {
       SEM_COUNT,
       CONFIG,
       WEB_SEARCH_ENABLED,
-      CODEBASE_MODE,
       FILES,
       SEL,
       TOOLS_CONFIG,
@@ -89,7 +88,7 @@ const SystemFindings = (() => {
       await _analyzeResponseQuality({ aiMessages, userMessages, findings });
 
       // ── 3. TOOL USAGE ────────────────────────────────────────────
-      await _analyzeToolUsage({ aiMessages, WEB_SEARCH_ENABLED, CODEBASE_MODE, FILES, SEL, TOOLS_CONFIG, findings });
+      await _analyzeToolUsage({ aiMessages, WEB_SEARCH_ENABLED, FILES, SEL, TOOLS_CONFIG, findings });
 
       // ── 4. MODEL PERFORMANCE ─────────────────────────────────────
       await _analyzeModelPerformance({ allMessages, CONFIG, findings });
@@ -308,7 +307,7 @@ const SystemFindings = (() => {
     }
   }
 
-  async function _analyzeToolUsage({ aiMessages, WEB_SEARCH_ENABLED, CODEBASE_MODE, FILES, SEL, TOOLS_CONFIG, findings }) {
+  async function _analyzeToolUsage({ aiMessages, WEB_SEARCH_ENABLED, FILES, SEL, TOOLS_CONFIG, findings }) {
     const texts = aiMessages.map(m=>m.content||'').join(' ');
 
     // Web search not used but responses mention outdated info
@@ -342,22 +341,7 @@ const SystemFindings = (() => {
       });
     }
 
-    // Codebase mode not used for code-heavy sessions
-    if (!CODEBASE_MODE && fileCount > 5) {
-      const codeExtensions = Object.values(FILES||{}).filter(f=>['js','ts','py','jsx','tsx','go','rs'].includes(f.ext||'')).length;
-      if (codeExtensions > 3) {
-        findings.push({
-          id: 'tool_codebase_mode_off',
-          severity: SEVERITY.LOW,
-          category: 'tools',
-          title: 'Code files loaded but Codebase Mode is off',
-          description: `${codeExtensions} code files are loaded but Codebase Mode is not active. Indexing the codebase would dramatically improve code assistance accuracy by building a structural map.`,
-          actionType: 'configuration',
-          actions: [],
-          learnContent: 'SYSTEM IMPROVEMENT: User loads code files frequently. Should proactively suggest enabling Codebase Mode when multiple code files are detected.',
-        });
-      }
-    }
+
 
     // Check Obsidian tool config
     const obs = (TOOLS_CONFIG||{}).obsidian || {};
