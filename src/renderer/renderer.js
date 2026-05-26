@@ -4586,7 +4586,7 @@ async function executeTools(text) {
 
 // ── Plan Mode ──
 // When true, multi-step tasks are gated behind a user-confirmed plan before the LLM executes the full task.
-let PLAN_MODE = true;  // on by default — user can toggle with "plan mode off"
+let PLAN_MODE = false;  // disabled — SCAAI executes directly without plan confirmation gate
 let _pendingPlanResolve = null; // resolve fn for the current plan confirmation Promise
 function getApiKey(provider) {
   if (provider === 'groq') {
