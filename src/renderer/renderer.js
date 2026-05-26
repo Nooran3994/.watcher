@@ -628,16 +628,23 @@ async function init() {
   try {
     // ── Parallel load: all independent data sources fired simultaneously ──
     // Previously sequential (6 round-trips back-to-back); now one parallel batch.
-    const [p, c, f, sysInfo, prof, tc] = await Promise.all([
+    const [p, c, f, sysInfo, prof, tc, skillsR] = await Promise.all([
       A.persona.load().catch(() => null),
       A.config.load().catch(() => null),
       A.filesIndex.load().catch(() => null),
       A.sys.info().catch(() => ({})),
       A.profile.load().catch(() => null),
       A.tools.load().catch(() => null),
+      A.skills.list().catch(() => ({ ok: false, skills: [] })),
     ]);
 
     if (p) PERSONA = p;
+    if (skillsR && skillsR.ok) {
+      SKILLS_LIST = skillsR.skills;
+      const resLib = SKILLS_LIST.find(s => s._id === 'resource-library');
+      if (resLib) ACTIVE_SKILL_IDS.add(resLib._id);
+      console.log(`[SKILLS] Loaded ${SKILLS_LIST.length} skills.`);
+    }
     if (c) { CONFIG = c; if (c.model) { const prov = c.provider || 'groq'; SM[prov] = c.model; } }
     if (f && Object.keys(f).length) {
       FILES = f;
@@ -3843,6 +3850,17 @@ function buildSystemPrompt(semContext = '') {
   }
 
 
+  // ── SKILLS — custom markdown modules injected into system prompt ──
+  SKILLS_LIST.forEach(skill => {
+    if (ACTIVE_SKILL_IDS.has(skill._id) && skill.type === 'md' && skill._mdContent) {
+      p += '════════════════════════════════════════\n';
+      p += `SKILL: ${skill.name.toUpperCase()}\n`;
+      p += '════════════════════════════════════════\n';
+      p += skill._mdContent + '\n';
+      p += '════════════════════════════════════════\n\n';
+    }
+  });
+
   // ── TOOL SYNCHRONISATION STATE ──
   // Tells the AI exactly which tools are active RIGHT NOW and how they relate.
   // The AI must reason within this combined context — never treat tools as isolated.
@@ -4556,6 +4574,17 @@ async function executeTools(text) {
     if (target.startsWith('http')) { await A.sys.openUrl(target); addToolMsg(`open url: ${target}`, 'Opened in browser ✓'); }
     else { await A.sys.openPath(target); addToolMsg(`open: ${target}`, 'Opened ✓'); }
     results.push({ type: 'open', target });
+  }
+  const searchRe = /\[SEARCH:\s*([^\]]+)\]/gi;
+  while ((m = searchRe.exec(text)) !== null) {
+    const query = m[1].trim();
+    setLoading(true, `Searching: ${query.slice(0, 35)}…`);
+    // Ensure web search is enabled for this call
+    const wasEnabled = WEB_SEARCH_ENABLED;
+    if (!wasEnabled) console.log('[TOOL] Temporarily enabling web search for explicit tag');
+    const out = await _doWebSearch(query);
+    addToolMsg(`search: ${query}`, out || '(no results)');
+    results.push({ type: 'search', query, output: out });
   }
   const uiRe2 = /\[UI:\s*([^\]]+?)\s*\]/gi;
   while ((m = uiRe2.exec(text)) !== null) {
