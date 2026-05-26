@@ -61,25 +61,27 @@ function _loadIndex() {
 }
 
 // ────────────────────────────────────────────
-// Recursive directory walker — populates _index
+// Recursive directory walker — populates _index (ASYNCHRONOUS)
 // ────────────────────────────────────────────
-function _walk(dir, depth) {
+async function _walk(dir, depth) {
   if (depth > SCAN_DEPTH_MAX) return;
   if (Object.keys(_index).length >= MAX_FILES) return;
   let entries;
-  try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
+  try { entries = await fs.promises.readdir(dir, { withFileTypes: true }); }
   catch (e) {
-    console.error(`[disk_watcher] _walk failed reading dir ${dir}:`, e.message);
+    if (e.code !== 'EACCES' && e.code !== 'EPERM')
+      console.error(`[disk_watcher] _walk failed reading dir ${dir}:`, e.message);
     return;
   }
   for (const e of entries) {
     if (SKIP_DIRS.has(e.name)) continue;
     const full = path.join(dir, e.name);
     if (e.isDirectory()) {
-      _walk(full, depth + 1);
+      await _walk(full, depth + 1);
     } else if (e.isFile()) {
       try {
-        const stat = fs.statSync(full);
+        const stat = await fs.promises.stat(full).catch(() => null);
+        if (!stat) continue;
         _index[full] = {
           name:  e.name,
           ext:   path.extname(e.name).slice(1).toLowerCase(),
@@ -87,9 +89,7 @@ function _walk(dir, depth) {
           mtime: stat.mtimeMs,
           dir:   dir,
         };
-      } catch (e) {
-        console.error(`[disk_watcher] _walk stat failed for ${full}:`, e.message);
-      }
+      } catch (e) { }
     }
   }
 }
@@ -106,7 +106,7 @@ async function scan(roots) {
   _index = {};
   const resolved = roots.map(r => r.replace(/^~/, os.homedir()));
   for (const root of resolved) {
-    if (fs.existsSync(root)) _walk(root, 0);
+    if (fs.existsSync(root)) await _walk(root, 0);
   }
   _saveIndex();
   return { ok: true, count: Object.keys(_index).length };

@@ -311,11 +311,10 @@ function createWindow() {
     }
   });
 }
-app.whenReady().then(async () => {
+app.whenReady().then(() => {
   ensureBridge();
-  // ── Detect WSL2 BEFORE creating the window so _wslAvailable is set
-  //    before any IPC handler can be invoked by the renderer ──
-  await detectWsl2().catch(() => { _wslAvailable = false; });
+  // ── Detect WSL2 in the background so window creation isn't blocked ──
+  detectWsl2().catch(() => { _wslAvailable = false; });
   createWindow();
   // ── Upgrade 1: start background disk scan after renderer is ready ──
   win.webContents.once('did-finish-load', () => {
@@ -509,15 +508,15 @@ ipcMain.handle('sys:list-dir', async (_, dirPath) => {
     // Fallback to Node fs with correct Windows path
     try {
       const winPath = resolved.startsWith('/mnt/') ? wslToWinPath(resolved) : resolved;
-      if (!winPath || !require('fs').existsSync(winPath)) throw new Error('Path not found: ' + winPath);
-      const e = fs.readdirSync(winPath, { withFileTypes: true });
+      if (!winPath || !fs.existsSync(winPath)) throw new Error('Path not found: ' + winPath);
+      const e = await fs.promises.readdir(winPath, { withFileTypes: true });
       return { ok: true, path: resolved, entries: e.map(e => ({ name: e.name, type: e.isDirectory() ? 'dir' : 'file', fullPath: path.join(winPath, e.name) })) };
     } catch (e2) { return { ok: false, error: (r && r.error) || e2.message }; }
   }
 
   // Native Windows
   try {
-    const e = fs.readdirSync(resolved, { withFileTypes: true });
+    const e = await fs.promises.readdir(resolved, { withFileTypes: true });
     return { ok: true, path: resolved, entries: e.map(e => ({ name: e.name, type: e.isDirectory() ? 'dir' : 'file', fullPath: path.join(resolved, e.name) })) };
   } catch (e) { return { ok: false, error: e.message }; }
 });
@@ -611,7 +610,7 @@ ipcMain.handle('fs:stat', async (_, fp) => {
 ipcMain.handle('fs:read-file', async (_, fp) => {
   try {
     fp = fp.replace(/^~/, os.homedir());
-    const stat = fs.statSync(fp);
+    const stat = await fs.promises.stat(fp);
     const ext = path.extname(fp).slice(1).toLowerCase();
     const name = path.basename(fp);
 
@@ -645,7 +644,7 @@ ipcMain.handle('fs:read-file', async (_, fp) => {
       // Tier 2: pdf-parse (pure Node.js, no WSL needed)
       try {
         const pdfParse = require('pdf-parse');
-        const buf = fs.readFileSync(fp);
+        const buf = await fs.promises.readFile(fp);
         const data = await pdfParse(buf);
         const text = (data.text || '').trim();
         if (text.length > 10) {
@@ -681,30 +680,51 @@ ipcMain.handle('fs:read-file', async (_, fp) => {
     }
 
     // ── All other files: binary guard then UTF-8 read ──
-    const buf = fs.readFileSync(fp);
+    const buf = await fs.promises.readFile(fp);
     let bin = false;
     for (let i = 0; i < Math.min(512, buf.length); i++) { if (buf[i] === 0) { bin = true; break; } }
     if (bin) return { ok: true, content: `[Binary: ${name}, ${Math.round(stat.size / 1024)}KB]`, size: stat.size };
-    return { ok: true, content: fs.readFileSync(fp, 'utf-8'), size: stat.size };
+    return { ok: true, content: buf.toString('utf-8'), size: stat.size };
 
   } catch (e) { return { ok: false, error: e.message }; }
 });
 
-function walkDir(dir, max = 5, d = 0) { if (d > max) return []; const skip = new Set(['node_modules', '.git', '__pycache__', '.DS_Store', 'dist', 'build', '.venv', 'venv', '.next']); let r = []; try { for (const e of fs.readdirSync(dir, { withFileTypes: true })) { if (skip.has(e.name)) continue; const f = path.join(dir, e.name); if (e.isDirectory()) r.push(...walkDir(f, max, d + 1)); else r.push(f); } } catch { } return r; }
-ipcMain.handle('fs:list-folder', (_, p) => walkDir(p));
+async function walkDir(dir, max = 5, d = 0) { 
+  if (d > max) return []; 
+  const skip = new Set(['node_modules', '.git', '__pycache__', '.DS_Store', 'dist', 'build', '.venv', 'venv', '.next']); 
+  let r = []; 
+  try { 
+    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    for (const e of entries) { 
+      if (skip.has(e.name)) continue; 
+      const f = path.join(dir, e.name); 
+      if (e.isDirectory()) r.push(...(await walkDir(f, max, d + 1))); 
+      else r.push(f); 
+    } 
+  } catch { } 
+  return r; 
+}
+ipcMain.handle('fs:list-folder', async (_, p) => await walkDir(p));
 
 ipcMain.handle('fs:write-file', async (_, fp, c) => {
   try {
     fp = fp.replace(/^~/, os.homedir());
-    if (fs.existsSync(fp)) fs.copyFileSync(fp, fp + '.scaai.bak');
-    fs.mkdirSync(path.dirname(fp), { recursive: true });
-    fs.writeFileSync(fp, c, 'utf-8');
-    const stat = fs.statSync(fp);
+    if (fs.existsSync(fp)) await fs.promises.copyFile(fp, fp + '.scaai.bak').catch(() => {});
+    await fs.promises.mkdir(path.dirname(fp), { recursive: true });
+    await fs.promises.writeFile(fp, c, 'utf-8');
+    const stat = await fs.promises.stat(fp);
     return { ok: true, content: c, size: stat.size };
   } catch (e) { return { ok: false, error: e.message }; }
 });
 
-ipcMain.handle('fs:create-file', async (_, fp, c) => { try { fp = fp.replace(/^~/, os.homedir()); fs.mkdirSync(path.dirname(fp), { recursive: true }); fs.writeFileSync(fp, c || '', 'utf-8'); return { ok: true }; } catch (e) { return { ok: false, error: e.message }; } });
+ipcMain.handle('fs:create-file', async (_, fp, c) => { 
+  try { 
+    fp = fp.replace(/^~/, os.homedir()); 
+    await fs.promises.mkdir(path.dirname(fp), { recursive: true }); 
+    await fs.promises.writeFile(fp, c || '', 'utf-8'); 
+    return { ok: true }; 
+  } catch (e) { return { ok: false, error: e.message }; } 
+});
 
 ipcMain.handle('fs:delete-file', async (_, fp) => {
   const r = await dialog.showMessageBox(win, {

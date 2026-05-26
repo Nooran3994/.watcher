@@ -2682,7 +2682,21 @@ async function updateFileCaches(active) {
 }
 
 // ── Render ──
-function renderAll() { renderStats(); renderActiveBar(); renderFiles(); renderPersona(); renderBadge(); }
+let _renderTimer = null;
+function renderAll() {
+  if (_renderTimer) return;
+  _renderTimer = setTimeout(() => {
+    _renderTimer = null;
+    _doRenderAll();
+  }, 200);
+}
+function _doRenderAll() { 
+  renderStats(); 
+  renderActiveBar(); 
+  renderFiles(); 
+  renderPersona(); 
+  renderBadge(); 
+}
 
 
 function renderStats() {
@@ -2752,10 +2766,19 @@ function renderFiles() {
   if (!list || !fsrEl || !fsclEl) return;
   const q = (fsrEl.value || '').toLowerCase();
   fsclEl.style.display = q ? '' : 'none';
-  const entries = Object.entries(FILES).filter(([p]) => !q || p.toLowerCase().includes(q));
+  const entries = Object.entries(FILES)
+    .filter(([p]) => !q || p.toLowerCase().includes(q))
+    .slice(0, 100); // Limit to top 100 to prevent DOM lag
   if (!entries.length && !Object.keys(FILES).length) { list.innerHTML = `<div class="empty">No files loaded.<br/><span style="color:#6c63ff">+ Files</span> or <span style="color:#00c9a7">📁 Folder</span><br/>or ask me to find files</div>`; return; }
-  if (!entries.length) { list.innerHTML = `<div class="empty">No matches for "${x(q)}"</div>`; return; }
+  if (!entries.length) { list.innerHTML = `<div class="empty">No matches for "${x(q)}" (Showing top 100)</div>`; return; }
   list.innerHTML = '';
+  if (Object.keys(FILES).length > 100 && !q) {
+    const notice = document.createElement('div');
+    notice.className = 'fm';
+    notice.style.padding = '0 10px 8px';
+    notice.innerHTML = `Showing 100 of ${Object.keys(FILES).length} files. Search to find specific ones.`;
+    list.appendChild(notice);
+  }
   entries.forEach(([path, info]) => {
     const sel = SEL.has(path), nm = path.split(/[\\/]/).pop(), dir = path.replace(/[\\/][^\\/]+$/, '');
     const showDir = dir !== path && dir !== nm, chars = (info.content || '').length.toLocaleString();
