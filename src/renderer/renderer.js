@@ -9451,8 +9451,6 @@ async function showProjectHome(proj) {
   _renderPhvPhaseTabs();
   // Context notes
   _refreshPhvCtxPanel();
-  // Mission Roadmap
-  _renderProjectHomeStrategic();
   // Instructions
   _refreshPhvInstructions();
   // Files
@@ -9463,62 +9461,12 @@ async function showProjectHome(proj) {
   await _renderPhvChatList();
 }
 
-function _renderProjectHomeStrategic() {
-  const el = document.getElementById('phv-mission-roadmap');
-  if (!el) return;
-  const sp = window._STRATEGIC_PLAN || {};
+function _renderProjectHomeStrategic() { /* mission roadmap removed */ }
 
-  if (!sp.activeMission) {
-    el.innerHTML = '<div class="phv-mission-empty">No active mission detected. Start a complex task to trigger automatic planning.</div>';
-    return;
-  }
-
-  let html = `<div class="phv-roadmap-mission-box">
-        <div class="phv-roadmap-mission-title">ACTIVE MISSION</div>
-        <div class="phv-roadmap-mission-text">${escHtml(sp.activeMission)}</div>
-      </div>`;
-
-  if (sp.milestones && sp.milestones.length) {
-    sp.milestones.forEach(m => {
-      const statusClass = m.status === 'completed' ? 'is-completed' : (m.status === 'in-progress' ? 'is-in-progress' : '');
-      const labelClass = m.status === 'completed' ? 'is-completed' : '';
-      const icon = m.status === 'completed' ? '✓' : (m.status === 'in-progress' ? '▶' : '○');
-
-      html += `<div class="phv-roadmap-ms-item ${statusClass}">
-            <div class="phv-roadmap-ms-icon">${icon}</div>
-            <div class="phv-roadmap-ms-content">
-              <div class="phv-roadmap-ms-label ${labelClass}">${escHtml(m.title)}</div>
-              ${m.description ? `<div class="phv-roadmap-ms-desc">${escHtml(m.description)}</div>` : ''}
-            </div>
-          </div>`;
-    });
-  }
-
-  el.innerHTML = html;
-}
-
-// Expose to window for strategic engine
+// Expose to window for strategic engine (no-op kept for back-compat)
 window._renderProjectHomeStrategic = _renderProjectHomeStrategic;
 
-function _renderPhvPhaseTabs() {
-  const el = document.getElementById('phv-phases'); if (!el || !ACTIVE_PROJECT) return;
-  const currentIdx = PHASES.indexOf(ACTIVE_PROJECT.phase);
-  el.innerHTML = '';
-  PHASES.forEach((phase, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'phv-phase-tab';
-    btn.textContent = (PHASE_LABELS[phase] || phase);
-    if (i < currentIdx) btn.classList.add('phase-done');
-    else if (i === currentIdx) btn.classList.add('phase-active');
-    btn.title = `Switch to ${phase} phase`;
-    btn.addEventListener('click', async () => {
-      await setProjectPhase(phase);
-      _renderPhvPhaseTabs();
-      await _renderPhvChatList();
-    });
-    el.appendChild(btn);
-  });
-}
+function _renderPhvPhaseTabs() { /* phase tabs removed */ }
 
 function _refreshPhvCtxPanel() {
   if (!ACTIVE_PROJECT) return;
