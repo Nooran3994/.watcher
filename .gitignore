@@ -1,6 +1,7 @@
 # Folders
 .skills/
 .agents/
+.deepseek/
 
 # Application Watcher (auto-generated monitoring data)
 .watcher/logs/
