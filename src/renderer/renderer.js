@@ -4432,11 +4432,28 @@ ${raw}`
 // ── Tool execution ──
 async function executeTools(text) {
   const results = [];
-  // ── Destructive Action Guard (T4-B fix) ──
-  // Intercepts DELETE/RMDIR commands in EXEC blocks BEFORE execution.
-  // Requires explicit user confirmation. Fires ONCE per batch, then proceeds.
+  // ── Destructive Action Guard ──
   const DESTRUCTIVE_RE = /\b(rmdir\s+\/s|rd\s+\/s|del\s+\/[sq]|rm\s+-[rf]+|shutil\.rmtree|os\.remove)\b/i;
-  const execBlocks = []; { const re = /\[EXEC:\s*([^\]]+)\]/gi; let m; while ((m = re.exec(text)) !== null) execBlocks.push(m[1].trim()); }
+
+  // ── Detection Layer: Legacy + Native Mode ─────────────────
+  const execRe = /\[EXEC:\s*([^\]\n]+?)\s*(?:\]|$)/gi;
+  const nativeExecRe = /execute_command\(\s*(?:command|cmd)\s*[:=]\s*["']([\s\S]*?)["']\s*\)/gi;
+  const listRe = /\[LIST:\s*([^\]\n]+?)\s*(?:\]|$)/gi;
+  const nativeListRe = /list_directory\(\s*(?:directory_path|path)\s*[:=]\s*["']([\s\S]*?)["']\s*\)/gi;
+  const findRe = /\[FIND:\s*([^\|]+)\|\s*([^\]]+)\]/gi;
+  const openRe = /\[OPEN:\s*([^\]]+)\]/gi;
+  const searchRe = /\[SEARCH:\s*([^\]]+)\]/gi;
+  const nativeSearchRe = /web_search\(\s*query\s*[:=]\s*["']([\s\S]*?)["']\s*\)/gi;
+  const nativeReadRe = /read_file\(\s*file_path\s*[:=]\s*["']([\s\S]*?)["']\s*\)/gi;
+  const nativeWriteRe = /write_file\(\s*file_path\s*[:=]\s*["']([\s\S]*?)["']\s*,\s*(?:content|data)\s*[:=]\s*["']([\s\S]*?)["']\s*\)/gi;
+  const uiRe2 = /\[UI:\s*([^\]]+?)\s*\]/gi;
+  const pythonRe = /\[PYTHON:\s*([\s\S]+?)\s*\]/gi;
+
+  const execBlocks = [];
+  let m;
+  while ((m = execRe.exec(text)) !== null) execBlocks.push(m[1].trim());
+  while ((m = nativeExecRe.exec(text)) !== null) execBlocks.push(m[1].trim());
+
   const destructiveCmds = execBlocks.filter(c => DESTRUCTIVE_RE.test(c));
   if (destructiveCmds.length > 0) {
     const list = destructiveCmds.map(c => `• ${c}`).join('\n');
@@ -4449,138 +4466,130 @@ async function executeTools(text) {
     }
   }
 
-  // ── Truncated tool tag guard ──
+  // ── Helpers ──
   function _resolveTruncatedPath(raw) {
     const p = raw.trim();
     if (/[\w\)\]'"\/\\]$/.test(p)) return p;
     const lower = p.toLowerCase();
     const match = Object.values(_pathRegistry).find(v => v.toLowerCase().startsWith(lower));
-    if (match) { console.warn('Tool path resolved from truncated:', p, '→', match); return match; }
+    if (match) return match;
     return p;
   }
 
-  // ── v8: OS-aware EXEC executor with auto-correct + auto-retry ─────────────────
-  // WSL2 mode: _execIsWin is ALWAYS false — all commands run in bash regardless of host OS
   const _execIsWin = _WSL2_ACTIVE ? false : (SYS_INFO && SYS_INFO.platform || '').toLowerCase().includes('win');
-  const UNIX_TO_WIN = {
-    'ls': 'dir', 'cat': 'type', 'grep': 'findstr', 'rm': 'del', 'cp': 'copy',
-    'mv': 'move', 'pwd': 'cd', 'touch': 'type nul >', 'which': 'where', 'find': 'dir /s /b', 'clear': 'cls', 'diff': 'fc'
-  };
-  const WIN_TO_UNIX = {
-    'dir': 'ls -la', 'type': 'cat', 'findstr': 'grep', 'del': 'rm',
-    'copy': 'cp', 'move': 'mv', 'cls': 'clear', 'where': 'which'
-  };
+  const UNIX_TO_WIN = { 'ls': 'dir', 'cat': 'type', 'grep': 'findstr', 'rm': 'del', 'cp': 'copy', 'mv': 'move', 'pwd': 'cd', 'touch': 'type nul >', 'which': 'where', 'find': 'dir /s /b', 'clear': 'cls', 'diff': 'fc' };
+  const WIN_TO_UNIX = { 'dir': 'ls -la', 'type': 'cat', 'findstr': 'grep', 'del': 'rm', 'copy': 'cp', 'move': 'mv', 'cls': 'clear', 'where': 'which' };
+
   function _osCorrectCmd(cmd) {
     const first = cmd.trim().split(/\s+/)[0].toLowerCase();
-    if (_execIsWin && UNIX_TO_WIN[first]) {
-      const corrected = cmd.trim().replace(new RegExp('^' + first, 'i'), UNIX_TO_WIN[first]);
-      return { corrected, note: `⚙ Auto-corrected: '${first}' is a Unix command. Using Windows equivalent: '${UNIX_TO_WIN[first]}'` };
-    }
-    if (!_execIsWin && WIN_TO_UNIX[first]) {
-      const corrected = cmd.trim().replace(new RegExp('^' + first, 'i'), WIN_TO_UNIX[first]);
-      return { corrected, note: `⚙ Auto-corrected: '${first}' is a Windows command. Using Linux equivalent: '${WIN_TO_UNIX[first]}'` };
-    }
+    if (_execIsWin && UNIX_TO_WIN[first]) return { corrected: cmd.trim().replace(new RegExp('^' + first, 'i'), UNIX_TO_WIN[first]), note: `⚙ Auto-corrected: '${first}' is a Unix command. Using Windows equivalent: '${UNIX_TO_WIN[first]}'` };
+    if (!_execIsWin && WIN_TO_UNIX[first]) return { corrected: cmd.trim().replace(new RegExp('^' + first, 'i'), WIN_TO_UNIX[first]), note: `⚙ Auto-corrected: '${first}' is a Windows command. Using Linux equivalent: '${WIN_TO_UNIX[first]}'` };
     return { corrected: cmd, note: null };
   }
-  function _isWrongOsError(out) {
-    return /not recognized as an internal or external command|is not recognized|command not found/i.test(out);
-  }
-  // ── v9: Truncation-safe EXEC regex ──
-  // Matches [EXEC: cmd] normally, but also matches [EXEC: cmd at end-of-string
-  // (missing closing bracket due to token-limit truncation). Without this,
-  // truncated tags are silently skipped, the model sees no output, and repeats
-  // the command in an infinite loop.
-  const execRe = /\[EXEC:\s*([^\]\n]+?)\s*(?:\]|$)/gi; let m;
-  while ((m = execRe.exec(text)) !== null) {
-    let cmd = _resolveTruncatedPath(m[1]);
-    // Skip clearly incomplete commands (< 2 chars after trimming)
-    if (cmd.trim().length < 2) { console.warn('[EXEC] Skipping too-short truncated tag:', cmd); continue; }
-    // ── Auto-quote unquoted path arguments with spaces ──
-    // v9 fix: strip any existing double-double quotes FIRST, then re-quote cleanly.
-    // Prevents the """path""" corruption seen in WSL2 rm/ls commands.
-    cmd = cmd.replace(/""+/g, '"'); // collapse "" → "
-    cmd = cmd.replace(
-      /([a-zA-Z]:\\[^\s"'][^"']*\s[^\s"'][^"']*|\/[^\s"'][^"']*\s[^\s"'][^"']*)/g,
-      match => (match.includes('"') || match.includes("'")) ? match : '"' + match + '"'
-    );
+
+  // ── 1. EXEC (Legacy & Native) ─────────────────
+  const allExecs = [];
+  execRe.lastIndex = 0; while ((m = execRe.exec(text)) !== null) allExecs.push(m[1]);
+  nativeExecRe.lastIndex = 0; while ((m = nativeExecRe.exec(text)) !== null) allExecs.push(m[1]);
+
+  for (let rawCmd of allExecs) {
+    let cmd = _resolveTruncatedPath(rawCmd);
+    if (cmd.trim().length < 2) continue;
+    cmd = cmd.replace(/""+/g, '"').replace(/([a-zA-Z]:\\[^\s"'][^"']*\s[^\s"'][^"']*|\/[^\s"'][^"']*\s[^\s"'][^"']*)/g, match => (match.includes('"') || match.includes("'")) ? match : '"' + match + '"');
     const { corrected: cmd1, note: preNote } = _osCorrectCmd(cmd);
     if (preNote) addToolMsg('⚙ OS Auto-Correct', preNote);
     cmd = cmd1;
     setLoading(true, `Running: ${cmd.slice(0, 35)}…`);
     let r = await A.sys.exec(cmd, { cwd: SYS_INFO.home, timeout: 45000 });
     let out = (r.stdout || '') + (r.stderr ? `\nSTDERR: ${r.stderr}` : '') + (r.error ? `\nERROR: ${r.error}` : '');
-    if (_isWrongOsError(out)) {
-      const first = cmd.trim().split(/\s+/)[0].toLowerCase();
-      const alt = (_execIsWin ? UNIX_TO_WIN : WIN_TO_UNIX)[first];
-      if (alt) {
-        const retryCmd = cmd.trim().replace(new RegExp('^' + first, 'i'), alt);
-        addToolMsg('⚠ Command Diagnosis', `'${first}' failed (wrong OS). Retrying with: ${retryCmd}`);
-        setLoading(true, `Retrying: ${retryCmd.slice(0, 35)}…`);
-        r = await A.sys.exec(retryCmd, { cwd: SYS_INFO.home, timeout: 45000 });
-        out = (r.stdout || '') + (r.stderr ? `\nSTDERR: ${r.stderr}` : '') + (r.error ? `\nERROR: ${r.error}` : '');
-        cmd = retryCmd;
-      }
-    }
     const bar = '-'.repeat(Math.min(cmd.length + 15, 60));
     addToolMsg(cmd, `TOOL RESULT — ${cmd}\n${bar}\n${out || '(no output)'}\n${'-'.repeat(40)}`);
     results.push({ type: 'exec', cmd, output: out || '(no output)' });
   }
-  // ── end v8 EXEC executor ──────────────────────────────────────────────────────
-  const listRe = /\[LIST:\s*([^\]]+)\]/gi;
-  while ((m = listRe.exec(text)) !== null) {
-    const dir = _resolveTruncatedPath(m[1]).replace(/^~/, SYS_INFO.home || '~'); setLoading(true, `Listing: ${dir.slice(-35)}…`);
+
+  // ── 2. LIST (Legacy & Native) ─────────────────
+  const allLists = [];
+  listRe.lastIndex = 0; while ((m = listRe.exec(text)) !== null) allLists.push(m[1]);
+  nativeListRe.lastIndex = 0; while ((m = nativeListRe.exec(text)) !== null) allLists.push(m[1]);
+
+  for (let rawDir of allLists) {
+    const dir = _resolveTruncatedPath(rawDir).replace(/^~/, SYS_INFO.home || '~');
+    setLoading(true, `Listing: ${dir.slice(-35)}…`);
     const r = await A.sys.listDir(dir);
     const out = r.ok ? r.entries.map(e => `${e.type === 'dir' ? '[DIR]' : '[FIL]'} ${e.name}`).join('\n') : `Error: ${r.error}`;
     if (r.ok) { _lastListedFolder = dir; _lastListedContents = r.entries || []; _registerPath(dir, r.entries || []); }
-    // WSL2/Linux: use ls label; Windows: use dir label
-    const _listLabel = _execIsWin ? `dir ${dir}` : `ls ${dir}`;
-    addToolMsg(_listLabel, out || '(empty)'); results.push({ type: 'list', path: dir, output: out });
+    addToolMsg(_execIsWin ? `dir ${dir}` : `ls ${dir}`, out || '(empty)');
+    results.push({ type: 'list', path: dir, output: out });
   }
-  const findRe = /\[FIND:\s*([^\|]+)\|\s*([^\]]+)\]/gi;
+
+  // ── 3. READ (Native) ─────────────────
+  nativeReadRe.lastIndex = 0;
+  while ((m = nativeReadRe.exec(text)) !== null) {
+    const fp = _resolveTruncatedPath(m[1]).replace(/^~/, SYS_INFO.home || '~');
+    setLoading(true, `Reading: ${fp.slice(-30)}…`);
+    const r = await A.fs.readFile(fp);
+    const out = r.ok ? r.content : `Error: ${r.error}`;
+    addToolMsg(`read_file: ${fp}`, `CONTENT — ${fp}\n${'-'.repeat(40)}\n${out}\n${'-'.repeat(40)}`);
+    results.push({ type: 'read', path: fp, output: out });
+  }
+
+  // ── 4. WRITE (Native) ─────────────────
+  nativeWriteRe.lastIndex = 0;
+  while ((m = nativeWriteRe.exec(text)) !== null) {
+    const fp = _resolveTruncatedPath(m[1]).replace(/^~/, SYS_INFO.home || '~');
+    const content = m[2];
+    setLoading(true, `Writing: ${fp.slice(-30)}…`);
+    const r = await A.fs.writeFile(fp, content);
+    addToolMsg(`write_file: ${fp}`, r.ok ? '✓ File written successfully' : `Error: ${r.error}`);
+    results.push({ type: 'write', path: fp, success: r.ok });
+  }
+
+  // ── 5. FIND (Legacy) ─────────────────
+  findRe.lastIndex = 0;
   while ((m = findRe.exec(text)) !== null) {
-    const root = m[1].trim().replace(/^~/, SYS_INFO.home || '~'), pat = m[2].trim(); setLoading(true, `Finding "${pat}"…`);
+    const root = m[1].trim().replace(/^~/, SYS_INFO.home || '~'), pat = m[2].trim();
+    setLoading(true, `Finding "${pat}"…`);
     let r = await A.sys.find(root, pat);
-    // If sys.find returns no results, fall back to shell find command
-    if (r.ok && (!r.results || !r.results.length)) {
-      // WSL2 or Unix: use find; Windows: use dir /s /b
-      const fallbackCmd = _execIsWin
-        ? `dir /s /b "${root}\\${pat}" 2>nul`
-        : `find "${root}" -name "${pat}" 2>/dev/null`;
-      const fr = await A.sys.exec(fallbackCmd, { timeout: 45000 });
-      if (fr.stdout && fr.stdout.trim()) {
-        const fallbackLines = fr.stdout.trim().split('\n').map(l => l.trim()).filter(Boolean);
-        r = { ok: true, results: fallbackLines.map(p => ({ path: p, type: 'file' })) };
-      }
-    }
     const out = r.ok ? r.results.map(f => `[${f.type.toUpperCase()}] ${f.path}`).join('\n') || 'No results' : `Error: ${r.error}`;
-    addToolMsg(`find "${pat}" in ${root}`, out); results.push({ type: 'find', root, pattern: pat, output: out });
+    addToolMsg(`find "${pat}" in ${root}`, out);
+    results.push({ type: 'find', root, pattern: pat, output: out });
   }
-  const openRe = /\[OPEN:\s*([^\]]+)\]/gi;
+
+  // ── 6. OPEN (Legacy) ─────────────────
+  openRe.lastIndex = 0;
   while ((m = openRe.exec(text)) !== null) {
     const target = m[1].trim();
     if (target.startsWith('http')) { await A.sys.openUrl(target); addToolMsg(`open url: ${target}`, 'Opened in browser ✓'); }
     else { await A.sys.openPath(target); addToolMsg(`open: ${target}`, 'Opened ✓'); }
     results.push({ type: 'open', target });
   }
-  const searchRe = /\[SEARCH:\s*([^\]]+)\]/gi;
-  while ((m = searchRe.exec(text)) !== null) {
-    const query = m[1].trim();
+
+  // ── 7. SEARCH (Legacy & Native) ─────────────────
+  const allSearches = [];
+  searchRe.lastIndex = 0; while ((m = searchRe.exec(text)) !== null) allSearches.push(m[1]);
+  nativeSearchRe.lastIndex = 0; while ((m = nativeSearchRe.exec(text)) !== null) allSearches.push(m[1]);
+
+  for (let query of allSearches) {
     setLoading(true, `Searching: ${query.slice(0, 35)}…`);
-    // Ensure web search is enabled for this call
-    const wasEnabled = WEB_SEARCH_ENABLED;
-    if (!wasEnabled) console.log('[TOOL] Temporarily enabling web search for explicit tag');
-    const out = await _doWebSearch(query);
+    const out = await _doWebSearch(query.trim());
     addToolMsg(`search: ${query}`, out || '(no results)');
     results.push({ type: 'search', query, output: out });
   }
-  const uiRe2 = /\[UI:\s*([^\]]+?)\s*\]/gi;
-  while ((m = uiRe2.exec(text)) !== null) {
-    const script = m[1].trim(); setLoading(true, `UI: ${script.slice(0, 40)}…`);
-    const r = await A.sys.ui(script, { timeout: 20000 });
+
+  // ── 8. UI / PYTHON (Legacy & Native) ─────────────────
+  const allScripts = [];
+  uiRe2.lastIndex = 0; while ((m = uiRe2.exec(text)) !== null) allScripts.push({ script: m[1], type: 'ui' });
+  pythonRe.lastIndex = 0; while ((m = pythonRe.exec(text)) !== null) allScripts.push({ script: m[1], type: 'python' });
+
+  for (let entry of allScripts) {
+    const script = entry.script.trim();
+    setLoading(true, `${entry.type.toUpperCase()}: ${script.slice(0, 40)}…`);
+    const r = await A.sys.ui(script, { timeout: 30000 });
     const out = (r.stdout || '') + (r.stderr ? `\nSTDERR: ${r.stderr}` : '') + (r.error ? `\nERROR: ${r.error}` : '');
-    addToolMsg(`UI automation`, `Script: ${script.slice(0, 80)}\n${out || '✓ Done'}`);
-    results.push({ type: 'ui', script, output: out || '✓ Done' });
+    addToolMsg(entry.type === 'ui' ? 'UI automation' : 'Python execution', `Script:\n${script}\n\nRESULT:\n${out || '✓ Done'}`);
+    results.push({ type: entry.type, script, output: out || '✓ Done' });
   }
+
   return results;
 }
 
@@ -8948,10 +8957,36 @@ async function promptRenameProject(id) {
 async function deleteProject(id) {
   const proj = PROJECTS_LIST.find(p => p.id === id); if (!proj) return;
   if (!confirm(`Delete project "${proj.name}"?\n\nAll saved chats for this project will also be removed.`)) return;
-  await A.projects.delete(id);
+  
+  // Optimistic UI Update
+  const originalList = [...PROJECTS_LIST];
+  const originalActive = ACTIVE_PROJECT ? { ...ACTIVE_PROJECT } : null;
+  
   PROJECTS_LIST = PROJECTS_LIST.filter(p => p.id !== id);
-  if (ACTIVE_PROJECT && ACTIVE_PROJECT.id === id) deactivateProject();
+  if (ACTIVE_PROJECT && ACTIVE_PROJECT.id === id) {
+    ACTIVE_PROJECT = null;
+    _chatLinkedToProject = false;
+    ACTIVE_CHAT_ID = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    document.getElementById('proj-detail').classList.remove('visible');
+    _renderProjTitleBadge();
+  }
   renderProjects();
+
+  try {
+    const r = await A.projects.delete(id);
+    if (!r || !r.ok) throw new Error(r ? r.error : 'Deletion failed');
+  } catch (e) {
+    console.error('[DELETE] Project failed, rolling back:', e);
+    PROJECTS_LIST = originalList;
+    ACTIVE_PROJECT = originalActive;
+    if (ACTIVE_PROJECT) {
+      _chatLinkedToProject = true;
+      document.getElementById('proj-detail').classList.add('visible');
+    }
+    renderProjects();
+    _renderProjTitleBadge();
+    alert(`Could not delete project: ${e.message}`);
+  }
 }
 
 // ── Activate project — loads the active phase's most recent chat ──
@@ -9262,9 +9297,21 @@ function loadChatSession(chat) {
 
 async function deleteChatSession(id) {
   if (!confirm('Delete this chat session?')) return;
-  await A.chats.delete(id);
+  
+  // Optimistic UI Update
+  const originalCache = [..._allChatsCache];
   _allChatsCache = _allChatsCache.filter(c => c.id !== id);
   _renderFilteredChats(_chatSearchQuery);
+
+  try {
+    const r = await A.chats.delete(id);
+    if (!r || !r.ok) throw new Error(r ? r.error : 'Deletion failed');
+  } catch (e) {
+    console.error('[DELETE] Chat failed, rolling back:', e);
+    _allChatsCache = originalCache;
+    _renderFilteredChats(_chatSearchQuery);
+    alert(`Could not delete chat session: ${e.message}`);
+  }
 }
 
 // ── Rename a saved chat ──
@@ -9588,10 +9635,23 @@ function _phvRenderFiltered(q) {
 }
 async function deleteChatSessionPhv(id) {
   if (!confirm('Delete this chat session?')) return;
-  await A.chats.delete(id);
+  
+  // Optimistic UI Update
+  const originalCache = [..._allChatsCache];
   _allChatsCache = _allChatsCache.filter(c => c.id !== id);
   _renderFilteredChats(_chatSearchQuery); // keep sidebar in sync
   _phvRenderFiltered(_phvSearchQuery);
+
+  try {
+    const r = await A.chats.delete(id);
+    if (!r || !r.ok) throw new Error(r ? r.error : 'Deletion failed');
+  } catch (e) {
+    console.error('[DELETE PHV] Chat failed, rolling back:', e);
+    _allChatsCache = originalCache;
+    _renderFilteredChats(_chatSearchQuery);
+    _phvRenderFiltered(_phvSearchQuery);
+    alert(`Could not delete chat session: ${e.message}`);
+  }
 }
 function phvFilterChats(q) {
   _phvSearchQuery = q || '';
@@ -9960,13 +10020,20 @@ function startFreshChat() {
 // ── Delete single chat ───────────────────────────────────────────
 async function _chDeleteChat(id) {
   if (!confirm('Delete this chat?')) return;
-  await A.chats.delete(id);
+  
+  // Snapshot for potential rollback
+  const originalChats = [..._chAllChats];
+  const originalSelected = new Set(_chSelected);
+  const originalActiveId = ACTIVE_CHAT_ID;
+  const originalHistory = [...CONV_HISTORY];
+  const originalMsgsHtml = document.getElementById('msgs').innerHTML;
+  
+  // Optimistic UI Update
   _chAllChats = _chAllChats.filter(c => c.id !== id);
   _chSelected.delete(id);
 
-  // If the deleted chat was the active one, start fresh and close panel
   if (id === ACTIVE_CHAT_ID) {
-    closeChatHistoryPanel();
+    // If deleting active chat, we have to clear the view immediately
     document.getElementById('msgs').innerHTML = '';
     CONV_HISTORY = [];
     ACTIVE_CHAT_ID = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -9974,15 +10041,38 @@ async function _chDeleteChat(id) {
     _chatLinkedToProject = false;
     _renderProjTitleBadge();
     addMsg('ai', '✦ New chat started. How can I help?');
-    // Restore cursor focus to input
-    setTimeout(() => { const ci = document.getElementById('ci'); if (ci) { ci.focus(); ci.setSelectionRange(0, 0); } }, 150);
-    return; // list refresh not needed — panel is closed
+    // Note: panel remains open unless user specifically closes it,
+    // but here we follow original logic of closing if active was deleted.
+    closeChatHistoryPanel(); 
+  } else {
+    // Just update the list
+    const badge = document.getElementById('ov-chat-count');
+    if (badge) badge.textContent = _chAllChats.length || '';
+    _chUpdateBulkBar();
+    _chRenderList(_chFilterQ);
   }
 
-  const badge = document.getElementById('ov-chat-count');
-  if (badge) badge.textContent = _chAllChats.length || '';
-  _chUpdateBulkBar();
-  _chRenderList(_chFilterQ);
+  try {
+    const r = await A.chats.delete(id);
+    if (!r || !r.ok) throw new Error(r ? r.error : 'Deletion failed');
+  } catch (e) {
+    console.error('[DELETE CH] Chat failed, rolling back:', e);
+    _chAllChats = originalChats;
+    _chSelected = originalSelected;
+    
+    if (id === originalActiveId) {
+      ACTIVE_CHAT_ID = originalActiveId;
+      CONV_HISTORY = originalHistory;
+      document.getElementById('msgs').innerHTML = originalMsgsHtml;
+      _renderProjTitleBadge();
+    }
+    
+    const badge = document.getElementById('ov-chat-count');
+    if (badge) badge.textContent = _chAllChats.length || '';
+    _chUpdateBulkBar();
+    _chRenderList(_chFilterQ);
+    alert(`Could not delete chat: ${e.message}`);
+  }
 }
 
 // ── Rename a chat ────────────────────────────────────────────────

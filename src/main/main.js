@@ -276,6 +276,10 @@ function logApiInteraction(provider, model, status, error, meta = {}) {
 function ensureDataDir() { if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true }); }
 function readJSON(file, fallback) { try { return JSON.parse(fs.readFileSync(file, 'utf-8')); } catch { return fallback; } }
 function writeJSON(file, data) { ensureDataDir(); fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8'); }
+async function writeJSONAsync(file, data) {
+  ensureDataDir();
+  await fs.promises.writeFile(file, JSON.stringify(data, null, 2), 'utf-8');
+}
 
 // ── Window ──
 let win;
@@ -869,11 +873,11 @@ ipcMain.handle('projects:delete', async (_, id) => {
     ensureDataDir();
     const list = readJSON(PROJECTS_FILE, []);
     const updated = list.filter(p => p.id !== id);
-    writeJSON(PROJECTS_FILE, updated);
+    await writeJSONAsync(PROJECTS_FILE, updated);
     // also remove all chats belonging to this project
     const chats = readJSON(CHATS_FILE, []);
     const updChats = chats.filter(c => c.projectId !== id);
-    writeJSON(CHATS_FILE, updChats);
+    await writeJSONAsync(CHATS_FILE, updChats);
     return { ok: true };
   } catch (e) { return { ok: false, error: e.message }; }
 });
@@ -908,7 +912,7 @@ ipcMain.handle('chats:delete', async (_, id) => {
   try {
     ensureDataDir();
     const list = readJSON(CHATS_FILE, []);
-    writeJSON(CHATS_FILE, list.filter(c => c.id !== id));
+    await writeJSONAsync(CHATS_FILE, list.filter(c => c.id !== id));
     return { ok: true };
   } catch (e) { return { ok: false, error: e.message }; }
 });
