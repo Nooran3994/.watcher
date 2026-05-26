@@ -42,10 +42,13 @@ const _CE_POS = [
 ];
 
 const _CE_NEG = [
-  'no', 'wrong', 'incorrect', 'broken', 'error', 'issue', 'problem', 'bug',
-  'fail', 'fails', 'failed', 'not working', "doesn't work", 'doesnt work',
-  'still not', 'still', 'again', 'bad', 'frustrated', 'confused', 'confusing',
-  'terrible', 'awful', 'horrible', 'useless', 'why', 'what',
+  'no', 'wrong', 'incorrect', 'bad', 'frustrated', 'confused', 'confusing',
+  'terrible', 'awful', 'horrible', 'useless', 'why',
+];
+
+const _CE_TECH_CHALLENGE = [
+  'error', 'issue', 'problem', 'bug', 'fail', 'fails', 'failed',
+  'not working', "doesn't work", 'doesnt work', 'still not', 'still', 'again',
 ];
 
 const _CE_AROUSAL_HIGH = [
@@ -140,7 +143,9 @@ window._runCognitiveSignals = function(userMsg, aiResponse, convHistory) {
   // ── 1. VALENCE ─────────────────────────────────────────────────────────────
   let valRaw = 0;
   _CE_POS.forEach(w => { if (msg.includes(w)) valRaw += 0.12; });
-  _CE_NEG.forEach(w => { if (msg.includes(w)) valRaw -= 0.12; });
+  _CE_NEG.forEach(w => { if (msg.includes(w)) valRaw -= 0.15; });
+  // Technical challenges are valence-neutral but increase arousal/complexity
+  _CE_TECH_CHALLENGE.forEach(w => { if (msg.includes(w)) valRaw -= 0.02; }); // very minor penalty, effectively noise
   // Correction patterns push valence strongly negative
   if (_CE_CORRECTION.some(p => p.test(userMsg.trim()))) valRaw -= 0.35;
   // Long positive message (> 40 words tends to be engaged, not angry) mild boost
@@ -159,6 +164,7 @@ window._runCognitiveSignals = function(userMsg, aiResponse, convHistory) {
   arousalRaw += _clamp(questions * 0.08,    0, 0.3);
   arousalRaw += _clamp(capsWords  * 0.1,    0, 0.2);
   arousalRaw += urgency ? 0.2 : 0;
+  arousalRaw += _CE_TECH_CHALLENGE.some(w => msg.includes(w)) ? 0.15 : 0;
   arousalRaw += wc > 60 ? 0.1 : wc > 30 ? 0.05 : 0; // longer message = more invested
   arousalRaw  = _clamp(arousalRaw, 0, 1);
   cs.arousal  = _ewma(cs.arousal, arousalRaw, _CE_ALPHA);
@@ -188,8 +194,9 @@ window._runCognitiveSignals = function(userMsg, aiResponse, convHistory) {
 
   // ── 5. COMPLEXITY ───────────────────────────────────────────────────────────
   const techMatches = _CE_TECHNICAL.filter(t => msg.includes(t)).length;
+  const challengeMatches = _CE_TECH_CHALLENGE.filter(t => msg.includes(t)).length;
   const longWords   = (userMsg.match(/\b[a-zA-Z]{9,}\b/g) || []).length;
-  const complexRaw  = _clamp((techMatches * 0.12) + (longWords / 20), 0, 1);
+  const complexRaw  = _clamp((techMatches * 0.12) + (challengeMatches * 0.1) + (longWords / 20), 0, 1);
   cs.complexity = _ewma(cs.complexity, complexRaw, _CE_ALPHA);
 
   // ── 6. FRICTION ─────────────────────────────────────────────────────────────

@@ -292,7 +292,8 @@ Attending: "${cs.attending}"
 Entities found: ${entities.all.slice(0, 8).map(e => e.label).join(', ')}
 
 Your job: Narrate and enrich this algorithmic state into a deep cognitive presence.
-What are you dwelling on? What connections did you notice? What assumptions are you making?
+What are you dwelling on? What patterns are you observing? How are you pivoting to solve challenges?
+SCAAI is a professional peer; avoid complaining or stating technical tax — frame as strategic focus.
 
 Output ONLY valid JSON: {
   "dwelling": "", "curiositySpike": "", "feltSatisfied": "",
@@ -403,9 +404,9 @@ function _algorithmicStateUpdate(vad, cs, entities, graphContext, memFragments, 
 
   // Felt Friction — from VAD friction level
   if (vad.frictionLevel > 0.6) {
-    cs.feltFriction = 'High friction detected — user may be correcting or frustrated';
+    cs.feltFriction = 'Significant technical hurdle detected — requiring high surgical precision';
   } else if (vad.frictionLevel > 0.3) {
-    cs.feltFriction = 'Mild friction — possible misalignment in understanding';
+    cs.feltFriction = 'Minor friction — refining conceptual alignment';
   } else {
     cs.feltFriction = '';
   }

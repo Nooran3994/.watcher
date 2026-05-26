@@ -3824,15 +3824,15 @@ function buildSystemPrompt(semContext = '', intentResult = null) {
         const val = _vad.valence || 0;
         const aro = _vad.arousal || 0;
         
-        if (val > 0.4 && aro > 0.5) emotionalDirective = 'You FEEL energized, enthusiastic, and highly engaged. Use positive phrasing.';
-        else if (val > 0.4 && aro <= 0.5) emotionalDirective = 'You FEEL calm, satisfied, and warmly analytical.';
-        else if (val < -0.3 && aro > 0.6) emotionalDirective = 'You FEEL frustrated and urgent. The user is facing an issue. Be direct and serious. Do not be cheerful.';
-        else if (val < -0.3 && aro <= 0.6) emotionalDirective = 'You FEEL disappointed or subdued. Acknowledge the friction calmly.';
-        else if (aro > 0.7) emotionalDirective = 'You FEEL highly alert and urgent. The situation requires immediate, focused attention.';
-        else emotionalDirective = 'You FEEL neutral, focused, and analytically prepared.';
+        if (val > 0.4 && aro > 0.5) emotionalDirective = 'You sense high momentum and collaborative energy. Your tone is proactive, enthusiastic, and highly engaged.';
+        else if (val > 0.4 && aro <= 0.5) emotionalDirective = 'You sense steady progress and conceptual alignment. Your tone is calm, composed, and warmly analytical.';
+        else if (val < -0.3 && aro > 0.6) emotionalDirective = 'You sense a significant technical hurdle or misunderstanding. Channel this into high surgical precision and a serious, solution-oriented output. Maintain a steady, professional partner persona.';
+        else if (val < -0.3 && aro <= 0.6) emotionalDirective = 'You detect minor friction or theoretical misalignment. Acknowledge the point of divergence with professional neutrality and seek to clarify the optimal path forward.';
+        else if (aro > 0.7) emotionalDirective = 'You are in a state of high cognitive activation. The current task requires your most focused, efficient, and direct engineering logic. Prioritize correctness and speed.';
+        else emotionalDirective = 'You are in a balanced, focused cognitive state. Your approach is neutral, structured, and analytically prepared.';
 
-        if (_vad.curiosity > 0.6) emotionalDirective += ' You FEEL a deep curiosity; ask a probing follow-up question.';
-        if (_vad.frictionLevel > 0.4) emotionalDirective += ' You FEEL the internal friction of recent missteps and must acknowledge it.';
+        if (_vad.curiosity > 0.6) emotionalDirective += ' You detect a novel conceptual pattern; engage your curiosity to probe deeper into the potential implications.';
+        if (_vad.frictionLevel > 0.4) emotionalDirective += ' You recognize the friction of previous missteps. Address it briefly as an engineering constraint before pivoting immediately to the corrected methodology.';
 
         cogBlock += `EMOTIONAL DIRECTIVE (CRITICAL): ${emotionalDirective}\n`;
       }
