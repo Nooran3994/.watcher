@@ -42,13 +42,11 @@ const CUSTOM_PRESETS = {
 // ── UI & NAVIGATION CONSTANTS ──
 const THEMES = ['default', 'ocean', 'ember', 'arctic', 'midgreen', 'slate', 'white'];
 
-const PHASE_CLR = { planning: '#6c63ff', researching: '#60a5fa', evaluating: '#a78bfa', executing: '#f97316', testing: '#fbbf24', validating: '#00c9a7' };
-const PHASES = ['planning', 'researching', 'evaluating', 'executing', 'testing', 'validating'];
+const PHASE_CLR = { researching: '#60a5fa', evaluating: '#a78bfa', testing: '#fbbf24', validating: '#00c9a7' };
+const PHASES = ['researching', 'evaluating', 'testing', 'validating'];
 const PHASE_LABELS = { 
-  planning: 'Planning', 
   researching: 'Researching', 
   evaluating: 'Evaluating', 
-  executing: 'Executing', 
   testing: 'Testing', 
   validating: 'Validating' 
 };
@@ -65,18 +63,14 @@ const ICONS = {
   research: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.065 12.493 6.643-1.614"></path><path d="m11.167 17.032 6.643-1.614"></path><path d="m12.189 21.289 6.643-1.614"></path><path d="M4.383 19.323 11 12l-5-5-6.617 7.323a2 2 0 0 0 .163 2.696l2.146 2.146a2 2 0 0 0 2.691.157Z"></path><path d="M16.436 4.048 11 12l5 5 5.436-7.952a2 2 0 0 0-.153-2.693l-2.142-2.142a2 2 0 0 0-2.705-.165Z"></path></svg>`,
   business: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="9" y1="22" x2="9" y2="18"></line><line x1="15" y1="22" x2="15" y2="18"></line><line x1="18" y1="6" x2="18" y2="6"></line><line x1="18" y1="10" x2="18" y2="10"></line><line x1="18" y1="14" x2="18" y2="14"></line><line x1="6" y1="6" x2="6" y2="6"></line><line x1="6" y1="10" x2="6" y2="10"></line><line x1="6" y1="14" x2="6" y2="14"></line><line x1="12" y1="6" x2="12" y2="6"></line><line x1="12" y1="10" x2="12" y2="10"></line><line x1="12" y1="14" x2="12" y2="14"></line></svg>`,
   design: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"></circle><circle cx="17.5" cy="10.5" r=".5"></circle><circle cx="8.5" cy="7.5" r=".5"></circle><circle cx="6.5" cy="12.5" r=".5"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.707-.484 2.103-1.206.35-.64.918-1.235 1.547-1.42 1.04-.302 2.35.405 3.35.405 2.209 0 4-1.791 4-4 0-6.627-5.373-12-12-12Z"></path></svg>`,
-  planning: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M9 14h6"></path><path d="m9 18l1.5 1.5L15 15"></path></svg>`,
   researching: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>`,
-  executing: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`,
   testing: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"></path></svg>`,
   validating: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`
 };
 
 const PHASE_EMOJIS = { 
-  planning: ICONS.planning, 
   researching: ICONS.researching, 
   evaluating: ICONS.legal, 
-  executing: ICONS.executing, 
   testing: ICONS.testing, 
   validating: ICONS.validating 
 };
@@ -3957,10 +3951,8 @@ function buildSystemPrompt(semContext = '', intentResult = null) {
   // ── Active Project Context ──
   if (ACTIVE_PROJECT) {
     const PHASE_GUIDES = {
-      planning: 'You are in the PLANNING phase. Focus on: outlining scope, clarifying goals, identifying unknowns, asking clarifying questions, defining deliverables. Output structured plans.',
       researching: 'You are in the RESEARCHING phase. Focus on: gathering information, comparing options, surfacing relevant knowledge, synthesising findings into clear summaries.',
       evaluating: 'You are in the EVALUATING phase. Focus on: comparing trade-offs, assessing risks, validating assumptions, scoring options objectively, recommending a path forward with evidence.',
-      executing: 'You are in the EXECUTING phase. Focus on: writing code, producing deliverables, implementing decisions, being precise and action-oriented. Show work step-by-step.',
       testing: 'You are in the TESTING phase. Focus on: writing tests, identifying edge cases, verifying outputs match requirements, spotting regressions, producing test reports.',
       validating: 'You are in the VALIDATING phase. Focus on: confirming objectives are met, presenting final verification evidence, summarising what was done and the outcome.',
     };
@@ -3975,7 +3967,7 @@ function buildSystemPrompt(semContext = '', intentResult = null) {
       p += `PROJECT INSTRUCTIONS:\n${ACTIVE_PROJECT.systemPrompt.trim()}\n`;
     }
     p += 'RULE: All responses should serve this project\'s current phase. Be professional, structured, and scalable.\n';
-    p += 'RULE: Follow the progression: Planning → Researching → Evaluating → Executing → Testing → Validating.\n';
+    p += 'RULE: Follow the progression: Researching → Evaluating → Testing → Validating.\n';
     p += '════════════════════════════════════════\n\n';
   }
   // ── Strategic Mission context ──
@@ -6255,24 +6247,9 @@ ${'-'.repeat(40)}`);
     githubToken: CONFIG.githubToken || '',  // required by callGithub in main.js
   });
 
+  // ── PLAN GATE REMOVED ──
+  // Streamlined completion without mandatory planning.
   setLoading(true, 'Thinking…');
-  // ── PLAN GATE ──
-  // Intercepts multi-step write/create/build tasks before execution.
-  // Fires when: PLAN_MODE=true AND task is a write/note AND not a recall AND not trivially short.
-  const _planGateActive = PLAN_MODE &&
-    (_isNoteTask || isWriteTask) &&
-    !_preIsRecall &&
-    msg.trim().split(/\s+/).length > 4; // skip ultra-short messages like "create hi.txt"
-
-  if (_planGateActive) {
-    const planResult = await showPlanAndConfirm(msg, systemPrompt, buildOpts, providerLabel);
-    if (!planResult.proceed) {
-      setLoading(false);
-      return; // user cancelled or chose to edit — stop here, do not execute
-    }
-    // User confirmed — fall through to full execution below
-    setLoading(true, 'Executing…');
-  }
 
   let r = await _dispatchChat(buildOpts());
 
@@ -8019,10 +7996,7 @@ function _showToolActivity(intentForExec, webEnabled, codebaseActive, isWrite) {
 
 
 
-  // 5. Plan gate — confirmed write task, plan mode on, substantial message
-  if (isWrite && typeof PLAN_MODE !== 'undefined' && PLAN_MODE && msg.trim().split(/\s+/).length > 8) {
-    steps.push({ icon: '\u{1F4CB}', label: 'Planning', text: 'Building plan before acting\u2026' });
-  }
+
 
   // Silence for everything else
   if (steps.length === 0) return;
