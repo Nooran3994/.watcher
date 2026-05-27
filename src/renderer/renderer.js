@@ -3587,7 +3587,7 @@ function switchTab(t) {
   if (tbGraph) tbGraph.classList.toggle('active', t === 'graph');
   if (tbHistory) tbHistory.classList.toggle('active', t === 'history');
 
-  if (t === 'history') renderChatHistory(null); // Load global history
+  if (t === 'history') _chLoadAndRender(); // Load sidebar chat history
   if (t === 'graph') setTimeout(refreshKnowledgeGraph, 50);
 
 
@@ -7384,6 +7384,12 @@ async function cbSavePatch(patchId, asCopy) {
   }
 }
 
+function openWebBrowser() {
+  if (typeof window.openMiniBrowser === 'function') {
+    window.openMiniBrowser('https://www.google.com');
+  }
+}
+
 function toggleWebSearch() {
   WEB_SEARCH_ENABLED = !WEB_SEARCH_ENABLED;
   const wsc = getWsCfg();
@@ -7859,7 +7865,7 @@ function _emitToolNeedCard(toolNeedStr, dataFreshnessStr) {
   const reason = (parts[1] || 'I need this tool for the next step').trim();
 
   // Only fire for known tools
-  if (!['web_search', 'codebase'].includes(tool)) return;
+  if (!['web_search'].includes(tool)) return;
 
   // Throttle: don't spam the same tool card
   const now = Date.now();
@@ -9118,6 +9124,10 @@ async function autoSaveChat() {
 // Chat search state
 let _chatSearchQuery = '';
 let _allChatsCache = [];
+let _chAllChats    = [];   // cache: standalone chats — declared here to avoid TDZ in autoSaveChat
+let _chFilterQ     = '';   // sidebar history search query
+let _chSelected    = new Set(); // ids of selected chats for bulk actions
+
 
 async function renderChatHistory(projectId) {
   const el = document.getElementById('chat-hist-list-project'); if (!el) return;
@@ -9206,16 +9216,17 @@ function _renderFilteredChats(query) {
 }
 
 function filterChatHistory(val) {
-  _chatSearchQuery = val || '';
+  // Targets the sidebar #ch-list (History tab), not the project history list
+  _chFilterQ = val || '';
   const clr = document.getElementById('chat-search-clear');
   if (clr) clr.style.display = val ? 'inline' : 'none';
-  _renderFilteredChats(_chatSearchQuery);
+  _chRenderList(_chFilterQ);
 }
 function clearChatSearch() {
-  _chatSearchQuery = '';
+  _chFilterQ = '';
   const inp = document.getElementById('chat-search-input'); if (inp) inp.value = '';
   const clr = document.getElementById('chat-search-clear'); if (clr) clr.style.display = 'none';
-  _renderFilteredChats('');
+  _chRenderList('');
 }
 
 async function loadChatSession(chat) {
@@ -9763,9 +9774,7 @@ console.log('[PROJECT OVERLAY UI] Module ready');
 // Features: search, multi-select delete, AI titles, save-on-new.
 // ═══════════════════════════════════════════════════════════════════
 
-let _chAllChats = [];   // cache: standalone chats only
-let _chFilterQ = '';   // search query
-let _chSelected = new Set(); // ids of selected chats
+
 
 async function openChatHistoryPanel() {
   const el = document.getElementById('chat-history-overlay');
@@ -9799,6 +9808,8 @@ async function _chLoadAndRender() {
     _chAllChats = (all || [])
       .filter(c => !c.projectId)
       .sort((a, b) => b.updatedAt - a.updatedAt);
+    // ── Seed title cache from disk so AI-generated titles never change after first generation ──
+    _chAllChats.forEach(c => { if (c.id && c.title) _titleCache.set(c.id, c.title); });
     const badge = document.getElementById('ov-chat-count');
     if (badge) badge.textContent = _chAllChats.length || '';
     _chRenderList(_chFilterQ);

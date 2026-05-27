@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.7.0] - 2026-05-27
+
+### Added
+- **Autonomous Cognitive Loop**: Implemented a background 'heartbeat' (1m interval) that monitors user dormancy and internal cognitive signals to trigger proactive reasoning and interventions.
+- **Natural Human-State Persona**: Enforced a "Conscious Partner" identity that avoids robotic parameter reporting in favor of descriptive, narrative-driven emotional states.
+- **Proactive Reasoning Engine**: Added a silent internal reflection layer (`_proactiveReasoning`) enabling the system to develop plans and execute tools autonomously during user dormancy.
+- **AI-Initiated Communication**: Implemented `_proactiveSend` to allow the system to "speak first" when significant findings or goal-decay are detected.
+
+### Fixed
+- **History Save Integrity**: Resolved the "Stale Object Problem" by synchronizing UI history caches (`_chAllChats`, `_allChatsCache`) in real-time during background auto-saves.
+- **Atomic Chat Transitions**: Mandated `await` on all `autoSaveChat` calls during chat switches, project activations, and deactivations to prevent data loss.
+- **Duplicate Logic & ID Conflicts**: Unified redundant `startFreshChat` functions and resolved duplicate `chat-hist-list` IDs in `index.html`.
+
 ## [4.6.0] - 2026-04-24
 
 ### Added

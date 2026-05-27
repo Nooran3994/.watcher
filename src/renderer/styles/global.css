@@ -587,6 +587,30 @@
       color: #555578
     }
 
+    .side-tool-item {
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid transparent;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      color: #9090b8;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .side-tool-item:hover {
+      background: rgba(108, 99, 255, 0.08);
+      border-color: rgba(108, 99, 255, 0.2);
+      color: #e0e0ff;
+      transform: translateX(4px);
+    }
+    .side-tool-item span {
+      font-size: 14px;
+    }
+
     .wb {
       background: none;
       border: none;
