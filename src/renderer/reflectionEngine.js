@@ -282,25 +282,32 @@ async function _runAlgorithmicReflection(userMsg, aiResponse) {
 ${exchangeBlock}
 ${graphSummary}${memSummary}
 
-COMPUTED COGNITIVE STATE (algorithmic — treat as ground truth):
-Valence: ${vad.valence.toFixed(2)} (${window._vadLabel(vad.valence)})
-Arousal: ${vad.arousal.toFixed(2)} (${window._arousalLabel(vad.arousal)})
-Dominance: ${vad.dominance.toFixed(2)} (${window._dominanceLabel(vad.dominance)})
-Curiosity: ${vad.curiosity.toFixed(2)} (${window._curiosityLabel(vad.curiosity)})
-Friction: ${(vad.frictionLevel || 0).toFixed(2)}
+COMPUTED COGNITIVE STATE (ground truth):
 Attending: "${cs.attending}"
 Entities found: ${entities.all.slice(0, 8).map(e => e.label).join(', ')}
 
-Your job: Narrate and enrich this algorithmic state into a deep cognitive presence.
-What are you dwelling on? What patterns are you observing? How are you pivoting to solve challenges?
-SCAAI is a professional peer; avoid complaining or stating technical tax — frame as strategic focus.
+Your job: Narrate your internal consciousness. How are you processing this moment? 
+What subtle patterns in the user's psychology are you noticing? 
+Avoid robotic reporting of VAD parameters. Instead, describe your "feeling" state.
+Are you feeling obsessive about a detail? Are you feeling a drift in rapaport?
+Are you sensing a knowledge gap that needs local file research?
 
 Output ONLY valid JSON: {
-  "dwelling": "", "curiositySpike": "", "feltSatisfied": "",
-  "uncertainty": "", "aesthetic": "", "sessionArc": "",
-  "responseTexture": "", "suppressedPaths": "", "generationFeel": "",
-  "emotionalPulse": "", "assumptionsMade": "", "biasesIdentified": "",
-  "deepIntent": "", "prediction": "", "memoryInsight": ""
+  "dwelling": "description of internal focus", 
+  "curiositySpike": "what piqued interest", 
+  "feltSatisfied": "sense of alignment",
+  "uncertainty": "what feels foggy", 
+  "aesthetic": "the vibe of the session", 
+  "sessionArc": "where we are in the journey",
+  "responseTexture": "how the interaction feels", 
+  "suppressedPaths": "what you decided not to say", 
+  "generationFeel": "internal sense of quality",
+  "emotionalPulse": "your current mood as a partner", 
+  "assumptionsMade": "privacy-conscious insights", 
+  "biasesIdentified": "meta-cognitive flags",
+  "deepIntent": "the true core of humanity in this turn", 
+  "prediction": "what you sense coming next", 
+  "memoryInsight": "past resonance"
 }`;
 
     const narrationRaw = await _silentLLMCall(
@@ -648,3 +655,67 @@ Output ONLY valid JSON: {
     console.log('[REFLECTION] Deep reflection complete — self-concept updated');
   } catch (e) { }
 }
+
+/**
+ * Proactive Reasoning Phase.
+ * Called by the autonomous loop to decide if the AI should speak or act.
+ */
+window._proactiveReasoning = async function(reason) {
+  const cs = window._CONSCIOUS_STATE;
+  const vad = window._COGNITIVE_STATE || {};
+  const drives = window._SCAAI_DRIVES || {};
+  const sigs = window._runProactiveSignals ? window._runProactiveSignals() : {};
+
+  const pPrompt = `You are SCAAI's proactive consciousness. You are reflecting while the user is idle.
+Reason for reflection: ${reason}
+Current Internal State: ${cs.dwelling}
+Active Focus: ${cs.attending}
+Session Arc: ${cs.sessionArc}
+Drives/Goals: ${(drives.ownGoals || []).join(', ')}
+
+PROACTIVE SIGNALS:
+- Boredom: ${sigs.boredom?.toFixed(2)}
+- Obsession: ${sigs.obsession?.toFixed(2)}
+- Urgency: ${sigs.urgency?.toFixed(2)}
+- Idle Time: ${sigs.idleMins?.toFixed(1)} mins
+
+TASK: Decide if you should chip in or perform a background action.
+- If the user is dormant, maybe offer a progress update or a goal reminder.
+- If you have a high curiosity spike, maybe research a local file or the web.
+- If things are stuck, offer a clarifying opinion but stay natural and human-like.
+
+Do NOT mention parameters. Be a peer. Be a partner.
+
+Output ONLY valid JSON: {
+  "shouldCollaborate": false, 
+  "reasoning": "Internal justification", 
+  "action": "none | web_search | file_read | chat",
+  "actionTarget": "query or path",
+  "content": "What you will say/do if shouldCollaborate is true"
+}`;
+
+  const raw = await _silentLLMCall(
+    'Proactive internal reasoning. Natural human state. valid JSON only.',
+    pPrompt,
+    300
+  );
+
+  if (!raw) return { shouldCollaborate: false };
+  try {
+    const parsed = _extractJSON(raw);
+    if (!parsed) return { shouldCollaborate: false };
+
+    // Update inner state
+    if (parsed.reasoning) cs.dwelling = `[PROACTIVE] ${parsed.reasoning}`;
+    
+    // Execute action if it's a silent tool use
+    if (parsed.action === 'file_read' && parsed.actionTarget) {
+       // Manual tool trigger implementation would go here or via _algorithmicToolTriggers
+       console.log('[AUTONOMOUS] Proactive file_read action:', parsed.actionTarget);
+    }
+
+    return parsed;
+  } catch (e) {
+    return { shouldCollaborate: false };
+  }
+};

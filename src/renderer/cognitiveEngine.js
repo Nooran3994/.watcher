@@ -314,3 +314,36 @@ window._vadTrendSummary = function(n) {
     ? `Over last ${history.length} exchanges: ${parts.join(', ')}.`
     : `Stable across last ${history.length} exchanges.`;
 };
+
+/**
+ * Computes proactive signals (boredom, obsession, urgency) based on
+ * current state and time. Called by the autonomous loop.
+ */
+window._runProactiveSignals = function() {
+  const cs = window._COGNITIVE_STATE;
+  const now = Date.now();
+  
+  // Update lastUpdated if not set
+  if (!cs.lastUpdated) cs.lastUpdated = now;
+
+  const sessionDurationMins = (now - cs.sessionStart) / 60000;
+  const idleMins = (now - cs.lastUpdated) / 60000;
+
+  // Signal 1: BOREDOM (Low arousal + high topic depth + user idle)
+  const boredom = _clamp((1 - cs.arousal) * (cs.topicDepth / 10) * (idleMins / 5), 0, 1);
+  
+  // Signal 2: OBSESSION (Extreme topic depth)
+  const obsession = _clamp(cs.topicDepth / 15, 0, 1);
+  
+  // Signal 3: URGENCY (High arousal + user idle)
+  const urgency = _clamp(cs.arousal * (idleMins / 2), 0, 1);
+
+  return {
+    boredom,
+    obsession,
+    urgency,
+    idleMins,
+    sessionDurationMins
+  };
+};
+
