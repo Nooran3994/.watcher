@@ -9006,7 +9006,7 @@ async function deleteProject(id) {
 
 // ── Activate project — loads the active phase's most recent chat ──
 async function activateProject(proj) {
-  if (CONV_HISTORY.length >= 2) autoSaveChat();
+  if (CONV_HISTORY.length >= 2) await autoSaveChat();
   ACTIVE_PROJECT = { ...proj };
 
   if (SEM_READY) {
@@ -9047,8 +9047,8 @@ async function activateProject(proj) {
 }
 
 // ── Deactivate ──
-function deactivateProject() {
-  if (CONV_HISTORY.length >= 2) autoSaveChat();
+async function deactivateProject() {
+  if (CONV_HISTORY.length >= 2) await autoSaveChat();
   ACTIVE_PROJECT = null;
   _chatLinkedToProject = false;  // subsequent chats are standalone
   ACTIVE_CHAT_ID = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -9155,13 +9155,10 @@ async function autoSaveChat() {
   try {
     if (!CONV_HISTORY || CONV_HISTORY.length < 2) return;
 
-    // Snapshot immediately — prevents race condition when startFreshChat()
-    // clears CONV_HISTORY and changes ACTIVE_CHAT_ID while we await the title call
     const _snapHistory = CONV_HISTORY.slice();
     const _snapChatId = ACTIVE_CHAT_ID;
     const _snapProject = _chatLinkedToProject ? ACTIVE_PROJECT : null;
 
-    // Generate AI title on first save; subsequent saves reuse cached title
     const savedTitle = await _generateChatTitle(_snapChatId, _snapHistory);
     const chat = {
       id: _snapChatId,
@@ -9175,6 +9172,17 @@ async function autoSaveChat() {
       updatedAt: Date.now(),
     };
     await A.chats.save(chat);
+
+    // Sync caches to prevent "Stale Object Problem" when switching back
+    const _sync = (list) => {
+      if (!list || !Array.isArray(list)) return;
+      const idx = list.findIndex(c => c.id === _snapChatId);
+      if (idx !== -1) list[idx] = { ...chat };
+      else if (_snapProject) list.unshift({ ...chat });
+    };
+    _sync(_allChatsCache);
+    if (typeof _chAllChats !== 'undefined') _sync(_chAllChats);
+
     if (_snapProject) {
       const proj = PROJECTS_LIST.find(p => p.id === _snapProject.id);
       if (proj && !proj.chatIds.includes(_snapChatId)) {
@@ -9190,7 +9198,7 @@ let _chatSearchQuery = '';
 let _allChatsCache = [];
 
 async function renderChatHistory(projectId) {
-  const el = document.getElementById('chat-hist-list'); if (!el) return;
+  const el = document.getElementById('chat-hist-list-project'); if (!el) return;
   el.innerHTML = '<div style="padding:16px;color:#454565;font-size:11px;text-align:center">Loading history…</div>';
   try {
     let chats = [];
@@ -9206,7 +9214,7 @@ async function renderChatHistory(projectId) {
 }
 
 function _renderFilteredChats(query) {
-  const el = document.getElementById('chat-hist-list'); if (!el) return;
+  const el = document.getElementById('chat-hist-list-project'); if (!el) return;
   let chats = [..._allChatsCache];
   if (query && query.trim()) {
     const q = query.toLowerCase();
@@ -9288,9 +9296,9 @@ function clearChatSearch() {
   _renderFilteredChats('');
 }
 
-function loadChatSession(chat) {
+async function loadChatSession(chat) {
   if (!chat || !chat.messages || !chat.messages.length) return;
-  if (CONV_HISTORY.length >= 2) autoSaveChat();
+  if (CONV_HISTORY.length >= 2) await autoSaveChat();
   document.getElementById('msgs').innerHTML = '';
   CONV_HISTORY = chat.messages.slice();
   ACTIVE_CHAT_ID = chat.id;
@@ -9346,7 +9354,9 @@ function renameChatSession(id) {
 }
 
 function startFreshChat() {
-  if (CONV_HISTORY.length >= 2) autoSaveChat();
+  if (CONV_HISTORY.length >= 2) {
+    autoSaveChat().catch(() => {});
+  }
   document.getElementById('msgs').innerHTML = '';
   CONV_HISTORY = [];
   ACTIVE_CHAT_ID = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -9357,9 +9367,12 @@ function startFreshChat() {
     addMsg('ai', `New chat started in **${ACTIVE_PROJECT.name}** — ${PHASE_EMOJIS[ACTIVE_PROJECT.phase] || ''} **${ACTIVE_PROJECT.phase}** phase. How can I help?`);
   } else {
     _chatLinkedToProject = false;
+    _renderProjTitleBadge();
+    renderProjects();
     renderChatHistory(null);
     addMsg('ai', `New chat started. How can I help?`);
   }
+  setTimeout(() => { const ci = document.getElementById('ci'); if (ci) ci.focus(); }, 100);
 }
 
 // ── Auto-save hook: every 6 non-sys messages ──
@@ -10015,22 +10028,8 @@ async function _chOpenChat(chat) {
   addMsg('sys', '📂 restored: **' + _chEsc(chat.title || 'Untitled') + '** (' + chat.messages.length + ' messages)');
 }
 
-// ── Start a completely fresh chat ────────────────────────────────
-function startFreshChat() {
-  // Save current chat BEFORE clearing — this is the "save on new chat" behaviour
-  if (CONV_HISTORY.length >= 2) {
-    autoSaveChat(); // fire-and-forget is fine; title generation is async
-  }
-  document.getElementById('msgs').innerHTML = '';
-  CONV_HISTORY = [];
-  ACTIVE_CHAT_ID = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-  ACTIVE_PROJECT = null;
-  _chatLinkedToProject = false;
-  _renderProjTitleBadge();
-  renderProjects();
-  addMsg('ai', '✦ New chat started. How can I help?');
-  setTimeout(() => { const ci = document.getElementById('ci'); if (ci) ci.focus(); }, 100);
-}
+// ── Start a completely fresh chat ──
+// LEGACY REMOVED: consolidated above at line 9258
 
 // ── Delete single chat ───────────────────────────────────────────
 async function _chDeleteChat(id) {

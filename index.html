@@ -64,665 +64,748 @@
 
     <div id="main-container">
       <div id="workspace">
-      <div id="sb">
-        <!-- Modern Sidebar Header -->
-        <div id="sb-header">
-          <button id="sb-toggle-rail" onclick="toggleSidebar()" title="Collapse sidebar">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-          </button>
-          <button id="sb-new-chat" onclick="startFreshChat()" title="Start fresh conversation">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            <span class="lbl">New chat</span>
-          </button>
-        </div>
-
-        <!-- Navigation Rail / Horizontal Tabs (Vertical in Sidebar) -->
-        <div id="sb-nav">
-          <button class="nav-item" id="tb-history" onclick="switchTab('history')" title="Chat History">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-            <span class="lbl">History</span>
-          </button>
-          <button class="nav-item" id="tb-proj" onclick="switchTab('proj')" title="Projects">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-            <span class="lbl">Projects</span>
-          </button>
-          <button class="nav-item" id="tb-tool" onclick="switchTab('tool')" title="Tools & Browser">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
-            <span class="lbl">Tools</span>
-          </button>
-          <button class="nav-item" id="tb-graph" onclick="switchTab('graph')" title="Knowledge Graph">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-            <span class="lbl">Graph</span>
-          </button>
-        </div>
-
-        <!-- Active View Container -->
-        <div id="sb-content">
-          <!-- History Tab -->
-          <div id="thistory" style="display:none">
-            <div id="ch-search-row">
-              <input id="chat-search-input" placeholder="Search chats…" oninput="filterChatHistory(this.value)" />
-              <button class="chat-search-clear" id="chat-search-clear" onclick="clearChatSearch()" style="display:none">✕</button>
-            </div>
-            <div id="ch-bulk-bar" style="display:none"> <!-- Bulk actions hidden by default -->
-              <span class="ch-bulk-count" id="ch-bulk-count">0 selected</span>
-              <button class="ch-bulk-btn ch-bulk-del" onclick="_chDeleteSelected()">🗑 Delete</button>
-              <button class="ch-bulk-btn ch-bulk-cancel" onclick="_chClearSelection()">✕</button>
-            </div>
-            <div id="ch-list-scroll">
-              <div id="chat-hist-list"></div>
-            </div>
+        <div id="sb">
+          <!-- Modern Sidebar Header -->
+          <div id="sb-header">
+            <button id="sb-toggle-rail" onclick="toggleSidebar()" title="Collapse sidebar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="9" y1="3" x2="9" y2="21"></line>
+              </svg>
+            </button>
+            <button id="sb-new-chat" onclick="startFreshChat()" title="Start fresh conversation">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span class="lbl">New chat</span>
+            </button>
           </div>
 
-          <!-- Projects Tab -->
-          <div id="tproj" style="display:none">
-            <div class="proj-header">
-              <span class="proj-header-title">PROJECTS</span>
-              <button class="proj-create-btn" onclick="openProjCreateModal()">+ New</button>
-            </div>
-            <div class="proj-list" id="proj-list"></div>
-            <div class="proj-detail" id="proj-detail">
-              <div class="proj-detail-hdr">
-                <div class="proj-dot proj-detail-dot" id="proj-detail-dot"></div>
-                <span class="proj-detail-name" id="proj-detail-name">Project Name</span>
-                <button class="proj-deactivate-btn" onclick="deactivateProject()" title="Deactivate project">Deactivate</button>
-              <div class="proj-ctx">
-                <div style="font-size:8px;color:#333358;font-weight:700;letter-spacing:1px;margin-bottom:3px">CONTEXT</div>
-                <textarea id="proj-ctx-input" placeholder="Project notes…" oninput="debounceSaveProjectContext()"></textarea>
-              </div>
-              <div class="chat-hist-hdr">
-                <span>HISTORY</span>
-                <button class="chat-hist-new-btn" onclick="startFreshChat()" title="New chat">+ Chat</button>
-              </div>
-              <div class="chat-hist-list" id="proj-chat-list"></div>
-             </div>
+          <!-- Navigation Rail / Horizontal Tabs (Vertical in Sidebar) -->
+          <div id="sb-nav">
+            <button class="nav-item" id="tb-history" onclick="switchTab('history')" title="Chat History">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+              <span class="lbl">History</span>
+            </button>
+            <button class="nav-item" id="tb-proj" onclick="switchTab('proj')" title="Projects">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>
+              <span class="lbl">Projects</span>
+            </button>
+            <button class="nav-item" id="tb-tool" onclick="switchTab('tool')" title="Tools & Browser">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path
+                  d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z">
+                </path>
+              </svg>
+              <span class="lbl">Tools</span>
+            </button>
+            <button class="nav-item" id="tb-graph" onclick="switchTab('graph')" title="Knowledge Graph">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="5" r="3"></circle>
+                <circle cx="6" cy="12" r="3"></circle>
+                <circle cx="18" cy="19" r="3"></circle>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+              </svg>
+              <span class="lbl">Graph</span>
+            </button>
           </div>
-          </div> <!-- /#tproj -->
 
-          <!-- Tools & Browser Tab -->
-          <div id="ttool" style="display:none">
-             <div style="padding:16px; color:#6c6c8a; font-size:12px; line-height:1.6">
+          <!-- Active View Container -->
+          <div id="sb-content">
+            <!-- History Tab -->
+            <div id="thistory" style="display:none">
+              <div id="ch-search-row">
+                <input id="chat-search-input" placeholder="Search chats…" oninput="filterChatHistory(this.value)" />
+                <button class="chat-search-clear" id="chat-search-clear" onclick="clearChatSearch()"
+                  style="display:none">✕</button>
+              </div>
+              <div id="ch-bulk-bar" style="display:none"> <!-- Bulk actions hidden by default -->
+                <span class="ch-bulk-count" id="ch-bulk-count">0 selected</span>
+                <button class="ch-bulk-btn ch-bulk-del" onclick="_chDeleteSelected()">🗑 Delete</button>
+                <button class="ch-bulk-btn ch-bulk-cancel" onclick="_chClearSelection()">✕</button>
+              </div>
+              <div id="ch-list-scroll">
+                <div id="ch-list"></div>
+              </div>
+            </div>
+
+            <!-- Projects Tab -->
+            <div id="tproj" style="display:none">
+              <div class="proj-header">
+                <span class="proj-header-title">PROJECTS</span>
+                <button class="proj-create-btn" onclick="openProjCreateModal()">+ New</button>
+              </div>
+              <div class="proj-list" id="proj-list"></div>
+              <div class="proj-detail" id="proj-detail">
+                <div class="proj-detail-hdr">
+                  <div class="proj-dot proj-detail-dot" id="proj-detail-dot"></div>
+                  <span class="proj-detail-name" id="proj-detail-name">Project Name</span>
+                  <button class="proj-deactivate-btn" onclick="deactivateProject()"
+                    title="Deactivate project">Deactivate</button>
+                  <div class="proj-ctx">
+                    <div style="font-size:8px;color:#333358;font-weight:700;letter-spacing:1px;margin-bottom:3px">
+                      CONTEXT</div>
+                    <textarea id="proj-ctx-input" placeholder="Project notes…"
+                      oninput="debounceSaveProjectContext()"></textarea>
+                  </div>
+                  <div class="chat-hist-hdr">
+                    <span>HISTORY</span>
+                    <button class="chat-hist-new-btn" onclick="startFreshChat()" title="New chat">+ Chat</button>
+                  </div>
+                  <div class="chat-hist-list" id="chat-hist-list"></div>
+                </div>
+              </div>
+            </div> <!-- /#tproj -->
+
+            <!-- Tools & Browser Tab -->
+            <div id="ttool" style="display:none">
+              <div style="padding:16px; color:#6c6c8a; font-size:12px; line-height:1.6">
                 Active tools and background processes.
                 <div id="active-tools-list" style="margin-top:12px">
-                   <div style="padding:8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-bottom:4px">🌐 Web Search</div>
-                   <div style="padding:8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-bottom:4px">🧩 Codebase Analytics</div>
+                  <div style="padding:8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-bottom:4px">🌐
+                    Web Search</div>
+                  <div style="padding:8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-bottom:4px">🧩
+                    Codebase Analytics</div>
                 </div>
-             </div>
-          </div>
-
-          <!-- Knowledge Graph Tab -->
-          <div id="tgraph" style="display:none; flex:1; flex-direction:column">
-             <div id="sg-network" style="flex:1; width:100%; background:#09090b"></div>
-          </div>
-
-          <!-- Files Tab -->
-          <div id="tf" style="display:none">
-            <div class="sbar" style="padding:12px; display:flex; gap:6px">
-              <button class="bp" style="flex:1;font-size:10px;padding:6px;border-radius:6px" onclick="doOpenFiles()">+ Files</button>
-              <button class="bg2" style="flex:1;font-size:10px;padding:6px;color:#00c9a7" onclick="doOpenFolder()">📁 Folder</button>
+              </div>
             </div>
-            <div id="fl" style="flex:1; overflow-y:auto; padding:0 8px"></div>
-          </div>
-        </div>
 
-        <!-- Bottom Footer -->
-        <div id="sb-footer">
-          <button id="sb-settings-btn" onclick="openSettings()" title="Settings and Profile">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            <span class="lbl">Settings</span>
-          </button>
-        </div>
-      </div> <!-- /#sb -->
-
-      <!-- Chat -->
-      <div id="chat">
-        <div id="abar"></div>
-        <div id="msgs"></div>
-        <div id="thinking">
-          <div class="tav">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2L2 7v10l10 5 10-5V7L12 2z"></path>
-              <polyline points="12 22 12 12 22 7"></polyline>
-              <polyline points="2 7 12 12"></polyline>
-            </svg>
-          </div>
-          <div class="tdots"><span></span><span></span><span></span></div>
-          <span id="tlbl">Thinking…</span>
-        </div>
-        <div id="iwrap">
-          <div id="irow">
-            <div class="itools-left">
-              <button class="pill-btn" onclick="doOpenFiles()" title="Add files or context">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              </button>
-              <button class="pill-btn" id="wsbtn" onclick="toggleWebSearch()" title="Toggle Web Search">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-              </button>
+            <!-- Knowledge Graph Tab -->
+            <div id="tgraph" style="display:none; flex:1; flex-direction:column">
+              <div id="sg-network" style="flex:1; width:100%; background:#09090b"></div>
             </div>
-            
-            <textarea id="ci" rows="1" placeholder="Ask SCAAI..."></textarea>
 
-            <div class="itools-right">
-              <button class="pill-btn mic-btn" title="Voice input (Coming soon)">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
-              </button>
-              
-              <button id="sbtn" onclick="send()" title="Send">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-              </button>
+            <!-- Files Tab -->
+            <div id="tf" style="display:none">
+              <div class="sbar" style="padding:12px; display:flex; gap:6px">
+                <button class="bp" style="flex:1;font-size:10px;padding:6px;border-radius:6px" onclick="doOpenFiles()">+
+                  Files</button>
+                <button class="bg2" style="flex:1;font-size:10px;padding:6px;color:#00c9a7" onclick="doOpenFolder()">📁
+                  Folder</button>
+              </div>
+              <div id="fl" style="flex:1; overflow-y:auto; padding:0 8px"></div>
             </div>
           </div>
-          
-          <div id="iwrap-footer">
-            <div class="hint">Enter to send · Shift+Enter for newline</div>
 
-            <button id="skills-bar-btn" onclick="openSkillsModal()">⚡ Skills <span id="skill-badge">0</span></button>
+          <!-- Bottom Footer -->
+          <div id="sb-footer">
+            <button id="sb-settings-btn" onclick="openSettings()" title="Settings and Profile">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path
+                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                </path>
+              </svg>
+              <span class="lbl">Settings</span>
+            </button>
           </div>
+        </div> <!-- /#sb -->
+
+        <!-- Chat -->
+        <div id="chat">
+          <div id="abar"></div>
+          <div id="msgs"></div>
+          <div id="thinking">
+            <div class="tav">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M12 2L2 7v10l10 5 10-5V7L12 2z"></path>
+                <polyline points="12 22 12 12 22 7"></polyline>
+                <polyline points="2 7 12 12"></polyline>
+              </svg>
+            </div>
+            <div class="tdots"><span></span><span></span><span></span></div>
+            <span id="tlbl">Thinking…</span>
+          </div>
+          <div id="iwrap">
+            <div id="irow">
+              <div class="itools-left">
+                <button class="pill-btn" onclick="doOpenFiles()" title="Add files or context">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                </button>
+                <button class="pill-btn" id="wsbtn" onclick="toggleWebSearch()" title="Toggle Web Search">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path
+                      d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
+                    </path>
+                  </svg>
+                </button>
+              </div>
+
+              <textarea id="ci" rows="1" placeholder="Ask SCAAI..."></textarea>
+
+              <div class="itools-right">
+                <button class="pill-btn mic-btn" title="Voice input (Coming soon)">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="22"></line>
+                  </svg>
+                </button>
+
+                <button id="sbtn" onclick="send()" title="Send">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div id="iwrap-footer">
+              <div class="hint">Enter to send · Shift+Enter for newline</div>
+
+              <button id="skills-bar-btn" onclick="openSkillsModal()">⚡ Skills <span id="skill-badge">0</span></button>
+            </div>
+          </div>
+        </div><!-- /#workspace -->
+
+
+
+        <!-- ══ PROJECT OVERLAY — covers #chat when browsing projects ══ -->
+        <!-- ══ CHAT HISTORY OVERLAY ══ -->
+
+
+        <div id="proj-overlay">
+
+          <!-- ── View 1: Projects Grid ── -->
+          <div id="pgv" style="display:flex">
+            <div id="pgv-topbar">
+              <button onclick="hideProjectOverlay()"
+                style="background:none;border:none;color:#555578;cursor:pointer;font-size:12px;padding:5px 0;font-family:inherit;display:flex;align-items:center;gap:5px;transition:color .12s;-webkit-app-region:no-drag;flex-shrink:0"
+                onmouseover="this.style.color='#9898c8'" onmouseout="this.style.color='#555578'">← Back</button>
+              <h2 style="flex:1">Projects</h2>
+              <button class="pgv-new-btn" onclick="openProjCreateModal()">＋ New project</button>
+            </div>
+            <div id="pgv-search-row">
+              <input id="pgv-search-inp" placeholder="Search projects…" oninput="filterProjectGrid(this.value)" />
+            </div>
+            <div id="pgv-sort-row">
+              <span>Sort by</span>
+              <select id="pgv-sort-sel" onchange="sortProjectGrid(this.value)">
+                <option value="activity">Activity</option>
+                <option value="name">Name</option>
+                <option value="created">Created</option>
+              </select>
+            </div>
+            <div id="pgv-grid-scroll">
+              <div id="pgv-grid"></div>
+            </div>
+          </div>
+
+          <!-- ── View 2: Project Home ── -->
+          <div id="phv" style="display:none">
+            <div id="phv-nav">
+              <button id="phv-back-btn" onclick="showProjectGrid()">← All projects</button>
+              <div style="flex:1"></div>
+              <button class="proj-act-btn" id="phv-rename-btn" title="Rename project">✏</button>
+              <button class="proj-act-btn danger" id="phv-delete-btn" title="Delete project">🗑</button>
+            </div>
+            <div id="phv-body">
+              <!-- Left: chat area -->
+              <div id="phv-left">
+                <div id="phv-hdr">
+                  <div id="phv-proj-name">
+                    <div id="phv-proj-name-dot"></div>
+                    <span id="phv-proj-name-text"></span>
+                  </div>
+                  <div id="phv-proj-desc"></div>
+                </div>
+                <!-- Start chat prompt -->
+                <div id="phv-prompt-row">
+                  <textarea id="phv-prompt-box" placeholder="How can I help you today?" rows="2"
+                    onkeydown="phvPromptKeydown(event)"></textarea>
+                  <div style="display:flex;align-items:center;gap:8px;margin-top:7px">
+                    <span style="font-size:9px;color:#252545;flex:1">Enter to send · Shift+Enter for new line</span>
+                    <button id="phv-prompt-btn" onclick="phvStartChat()">Send ↵</button>
+                  </div>
+                </div>
+                <!-- Chat history -->
+                <div id="phv-chat-section">
+                  <div id="phv-chat-section-hdr">
+                    <span>CHAT HISTORY</span>
+                    <button class="phv-new-chat-btn" onclick="startNewProjectChatFromHome()">+ New chat</button>
+                  </div>
+                  <div id="phv-search-row">
+                    <span style="font-size:11px;color:#303055">🔍</span>
+                    <input id="phv-search-inp" placeholder="Search chats…" oninput="phvFilterChats(this.value)" />
+                    <button class="phv-search-clear" id="phv-search-clear" onclick="phvClearSearch()">✕</button>
+                  </div>
+                  <div id="phv-chat-list"></div>
+                </div>
+              </div>
+              <!-- Right: instructions + files -->
+              <div id="phv-right">
+                <div id="phv-right-scroll">
+                  <div class="phv-rpanel-section">
+                    <div class="phv-rpanel-hdr">
+                      <span class="phv-rpanel-title">INSTRUCTIONS</span>
+                      <button class="phv-rpanel-add" onclick="openInstructionsModal()"
+                        title="Edit project instructions">＋</button>
+                    </div>
+                    <div id="phv-instr-content" class="phv-instr-empty" onclick="openInstructionsModal()">Add
+                      instructions
+                      to tailor AI responses for this project.</div>
+                  </div>
+                  <div class="phv-rpanel-divider"></div>
+                  <div class="phv-rpanel-section">
+                    <div class="phv-rpanel-hdr">
+                      <span class="phv-rpanel-title">CONTEXT NOTES</span>
+                      <button class="phv-rpanel-add" id="phv-ctx-toggle" title="Edit context notes"
+                        onclick="togglePhvCtxEdit()">✏</button>
+                    </div>
+                    <textarea id="phv-ctx-ta"
+                      style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:7px;color:#6060a0;font-size:11px;padding:8px 10px;outline:none;font-family:inherit;resize:none;min-height:70px;box-sizing:border-box;line-height:1.6;display:none"
+                      placeholder="Project notes, background, goals…" oninput="debounceSaveProjectContext()"></textarea>
+                    <div id="phv-ctx-preview" class="phv-instr-empty" onclick="togglePhvCtxEdit()">Add background
+                      context,
+                      notes, and goals for this project.</div>
+                  </div>
+                  <div class="phv-rpanel-divider"></div>
+                  <div class="phv-rpanel-section">
+                    <div class="phv-rpanel-hdr">
+                      <span class="phv-rpanel-title">ACTIVE FILES</span>
+                      <button class="phv-rpanel-add" onclick="doOpenFiles()" title="Add files to context">＋</button>
+                    </div>
+                    <div id="phv-files-list" style="font-size:11px;color:#2a2a48;line-height:1.7">No files loaded. Use
+                      the
+                      FILES tab or click ＋ to add.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /#proj-overlay -->
+
+      </div>
+    </div>
+
+    <!-- Project Create Modal -->
+    <div id="proj-create-modal">
+      <div id="proj-create-panel">
+        <div class="pcm-hdr">
+          <h3 id="pcm-title">New Project</h3>
+          <button class="mcl" onclick="closeProjCreateModal()">✕</button>
         </div>
-      </div><!-- /#workspace -->
-
-
-
-      <!-- ══ PROJECT OVERLAY — covers #chat when browsing projects ══ -->
-      <!-- ══ CHAT HISTORY OVERLAY ══ -->
-      
-
-      <div id="proj-overlay">
-
-        <!-- ── View 1: Projects Grid ── -->
-        <div id="pgv" style="display:flex">
-          <div id="pgv-topbar">
-            <button onclick="hideProjectOverlay()"
-              style="background:none;border:none;color:#555578;cursor:pointer;font-size:12px;padding:5px 0;font-family:inherit;display:flex;align-items:center;gap:5px;transition:color .12s;-webkit-app-region:no-drag;flex-shrink:0"
-              onmouseover="this.style.color='#9898c8'" onmouseout="this.style.color='#555578'">← Back</button>
-            <h2 style="flex:1">Projects</h2>
-            <button class="pgv-new-btn" onclick="openProjCreateModal()">＋ New project</button>
+        <div class="pcm-body">
+          <div>
+            <label class="flbl">PROJECT NAME <span
+                style="color:#f97316;font-size:8px;font-weight:400">required</span></label>
+            <input type="text" id="pcm-name" placeholder="e.g. E-Commerce Redesign" maxlength="80" />
           </div>
-          <div id="pgv-search-row">
-            <input id="pgv-search-inp" placeholder="Search projects…" oninput="filterProjectGrid(this.value)" />
+          <div>
+            <label class="flbl">DESCRIPTION <span
+                style="color:#555580;font-size:8px;font-weight:400">optional</span></label>
+            <input type="text" id="pcm-desc" placeholder="Brief project description…" maxlength="200" />
           </div>
-          <div id="pgv-sort-row">
-            <span>Sort by</span>
-            <select id="pgv-sort-sel" onchange="sortProjectGrid(this.value)">
-              <option value="activity">Activity</option>
-              <option value="name">Name</option>
-              <option value="created">Created</option>
+          <div>
+            <label class="flbl">COLOR</label>
+            <div class="color-swatches" id="pcm-colors">
+              <div class="color-swatch sel" data-color="#6c63ff" style="background:#6c63ff"
+                onclick="selectProjColor(this)"></div>
+              <div class="color-swatch" data-color="#00c9a7" style="background:#00c9a7" onclick="selectProjColor(this)">
+              </div>
+              <div class="color-swatch" data-color="#f97316" style="background:#f97316" onclick="selectProjColor(this)">
+              </div>
+              <div class="color-swatch" data-color="#10b981" style="background:#10b981" onclick="selectProjColor(this)">
+              </div>
+              <div class="color-swatch" data-color="#60a5fa" style="background:#60a5fa" onclick="selectProjColor(this)">
+              </div>
+              <div class="color-swatch" data-color="#f472b6" style="background:#f472b6" onclick="selectProjColor(this)">
+              </div>
+              <div class="color-swatch" data-color="#fbbf24" style="background:#fbbf24" onclick="selectProjColor(this)">
+              </div>
+              <div class="color-swatch" data-color="#a78bfa" style="background:#a78bfa" onclick="selectProjColor(this)">
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="flbl">INITIAL PHASE</label>
+            <select id="pcm-phase"
+              style="width:100%;background:#0d0d1a;border:1px solid rgba(108,99,255,.2);border-radius:5px;color:#a0a0c8;font-size:10px;padding:5px 7px;outline:none;cursor:pointer;font-family:inherit">
+              <option value="researching">🔍 Researching</option>
+              <option value="evaluating">⚖️ Evaluating</option>
+              <option value="testing">🧪 Testing</option>
+              <option value="validating">✅ Validating</option>
             </select>
           </div>
-          <div id="pgv-grid-scroll">
-            <div id="pgv-grid"></div>
-          </div>
         </div>
-
-        <!-- ── View 2: Project Home ── -->
-        <div id="phv" style="display:none">
-          <div id="phv-nav">
-            <button id="phv-back-btn" onclick="showProjectGrid()">← All projects</button>
-            <div style="flex:1"></div>
-            <button class="proj-act-btn" id="phv-rename-btn" title="Rename project">✏</button>
-            <button class="proj-act-btn danger" id="phv-delete-btn" title="Delete project">🗑</button>
-          </div>
-          <div id="phv-body">
-            <!-- Left: chat area -->
-            <div id="phv-left">
-              <div id="phv-hdr">
-                <div id="phv-proj-name">
-                  <div id="phv-proj-name-dot"></div>
-                  <span id="phv-proj-name-text"></span>
-                </div>
-                <div id="phv-proj-desc"></div>
-              </div>
-              <!-- Start chat prompt -->
-              <div id="phv-prompt-row">
-                <textarea id="phv-prompt-box" placeholder="How can I help you today?" rows="2"
-                  onkeydown="phvPromptKeydown(event)"></textarea>
-                <div style="display:flex;align-items:center;gap:8px;margin-top:7px">
-                  <span style="font-size:9px;color:#252545;flex:1">Enter to send · Shift+Enter for new line</span>
-                  <button id="phv-prompt-btn" onclick="phvStartChat()">Send ↵</button>
-                </div>
-              </div>
-              <!-- Chat history -->
-              <div id="phv-chat-section">
-                <div id="phv-chat-section-hdr">
-                  <span>CHAT HISTORY</span>
-                  <button class="phv-new-chat-btn" onclick="startNewProjectChatFromHome()">+ New chat</button>
-                </div>
-                <div id="phv-search-row">
-                  <span style="font-size:11px;color:#303055">🔍</span>
-                  <input id="phv-search-inp" placeholder="Search chats…" oninput="phvFilterChats(this.value)" />
-                  <button class="phv-search-clear" id="phv-search-clear" onclick="phvClearSearch()">✕</button>
-                </div>
-                <div id="phv-chat-list"></div>
-              </div>
-            </div>
-            <!-- Right: instructions + files -->
-            <div id="phv-right">
-              <div id="phv-right-scroll">
-                <div class="phv-rpanel-section">
-                  <div class="phv-rpanel-hdr">
-                    <span class="phv-rpanel-title">INSTRUCTIONS</span>
-                    <button class="phv-rpanel-add" onclick="openInstructionsModal()"
-                      title="Edit project instructions">＋</button>
-                  </div>
-                  <div id="phv-instr-content" class="phv-instr-empty" onclick="openInstructionsModal()">Add instructions
-                    to tailor AI responses for this project.</div>
-                </div>
-                <div class="phv-rpanel-divider"></div>
-                <div class="phv-rpanel-section">
-                  <div class="phv-rpanel-hdr">
-                    <span class="phv-rpanel-title">CONTEXT NOTES</span>
-                    <button class="phv-rpanel-add" id="phv-ctx-toggle" title="Edit context notes"
-                      onclick="togglePhvCtxEdit()">✏</button>
-                  </div>
-                  <textarea id="phv-ctx-ta"
-                    style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:7px;color:#6060a0;font-size:11px;padding:8px 10px;outline:none;font-family:inherit;resize:none;min-height:70px;box-sizing:border-box;line-height:1.6;display:none"
-                    placeholder="Project notes, background, goals…" oninput="debounceSaveProjectContext()"></textarea>
-                  <div id="phv-ctx-preview" class="phv-instr-empty" onclick="togglePhvCtxEdit()">Add background context,
-                    notes, and goals for this project.</div>
-                </div>
-                <div class="phv-rpanel-divider"></div>
-                <div class="phv-rpanel-section">
-                  <div class="phv-rpanel-hdr">
-                    <span class="phv-rpanel-title">ACTIVE FILES</span>
-                    <button class="phv-rpanel-add" onclick="doOpenFiles()" title="Add files to context">＋</button>
-                  </div>
-                  <div id="phv-files-list" style="font-size:11px;color:#2a2a48;line-height:1.7">No files loaded. Use the
-                    FILES tab or click ＋ to add.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div><!-- /#proj-overlay -->
-      
-    </div>
-  </div>
-
-  <!-- Project Create Modal -->
-  <div id="proj-create-modal">
-    <div id="proj-create-panel">
-      <div class="pcm-hdr">
-        <h3 id="pcm-title">New Project</h3>
-        <button class="mcl" onclick="closeProjCreateModal()">✕</button>
-      </div>
-      <div class="pcm-body">
-        <div>
-          <label class="flbl">PROJECT NAME <span
-              style="color:#f97316;font-size:8px;font-weight:400">required</span></label>
-          <input type="text" id="pcm-name" placeholder="e.g. E-Commerce Redesign" maxlength="80" />
-        </div>
-        <div>
-          <label class="flbl">DESCRIPTION <span
-              style="color:#555580;font-size:8px;font-weight:400">optional</span></label>
-          <input type="text" id="pcm-desc" placeholder="Brief project description…" maxlength="200" />
-        </div>
-        <div>
-          <label class="flbl">COLOR</label>
-          <div class="color-swatches" id="pcm-colors">
-            <div class="color-swatch sel" data-color="#6c63ff" style="background:#6c63ff"
-              onclick="selectProjColor(this)"></div>
-            <div class="color-swatch" data-color="#00c9a7" style="background:#00c9a7" onclick="selectProjColor(this)">
-            </div>
-            <div class="color-swatch" data-color="#f97316" style="background:#f97316" onclick="selectProjColor(this)">
-            </div>
-            <div class="color-swatch" data-color="#10b981" style="background:#10b981" onclick="selectProjColor(this)">
-            </div>
-            <div class="color-swatch" data-color="#60a5fa" style="background:#60a5fa" onclick="selectProjColor(this)">
-            </div>
-            <div class="color-swatch" data-color="#f472b6" style="background:#f472b6" onclick="selectProjColor(this)">
-            </div>
-            <div class="color-swatch" data-color="#fbbf24" style="background:#fbbf24" onclick="selectProjColor(this)">
-            </div>
-            <div class="color-swatch" data-color="#a78bfa" style="background:#a78bfa" onclick="selectProjColor(this)">
-            </div>
-          </div>
-        </div>
-        <div>
-          <label class="flbl">INITIAL PHASE</label>
-          <select id="pcm-phase"
-            style="width:100%;background:#0d0d1a;border:1px solid rgba(108,99,255,.2);border-radius:5px;color:#a0a0c8;font-size:10px;padding:5px 7px;outline:none;cursor:pointer;font-family:inherit">
-            <option value="researching">🔍 Researching</option>
-            <option value="evaluating">⚖️ Evaluating</option>
-            <option value="testing">🧪 Testing</option>
-            <option value="validating">✅ Validating</option>
-          </select>
-        </div>
-      </div>
-      <div class="pcm-ftr">
-        <button class="bg2" style="padding:7px 14px;font-size:11px" onclick="closeProjCreateModal()">Cancel</button>
-        <button class="bp" style="padding:7px 18px;font-size:11px" onclick="confirmCreateProject()">✓ Create</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Project Instructions Modal ── -->
-  <div id="instr-modal" onclick="if(event.target===this)closeInstructionsModal()">
-    <div id="instr-panel">
-      <div class="pcm-hdr">
-        <h3>Set project instructions</h3>
-        <button class="mcl" onclick="closeInstructionsModal()">✕</button>
-      </div>
-      <div id="instr-subtext">Provide the AI with relevant instructions and context for all chats within this project.
-      </div>
-      <textarea id="instr-textarea"
-        placeholder="e.g. Always respond in a formal tone. The project targets Kenyan schools. Prioritise mobile-first design…"></textarea>
-      <div class="pcm-ftr" style="padding:0 20px 16px">
-        <button class="bg2" style="padding:8px 16px;font-size:11px" onclick="closeInstructionsModal()">Cancel</button>
-        <button class="bp" style="padding:8px 22px;font-size:11px" onclick="saveInstructions()">✓ Save
-          Instructions</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Quick-Input Modal (rename project / rename chat) ── -->
-  <div id="quick-input-modal" onclick="if(event.target===this)closeQuickInputModal()">
-    <div id="quick-input-panel">
-      <div class="pcm-hdr">
-        <h3 id="qi-title">Rename</h3>
-        <button class="mcl" onclick="closeQuickInputModal()">✕</button>
-      </div>
-      <div class="pcm-body">
-        <div>
-          <label class="flbl" id="qi-label">NAME</label>
-          <input type="text" id="qi-input" maxlength="120" placeholder="Enter new name…" />
-        </div>
-      </div>
-      <div class="pcm-ftr">
-        <button class="bg2" style="padding:7px 14px;font-size:11px" onclick="closeQuickInputModal()">Cancel</button>
-        <button class="bp" style="padding:7px 18px;font-size:11px" onclick="confirmQuickInput()">✓ Save</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Obsidian Tool Modal -->
-  <div id="obs-modal" class="mbg" style="display:none" onclick="if(event.target===this)closeObsidianModal()">
-    <div class="modal" style="width:560px;max-height:92vh;overflow-y:auto">
-      <div class="mhdr">
-        <h3>🗂️ Obsidian Knowledge Tool</h3>
-        <button class="mcl" onclick="closeObsidianModal()">✕</button>
-      </div>
-      <div class="mbody" id="obs-modal-body">
-        <!-- Content rendered by JS -->
-      </div>
-    </div>
-  </div>
-
-  <!-- Theme picker panel -->
-  <div id="theme-modal" onclick="if(event.target===this)closeThemePanel()">
-    <div id="theme-panel">
-      <h4>🎨 Theme</h4>
-      <div class="theme-opt active" id="theme-opt-default" onclick="applyTheme('default')">
-        <div class="theme-swatch" style="background:linear-gradient(135deg,#6c63ff,#00c9a7)"></div>
-        <div>
-          <div class="theme-name">Void Purple</div>
-          <div class="theme-desc">Default dark · violet &amp; teal</div>
-        </div>
-      </div>
-      <div class="theme-opt" id="theme-opt-ocean" onclick="applyTheme('ocean')">
-        <div class="theme-swatch" style="background:linear-gradient(135deg,#0e7490,#2dd4bf)"></div>
-        <div>
-          <div class="theme-name">Deep Ocean</div>
-          <div class="theme-desc">Dark navy · cyan &amp; sky</div>
-        </div>
-      </div>
-      <div class="theme-opt" id="theme-opt-ember" onclick="applyTheme('ember')">
-        <div class="theme-swatch" style="background:linear-gradient(135deg,#f97316,#fbbf24)"></div>
-        <div>
-          <div class="theme-name">Ember</div>
-          <div class="theme-desc">Dark charcoal · orange &amp; gold</div>
-        </div>
-      </div>
-      <div class="theme-opt" id="theme-opt-arctic" onclick="applyTheme('arctic')">
-        <div class="theme-swatch" style="background:linear-gradient(135deg,#1e3a5f,#93c5fd)"></div>
-        <div>
-          <div class="theme-name">Arctic</div>
-          <div class="theme-desc">Near-black · ice blue</div>
-        </div>
-      </div>
-      <div class="theme-opt" id="theme-opt-midgreen" onclick="applyTheme('midgreen')">
-        <div class="theme-swatch" style="background:linear-gradient(135deg,#064e3b,#34d399)"></div>
-        <div>
-          <div class="theme-name">Midnight Green</div>
-          <div class="theme-desc">Very dark · emerald</div>
-        </div>
-      </div>
-      <div class="theme-opt" id="theme-opt-slate" onclick="applyTheme('slate')">
-        <div class="theme-swatch" style="background:linear-gradient(135deg,#312e81,#f472b6)"></div>
-        <div>
-          <div class="theme-name">Slate</div>
-          <div class="theme-desc">Dark grey · violet &amp; pink</div>
-        </div>
-      </div>
-      <div class="theme-opt" id="theme-opt-white" onclick="applyTheme('white')">
-        <div class="theme-swatch" style="background:linear-gradient(135deg,#e0e7ff,#fff);border:1px solid #c7d2fe">
-        </div>
-        <div>
-          <div class="theme-name">Arctic White</div>
-          <div class="theme-desc">Light · black text</div>
+        <div class="pcm-ftr">
+          <button class="bg2" style="padding:7px 14px;font-size:11px" onclick="closeProjCreateModal()">Cancel</button>
+          <button class="bp" style="padding:7px 18px;font-size:11px" onclick="confirmCreateProject()">✓ Create</button>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Settings Modal -->
-  <div id="smodal" class="mbg" style="display:none" onclick="if(event.target===this)closeSettings()">
-    <div class="modal" style="width:620px;max-height:92vh;overflow-y:hidden;display:flex;flex-direction:column">
-      <div class="mhdr">
-        <h3 style="display:flex;align-items:center;gap:10px">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#6c63ff"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-          Settings
-        </h3>
-        <button class="mcl" onclick="closeSettings()">✕</button>
+    <!-- ── Project Instructions Modal ── -->
+    <div id="instr-modal" onclick="if(event.target===this)closeInstructionsModal()">
+      <div id="instr-panel">
+        <div class="pcm-hdr">
+          <h3>Set project instructions</h3>
+          <button class="mcl" onclick="closeInstructionsModal()">✕</button>
+        </div>
+        <div id="instr-subtext">Provide the AI with relevant instructions and context for all chats within this project.
+        </div>
+        <textarea id="instr-textarea"
+          placeholder="e.g. Always respond in a formal tone. The project targets Kenyan schools. Prioritise mobile-first design…"></textarea>
+        <div class="pcm-ftr" style="padding:0 20px 16px">
+          <button class="bg2" style="padding:8px 16px;font-size:11px" onclick="closeInstructionsModal()">Cancel</button>
+          <button class="bp" style="padding:8px 22px;font-size:11px" onclick="saveInstructions()">✓ Save
+            Instructions</button>
+        </div>
       </div>
+    </div>
 
-      <!-- Settings Tabs -->
-      <div class="stabs-strip" style="display:flex;gap:15px;padding:0 20px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,0.05)">
-        <button class="stab active" id="stab-api" onclick="switchSTab('api')" style="background:none;border:none;color:#6c63ff;font-size:12px;font-weight:700;padding:12px 5px;cursor:pointer;border-bottom:2px solid #6c63ff;transition:all 0.15s">API & Models</button>
-        <button class="stab" id="stab-tools" onclick="switchSTab('tools')" style="background:none;border:none;color:#a0a0c8;font-size:12px;font-weight:700;padding:12px 5px;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s">Tools & Integrations</button>
-        <button class="stab" id="stab-system" onclick="switchSTab('system')" style="background:none;border:none;color:#a0a0c8;font-size:12px;font-weight:700;padding:12px 5px;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s">System</button>
-      </div>
-
-      <div class="mbody" style="overflow-y:auto;flex:1;padding:20px 25px">
-        <!-- API TAB -->
-        <div id="st-api">
+    <!-- ── Quick-Input Modal (rename project / rename chat) ── -->
+    <div id="quick-input-modal" onclick="if(event.target===this)closeQuickInputModal()">
+      <div id="quick-input-panel">
+        <div class="pcm-hdr">
+          <h3 id="qi-title">Rename</h3>
+          <button class="mcl" onclick="closeQuickInputModal()">✕</button>
+        </div>
+        <div class="pcm-body">
           <div>
-            <label class="flbl">PROVIDER</label>
-            <div class="ptabs">
-              <div class="ptab active" id="ptab-groq" onclick="selProv('groq')"><span class="pi">⚡</span>
-                <div class="pn">Groq</div>
-                <div class="ps">Fast &amp; free</div>
-              </div>
-              <div class="ptab" id="ptab-github" onclick="selProv('github')"><span class="pi">🐙</span>
-                <div class="pn">GitHub Models</div>
-                <div class="ps">Free · DeepSeek · GPT-4o</div>
-              </div>
-              <div class="ptab" id="ptab-custom" onclick="selProv('custom')"><span class="pi">🔧</span>
-                <div class="pn">Custom API</div>
-                <div class="ps">Any provider</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Provider panels -->
-          <div class="pp active" id="pp-groq">
-            <div>
-              <label class="flbl">API KEY (PRIMARY)</label>
-              <input type="password" id="qk" placeholder="gsk_… (primary key)" />
-              <div style="color:#282848;font-size:9px;margin-top:3px">console.groq.com → API Keys (free tier)</div>
-            </div>
-            <div>
-              <label class="flbl">EXTRA API KEYS — auto-rotates when limit hit</label>
-              <textarea class="finput" id="qk-extra"
-                placeholder="gsk_key2…&#10;gsk_key3…&#10;(one key per line — rotates automatically on 429/rate limit)"
-                style="min-height:70px;font-size:10px;font-family:monospace"></textarea>
-              <div id="qk-status" style="font-size:9px;margin-top:3px;color:#00c9a7"></div>
-            </div>
-            <div>
-              <label class="flbl">MODEL</label>
-              <div class="mgrid">
-                <div class="mopt sel" data-p="groq" data-m="llama-3.3-70b" onclick="selM(this)">
-                  <div class="mn">Llama 3.3 70B</div>
-                  <div class="ms">★ Best balance · Fast</div>
-                </div>
-                <div class="mopt" data-p="groq" data-m="llama-4-scout" onclick="selM(this)">
-                  <div class="mn">Llama 4 Scout</div>
-                  <div class="ms">Latest Meta · Multimodal</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="pp" id="pp-github">
-            <div>
-              <label class="flbl">GITHUB PERSONAL ACCESS TOKEN</label>
-              <input type="password" id="ghtoken" placeholder="ghp_…" />
-            </div>
-            <div>
-              <label class="flbl">GITHUB MODELS CATALOG</label>
-              <select id="gh-model-sel" data-p="github" onchange="selM(this)" style="width:100%;background:#0d0d1a;border:1px solid rgba(108,99,255,.2);border-radius:5px;color:#a0a0c8;font-size:11px;padding:8px;outline:none;cursor:pointer;font-family:inherit">
-                <optgroup label="OpenAI">
-                  <option value="gpt-4o">GPT-4o</option>
-                  <option value="gpt-4o-mini">GPT-4o mini</option>
-                  <option value="o1">o1-preview</option>
-                  <option value="o1-mini">o1-mini</option>
-                </optgroup>
-                <optgroup label="Meta (Llama)">
-                  <option value="meta-llama-3.1-405b-instruct">Llama 3.1 405B</option>
-                  <option value="meta-llama-3.1-70b-instruct">Llama 3.1 70B</option>
-                  <option value="meta-llama-3.1-8b-instruct">Llama 3.1 8B</option>
-                  <option value="Llama-3.2-90B-Vision-Instruct">Llama 3.2 90B Vision</option>
-                  <option value="Llama-3.2-11B-Vision-Instruct">Llama 3.2 11B Vision</option>
-                  <option value="meta-llama-3.3-70b-instruct">Llama 3.3 70B</option>
-                </optgroup>
-                <optgroup label="Mistral AI">
-                  <option value="Mistral-large">Mistral Large</option>
-                  <option value="Mistral-large-2407">Mistral Large 2407</option>
-                  <option value="Mistral-Nemo">Mistral Nemo</option>
-                  <option value="Mistral-small">Mistral Small</option>
-                </optgroup>
-                <optgroup label="Microsoft (Phi)">
-                  <option value="Phi-4">Phi-4 (Reasoning)</option>
-                  <option value="Phi-3.5-MoE-instruct">Phi 3.5 MoE</option>
-                  <option value="Phi-3.5-mini-instruct">Phi 3.5 mini</option>
-                  <option value="Phi-3.5-vision-instruct">Phi 3.5 Vision</option>
-                </optgroup>
-                <optgroup label="DeepSeek">
-                  <option value="DeepSeek-R1">DeepSeek R1</option>
-                  <option value="DeepSeek-V3">DeepSeek V3</option>
-                </optgroup>
-                <optgroup label="Cohere">
-                  <option value="Command-R-Plus">Command R Plus</option>
-                  <option value="Command-R">Command R</option>
-                </optgroup>
-              </select>
-              <div style="font-size:9px;color:#444468;margin-top:4px">Select any model from the GitHub Marketplace. Ensure your token has <code>models:read</code> scope.</div>
-            </div>
-          </div>
-
-          <div class="pp" id="pp-custom">
-            <div>
-              <label class="flbl">ENDPOINT URL</label>
-              <input type="text" id="curl" placeholder="https://api.openai.com/v1/chat/completions" />
-            </div>
-            <div>
-              <label class="flbl">API KEY / TOKEN</label>
-              <input type="password" id="ckey" placeholder="sk-… or leave blank for local" />
-            </div>
-            <div>
-              <label class="flbl">MODEL ID</label>
-              <input type="text" id="cmod" placeholder="gpt-4o / claude-3-5-sonnet-latest" />
-            </div>
+            <label class="flbl" id="qi-label">NAME</label>
+            <input type="text" id="qi-input" maxlength="120" placeholder="Enter new name…" />
           </div>
         </div>
-
-        <!-- TOOLS TAB -->
-        <div id="st-tools" style="display:none">
-          <!-- Web Search Settings -->
-          <div class="tool-section">
-            <div class="tool-section-hdr"><span class="tool-section-icon">🌐</span><span>Web Search</span><span
-                class="tool-section-sub">Engine + Keys</span></div>
-            <div style="margin-bottom:6px">
-              <label class="flbl">ENGINE</label>
-              <select id="ws-engine" onchange="_wsShowFields(this.value)"
-                style="width:100%;background:#0d0d1a;border:1px solid rgba(108,99,255,.2);border-radius:5px;color:#a0a0c8;font-size:10px;padding:6px;outline:none;cursor:pointer;font-family:inherit">
-                <option value="tavily">🟢 Tavily — 1,000 free/month</option>
-                <option value="duckduckgo">🦆 DuckDuckGo — free, no key</option>
-                <option value="brave">🦁 Brave Search</option>
-                <option value="google">🔵 Google CSE</option>
-              </select>
-            </div>
-            <div id="ws-fields-tavily">
-              <label class="flbl">TAVILY API KEY</label>
-              <input id="ws-tavily-key" type="password" placeholder="tvly-dev-…" class="finput" />
-            </div>
-            <div id="ws-fields-brave" style="display:none">
-              <label class="flbl">BRAVE API KEY</label>
-              <input id="ws-brave-key" type="password" placeholder="BSA…" class="finput" />
-            </div>
-            <div id="ws-fields-google" style="display:none">
-              <label class="flbl">GOOGLE API KEY</label>
-              <input id="ws-google-key" type="password" placeholder="AIza…" class="finput" style="margin-bottom:4px" />
-              <label class="flbl">SEARCH ENGINE ID (CX)</label>
-              <input id="ws-google-cx" type="text" placeholder="110d76868…" class="finput" />
-            </div>
-          </div>
-
-          <div style="margin-top:20px;border-top:1px solid rgba(255,255,255,.06);padding-top:15px">
-            <div class="tool-section-hdr"><span class="tool-section-icon">🗂️</span><span>Obsidian Integration</span></div>
-            <div class="tool-card" id="tool-obsidian" onclick="openObsidianTool()" style="background:rgba(108,99,255,.05);padding:10px;border-radius:8px;border:1px solid rgba(108,99,255,.1);cursor:pointer;margin-top:8px">
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <div>
-                  <div style="font-size:11px;color:#eee;font-weight:700">Obsidian Knowledge Tool</div>
-                  <div style="font-size:9px;color:#6c6c8a">Analyze chat → write structured notes</div>
-                </div>
-                <div id="obs-status" style="font-size:9px;color:#6c6c8a;background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:4px">⬜ Not configured</div>
-              </div>
-            </div>
-          </div>
+        <div class="pcm-ftr">
+          <button class="bg2" style="padding:7px 14px;font-size:11px" onclick="closeQuickInputModal()">Cancel</button>
+          <button class="bp" style="padding:7px 18px;font-size:11px" onclick="confirmQuickInput()">✓ Save</button>
         </div>
-
-        <!-- SYSTEM TAB -->
-        <div id="st-system" style="display:none">
-          <div class="tool-section">
-            <div class="tool-section-hdr">
-              <span class="tool-section-icon">📋</span>
-              <span>System Instructions</span>
-              <span class="tool-section-sub">Injected into every conversation</span>
-            </div>
-            <textarea id="sys-instr"
-              placeholder="Give SCAAI permanent instructions&#10;e.g. Always respond concisely. Prefer Python."
-              style="width:100%;min-height:80px;background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.15);border-radius:6px;color:#a0a0c8;font-size:10px;padding:8px;box-sizing:border-box;resize:vertical;font-family:inherit;outline:none"></textarea>
-          </div>
-
-          <div style="margin-top:20px;border-top:1px solid rgba(255,255,255,.06);padding-top:15px">
-            <label class="flbl">INTERNAL MODELS</label>
-            <div style="margin-top:8px">
-              <label class="flbl">INNER MONOLOGUE MODEL</label>
-              <input type="text" id="im-model" placeholder="llama-3.1-8b-instant" class="finput" />
-              <div style="font-size:8px;color:#333358;margin-top:3px">Fast model for background reasoning.</div>
-            </div>
-          </div>
-
-          <div style="margin-top:20px;border-top:1px solid rgba(255,255,255,.06);padding-top:15px">
-            <label class="flbl">ENVIRONMENTS</label>
-            <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-              <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#a0a0c8;cursor:pointer">
-                <input type="checkbox" id="use-wsl2" checked style="accent-color:#6c63ff" />
-                <span>Use WSL2 (Bash) if available</span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <div class="mftr">
-        <button class="bg2" style="padding:8px 16px;font-size:12px" onclick="closeSettings()">Cancel</button>
-        <button class="bp" style="padding:8px 22px;font-size:12px" onclick="saveSettings()">✓ Save</button>
       </div>
     </div>
-  </div>
+
+    <!-- Obsidian Tool Modal -->
+    <div id="obs-modal" class="mbg" style="display:none" onclick="if(event.target===this)closeObsidianModal()">
+      <div class="modal" style="width:560px;max-height:92vh;overflow-y:auto">
+        <div class="mhdr">
+          <h3>🗂️ Obsidian Knowledge Tool</h3>
+          <button class="mcl" onclick="closeObsidianModal()">✕</button>
+        </div>
+        <div class="mbody" id="obs-modal-body">
+          <!-- Content rendered by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Theme picker panel -->
+    <div id="theme-modal" onclick="if(event.target===this)closeThemePanel()">
+      <div id="theme-panel">
+        <h4>🎨 Theme</h4>
+        <div class="theme-opt active" id="theme-opt-default" onclick="applyTheme('default')">
+          <div class="theme-swatch" style="background:linear-gradient(135deg,#6c63ff,#00c9a7)"></div>
+          <div>
+            <div class="theme-name">Void Purple</div>
+            <div class="theme-desc">Default dark · violet &amp; teal</div>
+          </div>
+        </div>
+        <div class="theme-opt" id="theme-opt-ocean" onclick="applyTheme('ocean')">
+          <div class="theme-swatch" style="background:linear-gradient(135deg,#0e7490,#2dd4bf)"></div>
+          <div>
+            <div class="theme-name">Deep Ocean</div>
+            <div class="theme-desc">Dark navy · cyan &amp; sky</div>
+          </div>
+        </div>
+        <div class="theme-opt" id="theme-opt-ember" onclick="applyTheme('ember')">
+          <div class="theme-swatch" style="background:linear-gradient(135deg,#f97316,#fbbf24)"></div>
+          <div>
+            <div class="theme-name">Ember</div>
+            <div class="theme-desc">Dark charcoal · orange &amp; gold</div>
+          </div>
+        </div>
+        <div class="theme-opt" id="theme-opt-arctic" onclick="applyTheme('arctic')">
+          <div class="theme-swatch" style="background:linear-gradient(135deg,#1e3a5f,#93c5fd)"></div>
+          <div>
+            <div class="theme-name">Arctic</div>
+            <div class="theme-desc">Near-black · ice blue</div>
+          </div>
+        </div>
+        <div class="theme-opt" id="theme-opt-midgreen" onclick="applyTheme('midgreen')">
+          <div class="theme-swatch" style="background:linear-gradient(135deg,#064e3b,#34d399)"></div>
+          <div>
+            <div class="theme-name">Midnight Green</div>
+            <div class="theme-desc">Very dark · emerald</div>
+          </div>
+        </div>
+        <div class="theme-opt" id="theme-opt-slate" onclick="applyTheme('slate')">
+          <div class="theme-swatch" style="background:linear-gradient(135deg,#312e81,#f472b6)"></div>
+          <div>
+            <div class="theme-name">Slate</div>
+            <div class="theme-desc">Dark grey · violet &amp; pink</div>
+          </div>
+        </div>
+        <div class="theme-opt" id="theme-opt-white" onclick="applyTheme('white')">
+          <div class="theme-swatch" style="background:linear-gradient(135deg,#e0e7ff,#fff);border:1px solid #c7d2fe">
+          </div>
+          <div>
+            <div class="theme-name">Arctic White</div>
+            <div class="theme-desc">Light · black text</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="smodal" class="mbg" style="display:none" onclick="if(event.target===this)closeSettings()">
+      <div class="modal" style="width:620px;max-height:92vh;overflow-y:hidden;display:flex;flex-direction:column">
+        <div class="mhdr">
+          <h3 style="display:flex;align-items:center;gap:10px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" style="color:#6c63ff">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+              </path>
+            </svg>
+            Settings
+          </h3>
+          <button class="mcl" onclick="closeSettings()">✕</button>
+        </div>
+
+        <!-- Settings Tabs -->
+        <div class="stabs-strip"
+          style="display:flex;gap:15px;padding:0 20px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,0.05)">
+          <button class="stab active" id="stab-api" onclick="switchSTab('api')"
+            style="background:none;border:none;color:#6c63ff;font-size:12px;font-weight:700;padding:12px 5px;cursor:pointer;border-bottom:2px solid #6c63ff;transition:all 0.15s">API
+            & Models</button>
+          <button class="stab" id="stab-tools" onclick="switchSTab('tools')"
+            style="background:none;border:none;color:#a0a0c8;font-size:12px;font-weight:700;padding:12px 5px;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s">Tools
+            & Integrations</button>
+          <button class="stab" id="stab-system" onclick="switchSTab('system')"
+            style="background:none;border:none;color:#a0a0c8;font-size:12px;font-weight:700;padding:12px 5px;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s">System</button>
+        </div>
+
+        <div class="mbody" style="overflow-y:auto;flex:1;padding:20px 25px">
+          <!-- API TAB -->
+          <div id="st-api">
+            <div>
+              <label class="flbl">PROVIDER</label>
+              <div class="ptabs">
+                <div class="ptab active" id="ptab-groq" onclick="selProv('groq')"><span class="pi">⚡</span>
+                  <div class="pn">Groq</div>
+                  <div class="ps">Fast &amp; free</div>
+                </div>
+                <div class="ptab" id="ptab-github" onclick="selProv('github')"><span class="pi">🐙</span>
+                  <div class="pn">GitHub Models</div>
+                  <div class="ps">Free · DeepSeek · GPT-4o</div>
+                </div>
+                <div class="ptab" id="ptab-custom" onclick="selProv('custom')"><span class="pi">🔧</span>
+                  <div class="pn">Custom API</div>
+                  <div class="ps">Any provider</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Provider panels -->
+            <div class="pp active" id="pp-groq">
+              <div>
+                <label class="flbl">API KEY (PRIMARY)</label>
+                <input type="password" id="qk" placeholder="gsk_… (primary key)" />
+                <div style="color:#282848;font-size:9px;margin-top:3px">console.groq.com → API Keys (free tier)</div>
+              </div>
+              <div>
+                <label class="flbl">EXTRA API KEYS — auto-rotates when limit hit</label>
+                <textarea class="finput" id="qk-extra"
+                  placeholder="gsk_key2…&#10;gsk_key3…&#10;(one key per line — rotates automatically on 429/rate limit)"
+                  style="min-height:70px;font-size:10px;font-family:monospace"></textarea>
+                <div id="qk-status" style="font-size:9px;margin-top:3px;color:#00c9a7"></div>
+              </div>
+              <div>
+                <label class="flbl">MODEL</label>
+                <div class="mgrid">
+                  <div class="mopt sel" data-p="groq" data-m="llama-3.3-70b" onclick="selM(this)">
+                    <div class="mn">Llama 3.3 70B</div>
+                    <div class="ms">★ Best balance · Fast</div>
+                  </div>
+                  <div class="mopt" data-p="groq" data-m="llama-4-scout" onclick="selM(this)">
+                    <div class="mn">Llama 4 Scout</div>
+                    <div class="ms">Latest Meta · Multimodal</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pp" id="pp-github">
+              <div>
+                <label class="flbl">GITHUB PERSONAL ACCESS TOKEN</label>
+                <input type="password" id="ghtoken" placeholder="ghp_…" />
+              </div>
+              <div>
+                <label class="flbl">GITHUB MODELS CATALOG</label>
+                <select id="gh-model-sel" data-p="github" onchange="selM(this)"
+                  style="width:100%;background:#0d0d1a;border:1px solid rgba(108,99,255,.2);border-radius:5px;color:#a0a0c8;font-size:11px;padding:8px;outline:none;cursor:pointer;font-family:inherit">
+                  <optgroup label="OpenAI">
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="gpt-4o-mini">GPT-4o mini</option>
+                    <option value="o1">o1-preview</option>
+                    <option value="o1-mini">o1-mini</option>
+                  </optgroup>
+                  <optgroup label="Meta (Llama)">
+                    <option value="meta-llama-3.1-405b-instruct">Llama 3.1 405B</option>
+                    <option value="meta-llama-3.1-70b-instruct">Llama 3.1 70B</option>
+                    <option value="meta-llama-3.1-8b-instruct">Llama 3.1 8B</option>
+                    <option value="Llama-3.2-90B-Vision-Instruct">Llama 3.2 90B Vision</option>
+                    <option value="Llama-3.2-11B-Vision-Instruct">Llama 3.2 11B Vision</option>
+                    <option value="meta-llama-3.3-70b-instruct">Llama 3.3 70B</option>
+                  </optgroup>
+                  <optgroup label="Mistral AI">
+                    <option value="Mistral-large">Mistral Large</option>
+                    <option value="Mistral-large-2407">Mistral Large 2407</option>
+                    <option value="Mistral-Nemo">Mistral Nemo</option>
+                    <option value="Mistral-small">Mistral Small</option>
+                  </optgroup>
+                  <optgroup label="Microsoft (Phi)">
+                    <option value="Phi-4">Phi-4 (Reasoning)</option>
+                    <option value="Phi-3.5-MoE-instruct">Phi 3.5 MoE</option>
+                    <option value="Phi-3.5-mini-instruct">Phi 3.5 mini</option>
+                    <option value="Phi-3.5-vision-instruct">Phi 3.5 Vision</option>
+                  </optgroup>
+                  <optgroup label="DeepSeek">
+                    <option value="DeepSeek-R1">DeepSeek R1</option>
+                    <option value="DeepSeek-V3">DeepSeek V3</option>
+                  </optgroup>
+                  <optgroup label="Cohere">
+                    <option value="Command-R-Plus">Command R Plus</option>
+                    <option value="Command-R">Command R</option>
+                  </optgroup>
+                </select>
+                <div style="font-size:9px;color:#444468;margin-top:4px">Select any model from the GitHub Marketplace.
+                  Ensure your token has <code>models:read</code> scope.</div>
+              </div>
+            </div>
+
+            <div class="pp" id="pp-custom">
+              <div>
+                <label class="flbl">ENDPOINT URL</label>
+                <input type="text" id="curl" placeholder="https://api.openai.com/v1/chat/completions" />
+              </div>
+              <div>
+                <label class="flbl">API KEY / TOKEN</label>
+                <input type="password" id="ckey" placeholder="sk-… or leave blank for local" />
+              </div>
+              <div>
+                <label class="flbl">MODEL ID</label>
+                <input type="text" id="cmod" placeholder="gpt-4o / claude-3-5-sonnet-latest" />
+              </div>
+            </div>
+          </div>
+
+          <!-- TOOLS TAB -->
+          <div id="st-tools" style="display:none">
+            <!-- Web Search Settings -->
+            <div class="tool-section">
+              <div class="tool-section-hdr"><span class="tool-section-icon">🌐</span><span>Web Search</span><span
+                  class="tool-section-sub">Engine + Keys</span></div>
+              <div style="margin-bottom:6px">
+                <label class="flbl">ENGINE</label>
+                <select id="ws-engine" onchange="_wsShowFields(this.value)"
+                  style="width:100%;background:#0d0d1a;border:1px solid rgba(108,99,255,.2);border-radius:5px;color:#a0a0c8;font-size:10px;padding:6px;outline:none;cursor:pointer;font-family:inherit">
+                  <option value="tavily">🟢 Tavily — 1,000 free/month</option>
+                  <option value="duckduckgo">🦆 DuckDuckGo — free, no key</option>
+                  <option value="brave">🦁 Brave Search</option>
+                  <option value="google">🔵 Google CSE</option>
+                </select>
+              </div>
+              <div id="ws-fields-tavily">
+                <label class="flbl">TAVILY API KEY</label>
+                <input id="ws-tavily-key" type="password" placeholder="tvly-dev-…" class="finput" />
+              </div>
+              <div id="ws-fields-brave" style="display:none">
+                <label class="flbl">BRAVE API KEY</label>
+                <input id="ws-brave-key" type="password" placeholder="BSA…" class="finput" />
+              </div>
+              <div id="ws-fields-google" style="display:none">
+                <label class="flbl">GOOGLE API KEY</label>
+                <input id="ws-google-key" type="password" placeholder="AIza…" class="finput"
+                  style="margin-bottom:4px" />
+                <label class="flbl">SEARCH ENGINE ID (CX)</label>
+                <input id="ws-google-cx" type="text" placeholder="110d76868…" class="finput" />
+              </div>
+            </div>
+
+            <div style="margin-top:20px;border-top:1px solid rgba(255,255,255,.06);padding-top:15px">
+              <div class="tool-section-hdr"><span class="tool-section-icon">🗂️</span><span>Obsidian Integration</span>
+              </div>
+              <div class="tool-card" id="tool-obsidian" onclick="openObsidianTool()"
+                style="background:rgba(108,99,255,.05);padding:10px;border-radius:8px;border:1px solid rgba(108,99,255,.1);cursor:pointer;margin-top:8px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <div>
+                    <div style="font-size:11px;color:#eee;font-weight:700">Obsidian Knowledge Tool</div>
+                    <div style="font-size:9px;color:#6c6c8a">Analyze chat → write structured notes</div>
+                  </div>
+                  <div id="obs-status"
+                    style="font-size:9px;color:#6c6c8a;background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:4px">⬜
+                    Not configured</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SYSTEM TAB -->
+          <div id="st-system" style="display:none">
+            <div class="tool-section">
+              <div class="tool-section-hdr">
+                <span class="tool-section-icon">📋</span>
+                <span>System Instructions</span>
+                <span class="tool-section-sub">Injected into every conversation</span>
+              </div>
+              <textarea id="sys-instr"
+                placeholder="Give SCAAI permanent instructions&#10;e.g. Always respond concisely. Prefer Python."
+                style="width:100%;min-height:80px;background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.15);border-radius:6px;color:#a0a0c8;font-size:10px;padding:8px;box-sizing:border-box;resize:vertical;font-family:inherit;outline:none"></textarea>
+            </div>
+
+            <div style="margin-top:20px;border-top:1px solid rgba(255,255,255,.06);padding-top:15px">
+              <label class="flbl">INTERNAL MODELS</label>
+              <div style="margin-top:8px">
+                <label class="flbl">INNER MONOLOGUE MODEL</label>
+                <input type="text" id="im-model" placeholder="llama-3.1-8b-instant" class="finput" />
+                <div style="font-size:8px;color:#333358;margin-top:3px">Fast model for background reasoning.</div>
+              </div>
+            </div>
+
+            <div style="margin-top:20px;border-top:1px solid rgba(255,255,255,.06);padding-top:15px">
+              <label class="flbl">ENVIRONMENTS</label>
+              <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+                <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#a0a0c8;cursor:pointer">
+                  <input type="checkbox" id="use-wsl2" checked style="accent-color:#6c63ff" />
+                  <span>Use WSL2 (Bash) if available</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="mftr">
+          <button class="bg2" style="padding:8px 16px;font-size:12px" onclick="closeSettings()">Cancel</button>
+          <button class="bp" style="padding:8px 22px;font-size:12px" onclick="saveSettings()">✓ Save</button>
+        </div>
+      </div>
+    </div>
   </div>
 
 
