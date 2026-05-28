@@ -43,6 +43,7 @@
         <span class="logo">SCAAI</span>
       </div>
       <div class="R">
+        <button class="wb" onclick="openFindingsPanel()" title="System Findings">🔬</button>
         <button class="wb" onclick="window.scaai.minimize()">—</button>
         <button class="wb" onclick="window.scaai.maximize()">□</button>
         <button class="wb cx" onclick="window.scaai.close()">✕</button>
@@ -90,10 +91,6 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
             <span class="lbl">Tools</span>
           </button>
-          <button class="nav-item" id="tb-graph" onclick="switchTab('graph')" title="Knowledge Graph">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-            <span class="lbl">Graph</span>
-          </button>
         </div>
 
         <!-- Active View Container -->
@@ -126,17 +123,13 @@
                 <div class="proj-dot proj-detail-dot" id="proj-detail-dot"></div>
                 <span class="proj-detail-name" id="proj-detail-name">Project Name</span>
                 <button class="proj-deactivate-btn" onclick="deactivateProject()" title="Deactivate project">Deactivate</button>
-              <div class="proj-ctx">
-                <div style="font-size:8px;color:#333358;font-weight:700;letter-spacing:1px;margin-bottom:3px">CONTEXT</div>
-                <textarea id="proj-ctx-input" placeholder="Project notes…" oninput="debounceSaveProjectContext()"></textarea>
               </div>
               <div class="chat-hist-hdr">
                 <span>HISTORY</span>
                 <button class="chat-hist-new-btn" onclick="startFreshChat()" title="New chat">+ Chat</button>
               </div>
               <div class="chat-hist-list" id="chat-hist-list-project"></div>
-             </div>
-          </div>
+            </div>
           </div> <!-- /#tproj -->
 
           <!-- Tools & Browser Tab -->
@@ -150,10 +143,6 @@
              </div>
           </div>
 
-          <!-- Knowledge Graph Tab -->
-          <div id="tgraph" style="display:none; flex:1; flex-direction:column">
-             <div id="sg-network" style="flex:1; width:100%; background:#09090b"></div>
-          </div>
 
           <!-- Files Tab -->
           <div id="tf" style="display:none">
@@ -272,8 +261,6 @@
                 </div>
                 <div id="phv-proj-desc"></div>
               </div>
-              <!-- Phase tabs -->
-              <div id="phv-phases"></div>
               <!-- Start chat prompt -->
               <div id="phv-prompt-row">
                 <textarea id="phv-prompt-box" placeholder="How can I help you today?" rows="2"
@@ -308,29 +295,6 @@
                   </div>
                   <div id="phv-instr-content" class="phv-instr-empty" onclick="openInstructionsModal()">Add instructions
                     to tailor AI responses for this project.</div>
-                </div>
-                <div class="phv-rpanel-divider"></div>
-                <div class="phv-rpanel-section" id="phv-mission-section">
-                  <div class="phv-rpanel-hdr">
-                    <span class="phv-rpanel-title">MISSION ROADMAP</span>
-                    <button class="phv-rpanel-add" onclick="window._runStrategicAnalysis(window._silentCall, '', 'roadmap')" title="Force strategic re-analysis">↺</button>
-                  </div>
-                  <div id="phv-mission-roadmap" class="phv-mission-empty">
-                    No active mission detected. Start a complex task to trigger automatic planning.
-                  </div>
-                </div>
-                <div class="phv-rpanel-divider"></div>
-                <div class="phv-rpanel-section">
-                  <div class="phv-rpanel-hdr">
-                    <span class="phv-rpanel-title">CONTEXT NOTES</span>
-                    <button class="phv-rpanel-add" id="phv-ctx-toggle" title="Edit context notes"
-                      onclick="togglePhvCtxEdit()">✏</button>
-                  </div>
-                  <textarea id="phv-ctx-ta"
-                    style="width:100%;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:7px;color:#6060a0;font-size:11px;padding:8px 10px;outline:none;font-family:inherit;resize:none;min-height:70px;box-sizing:border-box;line-height:1.6;display:none"
-                    placeholder="Project notes, background, goals…" oninput="debounceSaveProjectContext()"></textarea>
-                  <div id="phv-ctx-preview" class="phv-instr-empty" onclick="togglePhvCtxEdit()">Add background context,
-                    notes, and goals for this project.</div>
                 </div>
                 <div class="phv-rpanel-divider"></div>
                 <div class="phv-rpanel-section">
@@ -389,18 +353,6 @@
             <div class="color-swatch" data-color="#a78bfa" style="background:#a78bfa" onclick="selectProjColor(this)">
             </div>
           </div>
-        </div>
-        <div>
-          <label class="flbl">INITIAL PHASE</label>
-          <select id="pcm-phase"
-            style="width:100%;background:#0d0d1a;border:1px solid rgba(108,99,255,.2);border-radius:5px;color:#a0a0c8;font-size:10px;padding:5px 7px;outline:none;cursor:pointer;font-family:inherit">
-            <option value="planning">📋 Planning</option>
-            <option value="researching">🔍 Researching</option>
-            <option value="evaluating">⚖️ Evaluating</option>
-            <option value="executing">⚡ Executing</option>
-            <option value="testing">🧪 Testing</option>
-            <option value="validating">✅ Validating</option>
-          </select>
         </div>
       </div>
       <div class="pcm-ftr">

@@ -3559,6 +3559,180 @@ async function saveSettings() {
   if (prevProvider !== SP || prevModel !== CONFIG.model) addMsg('ai', `Switched to **${PROVIDERS[SP]?.name || 'Custom'}** · **${CONFIG.model}**\nContext carried over.`);
 }
 
+/* ── System Findings Engine UI Integration ── */
+
+function openFindingsPanel() {
+  document.getElementById('findings-overlay').classList.add('open');
+}
+function closeFindingsPanel() {
+  document.getElementById('findings-overlay').classList.remove('open');
+}
+
+let _fCurrentTab = 'all';
+function switchFTab(tab) {
+  _fCurrentTab = tab;
+  document.querySelectorAll('.ftab').forEach(b => b.classList.toggle('active', b.id === 'ftab-' + tab));
+  renderFindingsList();
+}
+
+async function runFindings() {
+  const empty = document.getElementById('findings-empty');
+  const loading = document.getElementById('findings-loading');
+  const list = document.getElementById('findings-list');
+  const sumBar = document.getElementById('findings-summary-bar');
+
+  if (empty) empty.style.display = 'none';
+  if (list) list.style.display = 'none';
+  if (sumBar) sumBar.style.display = 'none';
+  if (loading) loading.style.display = 'flex';
+
+  // Animate steps for drama
+  for (let i = 1; i <= 5; i++) {
+    const step = document.getElementById('fls-' + i);
+    if (step) {
+      step.style.color = '#6c63ff';
+      step.style.fontWeight = 'bold';
+      await new Promise(r => setTimeout(r, 400));
+      step.style.color = '#a0a0c8';
+      step.style.fontWeight = 'normal';
+    }
+  }
+
+  const globals = {
+    CONV_HISTORY,
+    ACTIVE_PROJECT,
+    SEM_READY: window.SEM_READY || false,
+    SEM_COUNT: window.SEM_COUNT || 0,
+    CONFIG,
+    WEB_SEARCH_ENABLED: window.WEB_SEARCH_ENABLED || false,
+    FILES,
+    SEL,
+    TOOLS_CONFIG,
+    USER_PROFILE: window.USER_PROFILE || {},
+    A: window.A
+  };
+
+  const r = await SystemFindings.runAnalysis(globals);
+  if (loading) loading.style.display = 'none';
+
+  if (!r.ok) {
+    if (empty) {
+      empty.style.display = 'flex';
+      const et = document.getElementById('findings-empty-title');
+      const ed = document.getElementById('findings-empty-desc');
+      if (et) et.textContent = 'Analysis Failed';
+      if (ed) ed.textContent = r.error;
+    }
+    return;
+  }
+
+  // Update summary bar
+  const fc = document.getElementById('fsb-c');
+  const fh = document.getElementById('fsb-h');
+  const fm = document.getElementById('fsb-m');
+  const fl = document.getElementById('fsb-l');
+  const fmeta = document.getElementById('fsb-meta');
+  
+  if (fc) fc.textContent = r.summary.critical;
+  if (fh) fh.textContent = r.summary.high;
+  if (fm) fm.textContent = r.summary.medium;
+  if (fl) fl.textContent = r.summary.low;
+  if (fmeta) fmeta.textContent = `${r.summary.chatsAnalyzed} chatsAnalyzed · ${r.summary.messagesAnalyzed} messages analysed`;
+  
+  if (sumBar) sumBar.style.display = 'flex';
+  if (list) {
+    list.style.display = 'grid';
+    renderFindingsList();
+  }
+}
+
+function renderFindingsList() {
+  const listEl = document.getElementById('findings-list');
+  const report = SystemFindings.getLastReport();
+  if (!report || !listEl) return;
+
+  let findingsList = report.findings;
+  if (_fCurrentTab !== 'all') {
+    findingsList = findingsList.filter(f => f.actionType === (_fCurrentTab === 'ai' ? 'ai-fixable' : (_fCurrentTab === 'code' ? 'code-required' : 'configuration')));
+  }
+
+  if (findingsList.length === 0) {
+    listEl.innerHTML = '<div style="grid-column:1/-1;padding:40px;text-align:center;color:#555580">No findings in this category.</div>';
+    return;
+  }
+
+  listEl.innerHTML = findingsList.map(f => {
+    const cat = SystemFindings.CATEGORIES[f.category] || { icon: '🔬', label: 'Other' };
+    const actions = (f.actions || []).map(a => `<button class="fi-action-btn" onclick="${a.cmd}">${a.label}</button>`).join('');
+
+    return `
+      <div class="fi-card" data-severity="${f.severity}">
+        <div class="fi-hdr">
+          <div class="fi-cat">${cat.icon} ${cat.label}</div>
+          <div class="fi-sev ${f.severity}">${f.severity.toUpperCase()}</div>
+        </div>
+        <div class="fi-title">${f.title}</div>
+        <div class="fi-desc">${f.description}</div>
+        ${actions ? `<div class="fi-actions">${actions}</div>` : ''}
+        ${f.learnContent ? `<button class="fi-learn-btn" onclick="learnSpecificFinding('${f.id}')">🧠 Internalize Improvement</button>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+async function learnSpecificFinding(id) {
+  const report = SystemFindings.getLastReport();
+  const finding = report.findings.find(f => f.id === id);
+  if (finding) {
+    const r = await SystemFindings.learnFinding(finding, window.A);
+    if (r.ok) {
+      addMsg('ai', `🧠 **System improved.** I have internalized the following health finding: *${finding.title}*`);
+      renderFindingsList();
+    }
+  }
+}
+
+async function learnAllFindingsNow() {
+  const report = SystemFindings.getLastReport();
+  if (!report) return;
+  const btn = document.querySelector('.fsb-action-btn.learn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Learning…';
+  }
+  const r = await SystemFindings.learnAllFindings(report.findings, window.A);
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = '🧠 Learned';
+  }
+  addMsg('ai', `🧠 **Self-correction complete.** Internalized ${r.learned} improvement suggestions into semantic memory.`);
+}
+
+function feedFindingsToAI() {
+  const report = SystemFindings.getLastReport();
+  if (!report) return;
+  const prompt = SystemFindings.buildAIPrompt(report.findings, []);
+  
+  // Close overlay and put in chat
+  closeFindingsPanel();
+  const ci = document.getElementById('ci');
+  if (ci) {
+    ci.value = prompt;
+    ci.focus();
+    ci.style.height = 'auto';
+    ci.style.height = ci.scrollHeight + 'px';
+  }
+}
+
+function ovOpenPanel(type) {
+  if (type === 'sem') {
+    // Open semantic memory panel if it exists, or just open findings for now
+    openFindingsPanel();
+  } else {
+    switchTab(type);
+  }
+}
+
 // ── Tabs ──
 function switchTab(t) {
   // Ensure sidebar is visible when a tab is selected
@@ -3567,28 +3741,23 @@ function switchTab(t) {
 
   const ttool = document.getElementById('ttool');
   const tproj = document.getElementById('tproj');
-  const tgraph = document.getElementById('tgraph');
   const thistory = document.getElementById('thistory');
   const tf = document.getElementById('tf');
 
   if (ttool) ttool.style.display = t === 'tool' ? 'flex' : 'none';
   if (tproj) tproj.style.display = t === 'proj' ? 'flex' : 'none';
   if (tf) tf.style.display = t === 'files' ? 'flex' : 'none';
-  if (tgraph) tgraph.style.display = t === 'graph' ? 'flex' : 'none';
   if (thistory) thistory.style.display = t === 'history' ? 'flex' : 'none';
 
   const tbTool = document.getElementById('tb-tool');
   const tbProj = document.getElementById('tb-proj');
-  const tbGraph = document.getElementById('tb-graph');
   const tbHistory = document.getElementById('tb-history');
 
   if (tbTool) tbTool.classList.toggle('active', t === 'tool');
   if (tbProj) tbProj.classList.toggle('active', t === 'proj');
-  if (tbGraph) tbGraph.classList.toggle('active', t === 'graph');
   if (tbHistory) tbHistory.classList.toggle('active', t === 'history');
 
   if (t === 'history') _chLoadAndRender(); // Load sidebar chat history
-  if (t === 'graph') setTimeout(refreshKnowledgeGraph, 50);
 
 
   if (t === 'proj') {
@@ -3607,68 +3776,6 @@ function switchTab(t) {
   }
 }
 
-// ── Knowledge Graph UI ──
-let _networkInstance = null;
-async function refreshKnowledgeGraph() {
-  const container = document.getElementById('sg-network');
-  if (!container) return;
-  if (!window.scaai || !window.scaai.sem || !window.scaai.sem.graphAll) {
-    container.innerHTML = '<div style="padding:20px;color:#f87171;text-align:center;">Graph API not available.</div>';
-    return;
-  }
-  try {
-    container.innerHTML = '<div style="padding:20px;color:#a0a0c8;text-align:center;">Loading graph...</div>';
-    const res = await window.scaai.sem.graphAll();
-    if (!res || !res.ok) {
-      container.innerHTML = '<div style="padding:20px;color:#f87171;text-align:center;">Failed to load graph.</div>';
-      return;
-    }
-    const nodes = res.nodes || [];
-    const edges = res.edges || [];
-    if (nodes.length === 0) {
-      container.innerHTML = '<div style="padding:20px;color:#a0a0c8;text-align:center;">Graph is empty. Nodes will be extracted as you chat.</div>';
-      return;
-    }
-    container.innerHTML = ''; // Clear loading
-    if (typeof vis === 'undefined') {
-      container.innerHTML = '<div style="padding:20px;color:#f87171;text-align:center;">vis-network not loaded. Wait or check connection.</div>';
-      return;
-    }
-
-    const visNodes = new vis.DataSet(nodes.map(n => ({
-      id: n.id,
-      label: n.label,
-      title: n.type || 'Entity',
-      shape: 'dot',
-      size: 15,
-      color: { background: '#6c63ff', border: '#4f46e5', highlight: '#00c9a7' },
-      font: { color: '#e0e0e0', size: 12, face: 'Inter' }
-    })));
-
-    const visEdges = new vis.DataSet(edges.map(e => ({
-      from: e.source,
-      to: e.target,
-      label: e.relation,
-      arrows: 'to',
-      color: { color: '#555580', highlight: '#00c9a7' },
-      font: { color: '#a0a0c8', size: 10, align: 'middle' },
-      smooth: { type: 'continuous' }
-    })));
-
-    const data = { nodes: visNodes, edges: visEdges };
-    const options = {
-      physics: {
-        barnesHut: { gravitationalConstant: -3000, centralGravity: 0.3, springLength: 150 }
-      },
-      interaction: { hover: true, tooltipDelay: 200 }
-    };
-    if (_networkInstance) _networkInstance.destroy();
-    _networkInstance = new vis.Network(container, data, options);
-  } catch (e) {
-    console.error("Graph Error:", e);
-    container.innerHTML = `<div style="padding:20px;color:#f87171;text-align:center;">Error: ${e.message}</div>`;
-  }
-}
 
 async function persist() {
   await A.persona.save(PERSONA);
@@ -8992,31 +9099,6 @@ function _renderProjectDetail() {
   detail.classList.add('visible');
   document.getElementById('proj-detail-name').textContent = ACTIVE_PROJECT.name;
   document.getElementById('proj-detail-dot').style.background = ACTIVE_PROJECT.color || '#6c63ff';
-  const ctxEl = document.getElementById('proj-ctx-input');
-  if (ctxEl) ctxEl.value = ACTIVE_PROJECT.context || '';
-}
-
-
-// ── Context notes (debounced) ──
-function debounceSaveProjectContext() {
-  clearTimeout(_projCtxSaveTimer);
-  _projCtxSaveTimer = setTimeout(saveProjectContext, 800);
-}
-async function saveProjectContext() {
-  if (!ACTIVE_PROJECT) return;
-  // Read from whichever context textarea is visible: phv overlay or sidebar
-  const phvTa = document.getElementById('phv-ctx-ta');
-  const sideTa = document.getElementById('proj-ctx-input');
-  let val = '';
-  if (phvTa && phvTa.style.display !== 'none') val = phvTa.value;
-  else if (sideTa) val = sideTa.value;
-  // Keep both in sync
-  if (phvTa) phvTa.value = val;
-  if (sideTa) sideTa.value = val;
-  ACTIVE_PROJECT.context = val;
-  await A.projects.update(ACTIVE_PROJECT.id, { context: val });
-  const idx = PROJECTS_LIST.findIndex(p => p.id === ACTIVE_PROJECT.id);
-  if (idx !== -1) PROJECTS_LIST[idx].context = val;
 }
 
 // ── Titlebar project badge ──
@@ -9443,12 +9525,6 @@ async function showProjectHome(proj) {
   // Rename/delete btn callbacks
   document.getElementById('phv-rename-btn').onclick = (e) => { e.stopPropagation(); promptRenameProject(ACTIVE_PROJECT.id); };
   document.getElementById('phv-delete-btn').onclick = (e) => { e.stopPropagation(); deleteProject(ACTIVE_PROJECT.id); };
-  // Phase tabs
-  _renderPhvPhaseTabs();
-  // Context notes
-  _refreshPhvCtxPanel();
-  // Mission Roadmap
-  _renderProjectHomeStrategic();
   // Instructions
   _refreshPhvInstructions();
   // Files
@@ -9458,94 +9534,9 @@ async function showProjectHome(proj) {
   document.getElementById('phv-search-inp').value = '';
   await _renderPhvChatList();
 }
+window._renderProjectHomeStrategic = () => {}; // No-op as UI is removed
 
-function _renderProjectHomeStrategic() {
-  const el = document.getElementById('phv-mission-roadmap');
-  if (!el) return;
-  const sp = window._STRATEGIC_PLAN || {};
 
-  if (!sp.activeMission) {
-    el.innerHTML = '<div class="phv-mission-empty">No active mission detected. Start a complex task to trigger automatic planning.</div>';
-    return;
-  }
-
-  let html = `<div class="phv-roadmap-mission-box">
-        <div class="phv-roadmap-mission-title">ACTIVE MISSION</div>
-        <div class="phv-roadmap-mission-text">${escHtml(sp.activeMission)}</div>
-      </div>`;
-
-  if (sp.milestones && sp.milestones.length) {
-    sp.milestones.forEach(m => {
-      const statusClass = m.status === 'completed' ? 'is-completed' : (m.status === 'in-progress' ? 'is-in-progress' : '');
-      const labelClass = m.status === 'completed' ? 'is-completed' : '';
-      const icon = m.status === 'completed' ? '✓' : (m.status === 'in-progress' ? '▶' : '○');
-
-      html += `<div class="phv-roadmap-ms-item ${statusClass}">
-            <div class="phv-roadmap-ms-icon">${icon}</div>
-            <div class="phv-roadmap-ms-content">
-              <div class="phv-roadmap-ms-label ${labelClass}">${escHtml(m.title)}</div>
-              ${m.description ? `<div class="phv-roadmap-ms-desc">${escHtml(m.description)}</div>` : ''}
-            </div>
-          </div>`;
-    });
-  }
-
-  el.innerHTML = html;
-}
-
-// Expose to window for strategic engine
-window._renderProjectHomeStrategic = _renderProjectHomeStrategic;
-
-function _renderPhvPhaseTabs() {
-  const el = document.getElementById('phv-phases'); if (!el || !ACTIVE_PROJECT) return;
-  const currentIdx = PHASES.indexOf(ACTIVE_PROJECT.phase);
-  el.innerHTML = '';
-  PHASES.forEach((phase, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'phv-phase-tab';
-    btn.textContent = (PHASE_LABELS[phase] || phase);
-    if (i < currentIdx) btn.classList.add('phase-done');
-    else if (i === currentIdx) btn.classList.add('phase-active');
-    btn.title = `Switch to ${phase} phase`;
-    btn.addEventListener('click', async () => {
-      await setProjectPhase(phase);
-      _renderPhvPhaseTabs();
-      await _renderPhvChatList();
-    });
-    el.appendChild(btn);
-  });
-}
-
-function _refreshPhvCtxPanel() {
-  if (!ACTIVE_PROJECT) return;
-  const ta = document.getElementById('phv-ctx-ta');
-  const preview = document.getElementById('phv-ctx-preview');
-  if (!ta || !preview) return;
-  ta.value = ACTIVE_PROJECT.context || '';
-  if (ACTIVE_PROJECT.context && ACTIVE_PROJECT.context.trim()) {
-    preview.textContent = ACTIVE_PROJECT.context.slice(0, 200) + (ACTIVE_PROJECT.context.length > 200 ? '…' : '');
-    preview.style.display = 'block';
-    ta.style.display = 'none';
-  } else {
-    preview.textContent = 'Add background context, notes, and goals for this project.';
-    preview.style.display = 'block';
-    ta.style.display = 'none';
-  }
-}
-function togglePhvCtxEdit() {
-  const ta = document.getElementById('phv-ctx-ta');
-  const preview = document.getElementById('phv-ctx-preview');
-  if (!ta) return;
-  if (ta.style.display === 'none' || !ta.style.display) {
-    ta.style.display = 'block';
-    preview.style.display = 'none';
-    ta.focus();
-  } else {
-    ta.style.display = 'none';
-    preview.style.display = 'block';
-    _refreshPhvCtxPanel();
-  }
-}
 // Context sync handled directly in saveProjectContext above
 
 function _refreshPhvInstructions() {
@@ -9761,8 +9752,6 @@ document.addEventListener('phv-files-refresh', () => {
 const _origSetProjectPhase = setProjectPhase;
 setProjectPhase = async function (phase) {
   await _origSetProjectPhase(phase);
-  // Sync phv phase tabs and badge
-  _renderPhvPhaseTabs();
 };
 
 console.log('[PROJECT OVERLAY UI] Module ready');
