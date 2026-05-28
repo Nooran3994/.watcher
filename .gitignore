@@ -26,3 +26,6 @@ tmp/
 # Application files
 metrics.json
 queue.json
+
+# Local DeepSeek TUI config
+~/

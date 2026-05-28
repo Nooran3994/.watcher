@@ -2785,8 +2785,16 @@ function setStatus(s) {
 // ── Messages ──
 function fmt() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 
-function addMsg(role, text, provInfo = '') {
-  const c = document.getElementById('msgs');
+/**
+ * Renders a message into the chat container.
+ * @param {string} role 'you', 'ai', or 'sys'
+ * @param {string} text The message content
+ * @param {string} [provInfo] Optional provider/model label
+ * @param {HTMLElement} [targetContainer] Optional target (defaults to #msgs)
+ */
+function addMsg(role, text, provInfo = '', targetContainer = null) {
+  const c = targetContainer || document.getElementById('msgs');
+  if (!c) return;
   const wrap = document.createElement('div'); wrap.className = `msg msg-${role}`;
 
   _lastSender = role;
@@ -2890,7 +2898,19 @@ function addMsg(role, text, provInfo = '') {
   }
   wrap.appendChild(av); wrap.appendChild(right);
   c.appendChild(wrap);
-  setTimeout(() => c.scrollTop = c.scrollHeight, 40);
+  
+  // Only scroll #msgs (standard chat container)
+  if (!targetContainer) {
+    setTimeout(() => c.scrollTop = c.scrollHeight, 40);
+  }
+
+  // ── Auto-save logic ──
+  if (role !== 'sys' && !targetContainer && typeof CONV_HISTORY !== 'undefined') {
+    const len = CONV_HISTORY.length;
+    if (len > 0 && (len === 2 || len % 6 === 0)) {
+      if (typeof autoSaveChat === 'function') autoSaveChat().catch(() => {});
+    }
+  }
 }
 
 function addToolMsg(cmd, result) {
@@ -9128,19 +9148,43 @@ function _chatTitle(messages) {
 // Called once when saving a new chat. Uses a fast model call to produce
 // a short descriptive title (max 8 words). Falls back to first message on error.
 const _titleCache = new Map(); // chatId → generated title (avoids re-generating)
-async function _generateChatTitle(chatId, messages) {
+async function _generateChatTitle(chatId, messages, allowAsyncUpgrade = true) {
   if (_titleCache.has(chatId)) return _titleCache.get(chatId);
-  // Check for a custom renamed title first
+  
+  // Custom renamed title takes precedence
   const firstYou = messages.find(m => m.role === 'you');
-  if (firstYou && firstYou._customTitle) { _titleCache.set(chatId, firstYou._customTitle); return firstYou._customTitle; }
+  if (firstYou && firstYou._customTitle) { 
+    _titleCache.set(chatId, firstYou._customTitle); 
+    return firstYou._customTitle; 
+  }
+
+  // Fallback title (eager)
+  const fallback = (firstYou && firstYou.content || '').replace(/\s+/g, ' ').trim().slice(0, 60) || ('Chat ' + new Date().toLocaleDateString());
+  
+  // If we shouldn't or can't run LLM, return fallback immediately
+  if (!allowAsyncUpgrade) {
+    _titleCache.set(chatId, fallback);
+    return fallback;
+  }
+
+  // Start LLM refinement in background to avoid blocking the main save loop
+  _refineTitleAsync(chatId, messages);
+
+  // Return eager fallback for now
+  return fallback;
+}
+
+/** Background title refinement via LLM */
+async function _refineTitleAsync(chatId, messages) {
   try {
     const key = getApiKey(CONFIG.provider);
-    if (!key || key.length < 8) throw new Error('no key');
-    // Build a short transcript (first 6 turns, 1200 chars max)
+    if (!key || key.length < 8) return;
+
     const snippet = messages.slice(0, 6).map(m => {
       const role = m.role === 'you' ? 'User' : 'AI';
       return role + ': ' + (m.content || '').slice(0, 200);
     }).join('\n').slice(0, 1200);
+
     const r = await A.api.chat({
       provider: CONFIG.provider, model: CONFIG.innerMonologueModel || CONFIG.model,
       system: 'You generate ultra-short, concrete chat titles. Output ONLY the title — no quotes, no punctuation at the end, no explanation. Maximum 7 words.',
@@ -9150,20 +9194,24 @@ async function _generateChatTitle(chatId, messages) {
       customApiUrl: CONFIG.customApiUrl, customApiKey: CONFIG.customApiKey,
       customModel: CONFIG.innerMonologueModel || CONFIG.customModel,
     });
+
     if (r && r.ok && r.text) {
       const title = r.text.replace(/^["\']+|["\']+$/g, '').replace(/[.!?]+$/, '').trim().slice(0, 70);
-      if (title.length > 3) { _titleCache.set(chatId, title); return title; }
+      if (title.length > 3) {
+        _titleCache.set(chatId, title);
+        // Persist the refined title to disk
+        await A.chats.rename(chatId, title);
+        // If we are currently looking at the history, refresh the UI
+        _renderFilteredChats(_chatSearchQuery);
+      }
     }
-  } catch (e) { console.warn('[TITLE]', e.message); }
-  // Fallback: first user message
-  const fallback = (firstYou && firstYou.content || '').replace(/\s+/g, ' ').trim().slice(0, 60) || ('Chat ' + new Date().toLocaleDateString());
-  _titleCache.set(chatId, fallback);
-  return fallback;
+  } catch (e) { /* ignore async errors */ }
 }
 
-async function autoSaveChat() {
+async function autoSaveChat(force = false) {
   try {
-    if (!CONV_HISTORY || CONV_HISTORY.length < 2) return;
+    // Standard threshold is 2 messages (user + AI), but force=true (on switch) allows 1 message.
+    if (!CONV_HISTORY || (force ? CONV_HISTORY.length < 1 : CONV_HISTORY.length < 2)) return;
 
     const _snapHistory = CONV_HISTORY.slice();
     const _snapChatId = ACTIVE_CHAT_ID;
@@ -9184,14 +9232,24 @@ async function autoSaveChat() {
     await A.chats.save(chat);
 
     // Sync caches to prevent "Stale Object Problem" when switching back
-    const _sync = (list) => {
+    const _sync = (list, isStandaloneOnly = false) => {
       if (!list || !Array.isArray(list)) return;
+      
       const idx = list.findIndex(c => c.id === _snapChatId);
-      if (idx !== -1) list[idx] = { ...chat };
-      else if (_snapProject) list.unshift({ ...chat });
+      if (idx !== -1) {
+        list[idx] = { ...chat };
+      } else {
+        // Only unshift if it's the right "kind" of cache
+        const belongsHere = isStandaloneOnly ? (!chat.projectId) : true;
+        if (belongsHere) {
+          list.unshift({ ...chat });
+          if (list.length > 300) list.pop();
+        }
+      }
     };
-    _sync(_allChatsCache);
-    if (typeof _chAllChats !== 'undefined') _sync(_chAllChats);
+    
+    _sync(_allChatsCache, false); // All cache includes everything
+    if (typeof _chAllChats !== 'undefined') _sync(_chAllChats, true); // Standalone cache only
 
     if (_snapProject) {
       const proj = PROJECTS_LIST.find(p => p.id === _snapProject.id);
@@ -9313,14 +9371,18 @@ function clearChatSearch() {
 
 async function loadChatSession(chat) {
   if (!chat || !chat.messages || !chat.messages.length) return;
-  if (CONV_HISTORY.length >= 2) await autoSaveChat();
-  document.getElementById('msgs').innerHTML = '';
+  // Use force=true to ensure even 1-message chats are saved during context transition
+  if (CONV_HISTORY.length >= 1) await autoSaveChat(true);
+
+  const msgsEl = document.getElementById('msgs');
+  if (msgsEl) msgsEl.innerHTML = '';
+  
   CONV_HISTORY = chat.messages.slice();
   ACTIVE_CHAT_ID = chat.id;
   if (chat.title) _titleCache.set(chat.id, chat.title);
-  // Restore link state: only true if this chat was originally saved under a project
+  
   _chatLinkedToProject = !!(chat.projectId);
-  // Sync phase if chat belongs to a different phase
+  
   if (ACTIVE_PROJECT && chat.phase && chat.phase !== ACTIVE_PROJECT.phase) {
     ACTIVE_PROJECT.phase = chat.phase;
     A.projects.update(ACTIVE_PROJECT.id, { phase: chat.phase }).catch(() => { });
@@ -9328,7 +9390,17 @@ async function loadChatSession(chat) {
     if (idx !== -1) PROJECTS_LIST[idx].phase = chat.phase;
     _renderPhasePipeline(); _updateChatHistPhaseLabel(); _renderProjTitleBadge(); renderProjects();
   }
-  CONV_HISTORY.forEach(m => { if (m.role && m.content) addMsg(m.role, m.content); });
+
+  // [PERFORMANCE] Use DocumentFragment for high-speed bulk rendering
+  const frag = document.createDocumentFragment();
+  CONV_HISTORY.forEach(m => { 
+    if (m.role && m.content) addMsg(m.role, m.content, '', frag); 
+  });
+  if (msgsEl) {
+    msgsEl.appendChild(frag);
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+  }
+
   if (ACTIVE_PROJECT) renderChatHistory(ACTIVE_PROJECT.id);
   addMsg('sys', `📂 restored: **${chat.title || 'Chat'}** (${chat.messages.length} messages)`);
 }
@@ -9378,16 +9450,9 @@ function startFreshChat() {
   setTimeout(() => { const ci = document.getElementById('ci'); if (ci) ci.focus(); }, 100);
 }
 
-// ── Auto-save hook: every 6 non-sys messages ──
-const _origAddMsg = addMsg;
-addMsg = function (role, text, provInfo = '') {
-  _origAddMsg(role, text, provInfo);
-  // Trigger auto-save/title after first response (length 2) then every 6 messages
-  const len = CONV_HISTORY.length;
-  if (role !== 'sys' && len > 0 && (len === 2 || len % 6 === 0)) autoSaveChat();
-};
+// Auto-save logic now integrated into main addMsg function
 
-window.addEventListener('beforeunload', () => { if (CONV_HISTORY.length >= 2) autoSaveChat(); }, { once: false });
+window.addEventListener('beforeunload', () => { if (CONV_HISTORY.length >= 1) autoSaveChat(true); }, { once: false });
 
 // ── Escape helper ──
 function escHtml(str) { return x(str); }
