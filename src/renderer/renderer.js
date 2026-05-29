@@ -547,6 +547,8 @@ let ACTIVE_SKILL_IDS = new Set(); // skill IDs whose .md content is injected int
 let KEY_IDX = { groq: 0, custom: 0 };
 let CONV_HISTORY = [];
 const MAX_CONV = 60;
+// Debounced auto-save timer — fires 2s after the last message added
+let _debouncedSaveTimer = null;
 let FOLDER_ROOTS = new Set();
 // ── XAI (Transparency Panel) state ──
 let _lastXAIContext = { query: '', retrievedDocs: [], response: '' };
@@ -806,6 +808,45 @@ async function init() {
 
     // ── Alfred Awareness Auto-fetch ──
     _updateAlfredAwareness();
+
+    // ── Restore last chat session ──────────────────────────────────
+    // Silently loads the most recently updated standalone chat so the
+    // user picks up where they left off. Project-linked chats are loaded
+    // when the user activates a project.
+    (async () => {
+      try {
+        const allChats = await A.chats.load();
+        if (allChats && allChats.length) {
+          // Find the most recently updated chat (any type — standalone or project-linked)
+          const sorted = allChats
+            .filter(c => c.messages && c.messages.length)
+            .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+          const last = sorted[0];
+          if (last && last.messages && last.messages.length) {
+            // If the restored chat belongs to a project, link it
+            if (last.projectId && Array.isArray(PROJECTS_LIST)) {
+              const proj = PROJECTS_LIST.find(p => p.id === last.projectId);
+              if (proj) { ACTIVE_PROJECT = { ...proj }; _chatLinkedToProject = true; }
+            }
+            CONV_HISTORY = last.messages.slice();
+            ACTIVE_CHAT_ID = last.id;
+            if (last.title) _titleCache.set(last.id, last.title);
+            // Re-render messages into the chat panel
+            const msgsEl = document.getElementById('msgs');
+            if (msgsEl) {
+              msgsEl.innerHTML = '';
+              const frag = document.createDocumentFragment();
+              CONV_HISTORY.forEach(m => { if (m.role && m.content) addMsg(m.role, m.content, '', frag); });
+              msgsEl.appendChild(frag);
+              msgsEl.scrollTop = msgsEl.scrollHeight;
+            }
+          }
+        }
+      } catch (e) { console.warn('[BOOT] Chat restore failed:', e.message); }
+    })();
+
+    // Ensure chat input is focused after boot
+    setTimeout(() => { const ci = document.getElementById('ci'); if (ci) ci.focus(); }, 400);
   }, 80);
 }
 
@@ -2904,11 +2945,11 @@ function addMsg(role, text, provInfo = '', targetContainer = null) {
     setTimeout(() => c.scrollTop = c.scrollHeight, 40);
   }
 
-  // ── Auto-save logic ──
+  // ── Debounced auto-save — fires 2s after the last non-sys message ──
   if (role !== 'sys' && !targetContainer && typeof CONV_HISTORY !== 'undefined') {
-    const len = CONV_HISTORY.length;
-    if (len > 0 && (len === 2 || len % 6 === 0)) {
-      if (typeof autoSaveChat === 'function') autoSaveChat().catch(() => {});
+    if (typeof autoSaveChat === 'function') {
+      clearTimeout(_debouncedSaveTimer);
+      _debouncedSaveTimer = setTimeout(() => autoSaveChat().catch(() => {}), 2000);
     }
   }
 }
@@ -3284,10 +3325,10 @@ function setLoading(on, label = 'Thinking…') {
 }
 
 // ── Clear chat ──
-function clearChat() {
+async function clearChat() {
   _lastSender = null;
   // Save current conversation before wiping
-  if (CONV_HISTORY.length >= 2) autoSaveChat();
+  if (CONV_HISTORY.length >= 2) await autoSaveChat().catch(() => {});
   document.getElementById('msgs').innerHTML = '';
   CONV_HISTORY = [];
   ACTIVE_CHAT_ID = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -6328,7 +6369,7 @@ ${'-'.repeat(40)}`);
   // Provider context window limits (conservative — leaves headroom for overhead)
   const _ctxLimit = CONFIG.provider === 'github'
     ? (GITHUB_MODEL_BUDGETS?.[CONFIG.model]?.inputBudget || 6000) + 1500   // add back output budget
-    : 28000; // Groq llama models: 32k ctx, use 28k to be safe
+    : 11500; // Groq: limit to ~12k TPM for standard/free tier to avoid 413 errors (was 28k)
   const _outputHeadroom = Math.max(0, _ctxLimit - _inputUsed);
   // Cap output: never request more than what fits, but always request at least 800 tokens
   const _maxPossible = Math.min(isLargeOutputTask ? 6000 : 3000, Math.max(800, _outputHeadroom));
@@ -8302,7 +8343,7 @@ console.log('[EXPERT MODE + TOPIC CONTINUITY] Engines ready');
 let THREADS = [];
 (async () => { try { const t = await A.threads.load(); if (t && t.length) THREADS = t; } catch (e) { } })();
 
-// Inject context menu + threads panel HTML
+// Inject context menu + notes panel HTML
 document.body.insertAdjacentHTML('beforeend', `
 <div id="ctx-menu">
   <button id="ctx-copy">📋 Copy</button>
@@ -8459,8 +8500,8 @@ document.getElementById('ctx-send').addEventListener('click', () => {
   ctxMenu.style.display = 'none';
 });
 
-// ── Threads panel toggle button ──
-// Inject a 📌 button into the top bar
+// ── Notes panel toggle button ──
+// Injects a 📌 button that opens the saved-notes panel
 (function () {
   const bar = document.querySelector('#abar,#titlebar,.tbar') || document.querySelector('[id*="bar"]');
   // Append a floating toggle button instead (safe)
@@ -9136,9 +9177,20 @@ function _renderProjTitleBadge() {
 
 // ── Chat History (per project+phase) ──
 
+/** Smart chat title — extracts key topic from the first AI turn instead of
+ *  dumping the raw first user message. Falls back to user message if no AI
+ *  response exists. */
 function _chatTitle(messages) {
   if (!messages || !messages.length) return 'Chat ' + new Date().toLocaleDateString();
   const firstYou = messages.find(m => m.role === 'you');
+  if (firstYou && firstYou._customTitle) return firstYou._customTitle;
+  const firstAi = messages.find(m => m.role === 'ai');
+  // Prefer the first AI response — it summarises what the conversation is about
+  if (firstAi) {
+    const cleaned = (firstAi.content || '').replace(/^(sure|yes|ok|here'?s|certainly|absolutely|of course|i'd be happy|let me|i can|i'll)\b[^]*?(?=\n|\.)/i, '').trim();
+    const words = cleaned.replace(/[^\w\s-]/g, '').split(/\s+/).filter(w => w.length > 2).slice(0, 6);
+    if (words.length >= 3) return words.join(' ').slice(0, 52) + (words.join(' ').length > 52 ? '...' : '');
+  }
   if (firstYou && firstYou._customTitle) return firstYou._customTitle;
   if (!firstYou) return 'Chat ' + new Date().toLocaleDateString();
   return (firstYou.content || '').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Chat';
@@ -9159,8 +9211,12 @@ async function _generateChatTitle(chatId, messages, allowAsyncUpgrade = true) {
   }
 
   // Fallback title (eager)
-  const fallback = (firstYou && firstYou.content || '').replace(/\s+/g, ' ').trim().slice(0, 60) || ('Chat ' + new Date().toLocaleDateString());
-  
+  let fallback = _chatTitle(messages);
+  if (!fallback || fallback === 'Chat ' + new Date().toLocaleDateString()) {
+    fallback = (firstYou && firstYou.content || '').replace(/\s+/g, ' ').trim().slice(0, 60) || fallback;
+  }
+  _titleCache.set(chatId, fallback);
+
   // If we shouldn't or can't run LLM, return fallback immediately
   if (!allowAsyncUpgrade) {
     _titleCache.set(chatId, fallback);
@@ -9251,6 +9307,10 @@ async function autoSaveChat(force = false) {
     _sync(_allChatsCache, false); // All cache includes everything
     if (typeof _chAllChats !== 'undefined') _sync(_chAllChats, true); // Standalone cache only
 
+    // Refresh the active chat list UI so the user sees updated titles and message counts
+    if (typeof _chRenderList === 'function') _chRenderList('');
+    if (ACTIVE_PROJECT && typeof _renderFilteredChats === 'function') _renderFilteredChats(_chatSearchQuery || '');
+
     if (_snapProject) {
       const proj = PROJECTS_LIST.find(p => p.id === _snapProject.id);
       if (proj && !proj.chatIds.includes(_snapChatId)) {
@@ -9258,7 +9318,14 @@ async function autoSaveChat(force = false) {
         await A.projects.update(_snapProject.id, { chatIds: proj.chatIds });
       }
     }
-  } catch (e) { console.warn('[CHAT-SAVE]', e.message); }
+  } catch (e) {
+    console.warn('[CHAT-SAVE]', e.message);
+    // Show a system message so the user knows the save failed
+    try {
+      const msgs = document.getElementById('msgs');
+      if (msgs) addMsg('sys', '⚠️ Auto-save failed: ' + (e.message || 'unknown error') + '. Your conversation may not be fully persisted.');
+    } catch (_) { /* fail-safe — don't throw inside a catch */ }
+  }
 }
 
 // Chat search state
@@ -9371,6 +9438,8 @@ function clearChatSearch() {
 
 async function loadChatSession(chat) {
   if (!chat || !chat.messages || !chat.messages.length) return;
+  // Clear any pending debounced save to prevent it from firing after state changes
+  clearTimeout(_debouncedSaveTimer);
   // Use force=true to ensure even 1-message chats are saved during context transition
   if (CONV_HISTORY.length >= 1) await autoSaveChat(true);
 
@@ -9428,7 +9497,9 @@ function renameChatSession(id) {
   });
 }
 
+// Ensure the project overlay is hidden and focus is on the chat panel
 function startFreshChat() {
+  hideProjectOverlay();
   if (CONV_HISTORY.length >= 2) {
     autoSaveChat().catch(() => {});
   }
@@ -9457,7 +9528,7 @@ window.addEventListener('beforeunload', () => { if (CONV_HISTORY.length >= 1) au
 // ── Escape helper ──
 function escHtml(str) { return x(str); }
 
-// ── Make the 📌 threads-toggle button draggable ──
+// ── Make the 📌 notes-toggle button draggable ──
 (function _makeToggleDraggable() {
   function _init() {
     const btn = document.getElementById('threads-toggle');
@@ -10238,7 +10309,7 @@ async function _vectorCompress(systemPrompt, messages, currentQuery) {
   if (historical.length > 2 && A.sem && A.sem.score) {
     const providerLimit = CONFIG.provider === 'github'
       ? (GITHUB_MODEL_BUDGETS?.[CONFIG.model]?.inputBudget || 4000)
-      : 20000;
+      : 11000; // Align with Groq TPM logic in send() (was 20000)
     const sysBudget = _estTok(compSystem);
     const recBudget = recent.reduce((a, m) => a + _estTok(m.content || ''), 0);
     // Budget remaining for historical turns

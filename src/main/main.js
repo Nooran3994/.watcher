@@ -275,7 +275,18 @@ function logApiInteraction(provider, model, status, error, meta = {}) {
 
 function ensureDataDir() { if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true }); }
 function readJSON(file, fallback) { try { return JSON.parse(fs.readFileSync(file, 'utf-8')); } catch { return fallback; } }
-function writeJSON(file, data) { ensureDataDir(); fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8'); }
+function writeJSON(file, data) {
+  ensureDataDir();
+  const tmp = file + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
+  fs.renameSync(tmp, file);
+}
+// Serialised write queue: prevents race conditions when multiple IPC handlers
+// call writeJSON on the same file concurrently.
+const _writeQueue = Promise.resolve();
+function enqueueWrite(file, data) {
+  return _writeQueue = _writeQueue.then(() => writeJSON(file, data));
+}
 
 // ── Window ──
 let win;
@@ -750,7 +761,7 @@ ipcMain.handle('feedback:save', async (_, entry) => {
 });
 ipcMain.handle('feedback:load', () => readJSON(FEEDBACK_FILE, []));
 
-// ── Threads store ──
+// ── Notes store (saved text snippets) ──
 ipcMain.handle('threads:save', async (_, entry) => {
   try {
     ensureDataDir();
@@ -878,9 +889,9 @@ ipcMain.handle('chats:save', async (_, chat) => {
     const idx = list.findIndex(c => c.id === chat.id);
     if (idx !== -1) { list[idx] = { ...list[idx], ...chat, updatedAt: Date.now() }; }
     else { list.push({ ...chat, createdAt: chat.createdAt || Date.now(), updatedAt: Date.now() }); }
-    writeJSON(CHATS_FILE, list);
-    // Trim: keep last 200 chats total
-    if (list.length > 200) { list.splice(0, list.length - 200); writeJSON(CHATS_FILE, list); }
+    // Trim before write: keep last 200 chats total
+    if (list.length > 200) { list.splice(0, list.length - 200); }
+    await enqueueWrite(CHATS_FILE, list);
     return { ok: true };
   } catch (e) { return { ok: false, error: e.message }; }
 });
