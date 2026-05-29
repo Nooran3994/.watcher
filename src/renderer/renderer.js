@@ -9197,54 +9197,83 @@ function _chatTitle(messages) {
 }
 
 // ── AI-generated chat title ──
-// Called once when saving a new chat. Uses a fast model call to produce
-// a short descriptive title (max 8 words). Falls back to first message on error.
-const _titleCache = new Map(); // chatId → generated title (avoids re-generating)
+// Called each save. Uses a fast model call to produce a short descriptive title
+// (max 6 words). Falls back to first message on error.
+// Re-fires at message-count milestones (5, 15, 40) to keep titles current.
+const _titleCache = new Map();           // chatId → generated title
+const _titleRefinedAtCount = new Map();  // chatId → message count at last LLM refinement
+const _TITLE_MILESTONES = [5, 15, 40];  // message-count thresholds that trigger re-refinement
+
 async function _generateChatTitle(chatId, messages, allowAsyncUpgrade = true) {
-  if (_titleCache.has(chatId)) return _titleCache.get(chatId);
-  
-  // Custom renamed title takes precedence
+  // Custom renamed title always takes precedence — never auto-overwrite
   const firstYou = messages.find(m => m.role === 'you');
-  if (firstYou && firstYou._customTitle) { 
-    _titleCache.set(chatId, firstYou._customTitle); 
-    return firstYou._customTitle; 
+  if (firstYou && firstYou._customTitle) {
+    _titleCache.set(chatId, firstYou._customTitle);
+    return firstYou._customTitle;
   }
 
-  // Fallback title (eager)
-  let fallback = _chatTitle(messages);
+  const existingTitle = _titleCache.get(chatId);
+  const msgCount = messages.length;
+  const lastRefinedAt = _titleRefinedAtCount.get(chatId) || 0;
+
+  // Check if we need a fresh LLM refinement:
+  //  a) No title at all
+  //  b) Crossed a milestone we haven't refined for yet
+  //  c) Title looks like a raw fallback (matches the raw first user message)
+  const rawFallback = (firstYou && firstYou.content || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  const titleIsFallback = existingTitle && rawFallback && existingTitle.startsWith(rawFallback.slice(0, 30));
+  const crossedMilestone = _TITLE_MILESTONES.some(m => lastRefinedAt < m && msgCount >= m);
+  const needsRefinement = !existingTitle || crossedMilestone || titleIsFallback;
+
+  if (existingTitle && !needsRefinement) return existingTitle;
+
+  // Build eager fallback for immediate return
+  let fallback = existingTitle || _chatTitle(messages);
   if (!fallback || fallback === 'Chat ' + new Date().toLocaleDateString()) {
-    fallback = (firstYou && firstYou.content || '').replace(/\s+/g, ' ').trim().slice(0, 60) || fallback;
+    fallback = rawFallback || fallback;
   }
   _titleCache.set(chatId, fallback);
 
-  // If we shouldn't or can't run LLM, return fallback immediately
-  if (!allowAsyncUpgrade) {
-    _titleCache.set(chatId, fallback);
-    return fallback;
-  }
+  if (!allowAsyncUpgrade) return fallback;
 
-  // Start LLM refinement in background to avoid blocking the main save loop
+  // Fire background LLM refinement; return eager value immediately
   _refineTitleAsync(chatId, messages);
-
-  // Return eager fallback for now
   return fallback;
 }
 
-/** Background title refinement via LLM */
+/** Background title refinement via LLM - context-aware, milestone-driven */
 async function _refineTitleAsync(chatId, messages) {
   try {
     const key = getApiKey(CONFIG.provider);
     if (!key || key.length < 8) return;
+    // Record message count at refinement time (prevents re-firing until next milestone)
+    _titleRefinedAtCount.set(chatId, messages.length);
 
-    const snippet = messages.slice(0, 6).map(m => {
+    // Build snippet: head + tail for long convos, all for short ones
+    const snippetMsgs = messages.length <= 6 ? messages : [
+      ...messages.slice(0, 3),
+      ...messages.slice(-3),
+    ];
+    const snippet = snippetMsgs.map(m => {
       const role = m.role === 'you' ? 'User' : 'AI';
-      return role + ': ' + (m.content || '').slice(0, 200);
-    }).join('\n').slice(0, 1200);
+      return role + ': ' + (m.content || '').slice(0, 250);
+    }).join('\n').slice(0, 1600);
+
+    // Inject cognitive context if available
+    let cognitiveHint = '';
+    try {
+      const arc = window._CONSCIOUS_STATE && window._CONSCIOUS_STATE.sessionArc;
+      const intent = window._INNER_MONOLOGUE && window._INNER_MONOLOGUE.deepIntent;
+      if (arc && arc.length > 5) cognitiveHint += `\nSession arc: ${arc}`;
+      if (intent && intent.length > 5) cognitiveHint += `\nCore intent: ${intent}`;
+    } catch (_) { /* not yet initialised */ }
+
+    const userContent = `Generate a precise, professional title for this conversation.${cognitiveHint}\n\nConversation:\n${snippet}`;
 
     const r = await A.api.chat({
       provider: CONFIG.provider, model: CONFIG.innerMonologueModel || CONFIG.model,
-      system: 'You generate ultra-short, concrete chat titles. Output ONLY the title — no quotes, no punctuation at the end, no explanation. Maximum 7 words.',
-      messages: [{ role: 'user', content: 'Generate a short descriptive title for this conversation:\n\n' + snippet }],
+      system: 'You generate ultra-short, professional chat titles. Output ONLY the title - no quotes, no punctuation at end, no explanation. Maximum 6 words. Capture the core technical objective. Never use generic openers like "Hello" or "Hi".',
+      messages: [{ role: 'user', content: userContent }],
       maxTokens: 20,
       apiKey: key,
       customApiUrl: CONFIG.customApiUrl, customApiKey: CONFIG.customApiKey,
@@ -9255,13 +9284,18 @@ async function _refineTitleAsync(chatId, messages) {
       const title = r.text.replace(/^["\']+|["\']+$/g, '').replace(/[.!?]+$/, '').trim().slice(0, 70);
       if (title.length > 3) {
         _titleCache.set(chatId, title);
-        // Persist the refined title to disk
         await A.chats.rename(chatId, title);
-        // If we are currently looking at the history, refresh the UI
+        // Sync live header if this chat is currently open
+        if (chatId === ACTIVE_CHAT_ID) {
+          const headerEl = document.getElementById('chat-title-text');
+          if (headerEl) headerEl.textContent = title;
+        }
+        // Refresh both sidebar views
         _renderFilteredChats(_chatSearchQuery);
+        if (typeof _chRenderList === 'function') _chRenderList('');
       }
     }
-  } catch (e) { /* ignore async errors */ }
+  } catch (e) { /* best-effort - swallow async title errors */ }
 }
 
 async function autoSaveChat(force = false) {
@@ -9460,6 +9494,10 @@ async function loadChatSession(chat) {
     _renderPhasePipeline(); _updateChatHistPhaseLabel(); _renderProjTitleBadge(); renderProjects();
   }
 
+  // Sync the persistent chat header title element
+  const chatHeaderTitle = document.getElementById('chat-title-text');
+  if (chatHeaderTitle) chatHeaderTitle.textContent = chat.title || 'Chat';
+
   // [PERFORMANCE] Use DocumentFragment for high-speed bulk rendering
   const frag = document.createDocumentFragment();
   CONV_HISTORY.forEach(m => { 
@@ -9483,17 +9521,30 @@ async function deleteChatSession(id) {
 
 // ── Rename a saved chat ──
 function renameChatSession(id) {
-  const chat = _allChatsCache.find(c => c.id === id); if (!chat) return;
+  // If no cached entry yet (new unsaved chat), create a minimal placeholder
+  let chat = _allChatsCache.find(c => c.id === id);
+  if (!chat) {
+    // Build a temporary stand-in so the modal can still open
+    chat = { id, title: _titleCache.get(id) || 'Chat' };
+  }
   openQuickInputModal('Rename Chat', 'CHAT TITLE', chat.title || '', async (newTitle) => {
-    chat.title = newTitle; // update cache immediately
-    _titleCache.set(id, newTitle);
+    if (!newTitle || !newTitle.trim()) return;
+    const trimmed = newTitle.trim();
+    chat.title = trimmed; // update cache object immediately
+    _titleCache.set(id, trimmed);
+    // Mark as a custom (user-set) title so auto-refinement won't overwrite it
     if (id === ACTIVE_CHAT_ID) {
-      // Also update the live chat title if it's the current chat
       const firstYou = CONV_HISTORY.find(m => m.role === 'you');
-      if (firstYou) firstYou._customTitle = newTitle; // soft-mark for autoSaveChat
+      if (firstYou) firstYou._customTitle = trimmed;
     }
-    await A.chats.rename(id, newTitle);
+    // Sync the persistent live header instantly
+    if (id === ACTIVE_CHAT_ID) {
+      const headerEl = document.getElementById('chat-title-text');
+      if (headerEl) headerEl.textContent = trimmed;
+    }
+    await A.chats.rename(id, trimmed);
     _renderFilteredChats(_chatSearchQuery);
+    if (typeof _chRenderList === 'function') _chRenderList('');
   });
 }
 
@@ -9506,7 +9557,11 @@ function startFreshChat() {
   document.getElementById('msgs').innerHTML = '';
   CONV_HISTORY = [];
   ACTIVE_CHAT_ID = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-  
+
+  // Reset the live chat header for the fresh session
+  const chatHeaderTitle = document.getElementById('chat-title-text');
+  if (chatHeaderTitle) chatHeaderTitle.textContent = 'New Chat';
+
   if (ACTIVE_PROJECT) {
     _chatLinkedToProject = true;
     renderChatHistory(ACTIVE_PROJECT.id);

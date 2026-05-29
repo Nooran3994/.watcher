@@ -166,6 +166,15 @@
       <!-- Chat -->
       <div id="chat">
         <div id="abar"></div>
+        
+        <!-- Live Chat Header for Title & Renaming -->
+        <div id="chat-header" style="display:flex; align-items:center; padding:12px 20px; border-bottom:1px solid rgba(255,255,255,0.06); flex-shrink:0;">
+          <span id="chat-title-text" style="flex:1; font-size:13px; font-weight:600; color:#a0a0c8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">New Chat</span>
+          <button class="chat-rename-btn" onclick="if(typeof renameChatSession === 'function' && typeof ACTIVE_CHAT_ID !== 'undefined') renameChatSession(ACTIVE_CHAT_ID)" title="Rename chat" style="background:none; border:none; color:#555580; cursor:pointer; padding:4px; border-radius:4px; margin-left:8px; display:flex; align-items:center; transition:color 0.15s, background 0.15s;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" onmouseover="this.style.color='#a0a0c8'" onmouseout="this.style.color='currentColor'"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+          </button>
+        </div>
+
         <div id="msgs"></div>
         <div id="thinking">
           <div class="tav">
