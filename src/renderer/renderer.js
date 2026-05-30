@@ -9172,7 +9172,7 @@ function _renderProjTitleBadge() {
     const tbL = document.querySelector('#tb .L');
     if (tbL) tbL.appendChild(badge);
   }
-  badge.innerHTML = `<div class="proj-tb-dot" style="background:${ACTIVE_PROJECT.color || '#6c63ff'}"></div>${escHtml(ACTIVE_PROJECT.name.slice(0, 20))} <span style="color:#3a3a58;font-size:8px;font-weight:400">${PHASE_EMOJIS[ACTIVE_PROJECT.phase] || ''} ${ACTIVE_PROJECT.phase}</span>`;
+  badge.innerHTML = `<div class="proj-tb-dot" style="background:${ACTIVE_PROJECT.color || '#6c63ff'}"></div>${escHtml(ACTIVE_PROJECT.name.slice(0, 20))}`;
 }
 
 // ── Chat History (per project+phase) ──
@@ -9673,7 +9673,6 @@ function _renderProjectGrid() {
       <div class="pgv-card-name">${escHtml(proj.name)}</div>
       <div class="pgv-card-desc">${escHtml(proj.description || 'No description')}</div>
       <div class="pgv-card-meta">
-        <span class="pgv-card-phase">${PHASE_EMOJIS[proj.phase] || ''} ${proj.phase}</span>
         <span class="pgv-card-date">Updated ${updated}</span>
         ${chatCount ? `<span class="pgv-card-chats">· ${chatCount} chat${chatCount === 1 ? '' : 's'}</span>` : ''}
       </div>`;

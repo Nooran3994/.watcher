@@ -3240,16 +3240,6 @@
       flex-wrap: wrap
     }
 
-    .pgv-card-phase {
-      font-size: 9px;
-      font-weight: 700;
-      color: #6c63ff;
-      background: rgba(108, 99, 255, .12);
-      border: 1px solid rgba(108, 99, 255, .2);
-      border-radius: 4px;
-      padding: 2px 7px;
-      letter-spacing: .4px
-    }
 
     .pgv-card-date {
       font-size: 9px;
