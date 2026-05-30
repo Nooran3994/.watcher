@@ -9491,7 +9491,7 @@ async function loadChatSession(chat) {
     A.projects.update(ACTIVE_PROJECT.id, { phase: chat.phase }).catch(() => { });
     const idx = PROJECTS_LIST.findIndex(p => p.id === ACTIVE_PROJECT.id);
     if (idx !== -1) PROJECTS_LIST[idx].phase = chat.phase;
-    _renderPhasePipeline(); _updateChatHistPhaseLabel(); _renderProjTitleBadge(); renderProjects();
+    _renderProjTitleBadge(); renderProjects();
   }
 
   // Sync the persistent chat header title element
@@ -9780,39 +9780,27 @@ function _phvRenderFiltered(q) {
     return;
   }
   el.innerHTML = '';
-  const grouped = {};
-  chats.forEach(c => { const ph = c.phase || 'general'; if (!grouped[ph]) grouped[ph] = []; grouped[ph].push(c); });
-  const phOrder = ACTIVE_PROJECT ? [ACTIVE_PROJECT.phase, ...PHASES.filter(p => p !== ACTIVE_PROJECT.phase)] : PHASES;
-  const ordered = [...phOrder, ...Object.keys(grouped).filter(p => !phOrder.includes(p))];
-  ordered.forEach(phase => {
-    const pChats = grouped[phase]; if (!pChats || !pChats.length) return;
-    const isCurrentPhase = ACTIVE_PROJECT && phase === ACTIVE_PROJECT.phase;
-    const grp = document.createElement('div'); grp.className = 'phv-phase-group';
-    const lbl = document.createElement('div'); lbl.className = 'phv-phase-label';
-    const dot = document.createElement('span'); dot.className = 'phdr-dot'; dot.style.background = PHASE_CLR[phase] || '#555580';
-    lbl.appendChild(dot);
-    lbl.appendChild(document.createTextNode((PHASE_EMOJIS[phase] || '') + ' ' + (phase.toUpperCase())));
-    if (isCurrentPhase) { const b = document.createElement('span'); b.style.cssText = 'color:#6c63ff;font-size:7px;margin-left:3px'; b.textContent = '● active'; lbl.appendChild(b); }
-    grp.appendChild(lbl);
-    pChats.forEach(chat => {
-      const isActive = chat.id === ACTIVE_CHAT_ID;
-      const item = document.createElement('div');
-      item.className = 'phv-chat-item' + (isActive ? ' phv-active-chat' : '');
-      const msgCount = chat.messages ? chat.messages.length : 0;
-      item.innerHTML = `
-        <div class="phv-ci-icon">${isActive ? '💬' : '🗒'}</div>
-        <div class="phv-ci-body">
-          <div class="phv-ci-title">${escHtml((chat.title || 'Untitled').slice(0, 60))}</div>
-          <div class="phv-ci-meta">${_timeAgo(chat.updatedAt)} · ${msgCount} msg${msgCount === 1 ? '' : 's'}</div>
-        </div>
-        <div class="phv-ci-actions">
-          <button class="phv-ci-btn" title="Rename" onclick="event.stopPropagation();renameChatSession('${chat.id}')">✏</button>
-          <button class="phv-ci-btn danger" title="Delete" onclick="event.stopPropagation();deleteChatSessionPhv('${chat.id}')">🗑</button>
-        </div>`;
-      item.addEventListener('click', () => { if (!isActive) { loadChatSession(chat); hideProjectOverlay(); } });
-      grp.appendChild(item);
-    });
-    el.appendChild(grp);
+  // Sort by most recently updated — flat list, no phase grouping
+  chats.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  chats.forEach(chat => {
+    const isActive = chat.id === ACTIVE_CHAT_ID;
+    const item = document.createElement('div');
+    item.className = 'phv-chat-item' + (isActive ? ' phv-active-chat' : '');
+    const msgCount = chat.messages ? chat.messages.length : 0;
+    const phaseColor = PHASE_CLR[chat.phase] || '#555580';
+    item.innerHTML = `
+      <span class="phv-ci-phdot" style="background:${phaseColor}"></span>
+      <div class="phv-ci-icon">${isActive ? '💬' : '🗒'}</div>
+      <div class="phv-ci-body">
+        <div class="phv-ci-title">${escHtml((chat.title || 'Untitled').slice(0, 60))}</div>
+        <div class="phv-ci-meta">${_timeAgo(chat.updatedAt)} · ${msgCount} msg${msgCount === 1 ? '' : 's'}</div>
+      </div>
+      <div class="phv-ci-actions">
+        <button class="phv-ci-btn" title="Rename" onclick="event.stopPropagation();renameChatSession('${chat.id}')">✏</button>
+        <button class="phv-ci-btn danger" title="Delete" onclick="event.stopPropagation();deleteChatSessionPhv('${chat.id}')">🗑</button>
+      </div>`;
+    item.addEventListener('click', () => { if (!isActive) { loadChatSession(chat); hideProjectOverlay(); } });
+    el.appendChild(item);
   });
 }
 async function deleteChatSessionPhv(id) {
