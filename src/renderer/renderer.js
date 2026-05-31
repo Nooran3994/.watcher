@@ -9199,10 +9199,10 @@ function _chatTitle(messages) {
 // ── AI-generated chat title ──
 // Called each save. Uses a fast model call to produce a short descriptive title
 // (max 6 words). Falls back to first message on error.
-// Re-fires at message-count milestones (5, 15, 40) to keep titles current.
+// Title is generated once after the first message pair and then frozen — no milestone re-refinement.
 const _titleCache = new Map();           // chatId → generated title
 const _titleRefinedAtCount = new Map();  // chatId → message count at last LLM refinement
-const _TITLE_MILESTONES = [5, 15, 40];  // message-count thresholds that trigger re-refinement
+const _TITLE_MILESTONES = [];           // milestone refinement disabled — first professional title is final
 
 async function _generateChatTitle(chatId, messages, allowAsyncUpgrade = true) {
   // Custom renamed title always takes precedence — never auto-overwrite
@@ -9344,6 +9344,12 @@ async function autoSaveChat(force = false) {
     // Refresh the active chat list UI so the user sees updated titles and message counts
     if (typeof _chRenderList === 'function') _chRenderList('');
     if (ACTIVE_PROJECT && typeof _renderFilteredChats === 'function') _renderFilteredChats(_chatSearchQuery || '');
+
+    // Sync live header with the saved title
+    const headerEl = document.getElementById('chat-title-text');
+    if (headerEl && _snapChatId === ACTIVE_CHAT_ID) {
+      headerEl.textContent = savedTitle || 'Chat';
+    }
 
     if (_snapProject) {
       const proj = PROJECTS_LIST.find(p => p.id === _snapProject.id);
