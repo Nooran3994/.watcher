@@ -1596,11 +1596,13 @@
       position: relative;
     }
     .chat-hist-item:hover {
-      background: rgba(255, 255, 255, 0.03);
+      background: rgba(108, 99, 255, 0.07);
+      border: 1px solid rgba(108, 99, 255, 0.2)
     }
     .chat-hist-item.chat-active {
-      background: rgba(108, 99, 255, 0.1);
-      color: #a8a0ff;
+      background: rgba(108, 99, 255, 0.15);
+      border: 1px solid rgba(108, 99, 255, 0.4);
+      color: #c0b8ff;
     }
     .chi-icon {
       color: #454565;
@@ -1753,8 +1755,8 @@
     }
 
     .ch-item.ch-active {
-      background: rgba(108, 99, 255, .1);
-      border-color: rgba(108, 99, 255, .35)
+      background: rgba(108, 99, 255, .16);
+      border-color: rgba(108, 99, 255, .5)
     }
 
     .ch-item-icon {
@@ -3562,13 +3564,13 @@
 
 
     .phv-chat-item:hover {
-      background: rgba(255, 255, 255, .03);
-      border-color: rgba(255, 255, 255, .06)
+      background: rgba(108, 99, 255, .07);
+      border-color: rgba(108, 99, 255, .2)
     }
 
     .phv-chat-item.phv-active-chat {
-      background: rgba(108, 99, 255, .09);
-      border-color: rgba(108, 99, 255, .25)
+      background: rgba(108, 99, 255, .14);
+      border-color: rgba(108, 99, 255, .4)
     }
 
     .phv-ci-icon {
@@ -6441,4 +6443,3 @@
     .tool-out.collapsible.collapsed {
       max-height: 180px;
     }
-

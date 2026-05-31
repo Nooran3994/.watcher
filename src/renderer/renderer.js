@@ -9450,7 +9450,10 @@ function _renderFilteredChats(query) {
           <button class="chi-btn" title="Rename" onclick="event.stopPropagation();renameChatSession('${chat.id}')">${editIcon}</button>
           <button class="chi-btn danger" title="Delete" onclick="event.stopPropagation();deleteChatSession('${chat.id}')">${delIcon}</button>
         </div>`;
-      item.addEventListener('click', () => { if (!isActive) loadChatSession(chat); });
+      item.addEventListener('click', () => {
+        if (!isActive) loadChatSession(chat);
+        hideProjectOverlay(); // clicking a project-linked chat from sidebar returns to main view
+      });
       el.appendChild(item);
     });
   });
@@ -9799,7 +9802,10 @@ function _phvRenderFiltered(q) {
         <button class="phv-ci-btn" title="Rename" onclick="event.stopPropagation();renameChatSession('${chat.id}')">✏</button>
         <button class="phv-ci-btn danger" title="Delete" onclick="event.stopPropagation();deleteChatSessionPhv('${chat.id}')">🗑</button>
       </div>`;
-    item.addEventListener('click', () => { if (!isActive) { loadChatSession(chat); hideProjectOverlay(); } });
+    item.addEventListener('click', () => {
+      if (!isActive) loadChatSession(chat);
+      hideProjectOverlay(); // always hide overlay — return to main chat view even if already active
+    });
     el.appendChild(item);
   });
 }
@@ -9956,24 +9962,26 @@ async function openChatHistoryPanel() {
 }
 
 function closeChatHistoryPanel() {
-  const el = document.getElementById('chat-history-overlay');
-  if (el) el.classList.remove('visible');
+  // Close the sidebar History tab and return to main chat view
+  const thistory = document.getElementById('thistory');
+  if (thistory) thistory.style.display = 'none';
+  const tbHistory = document.getElementById('tb-history');
+  if (tbHistory) tbHistory.classList.remove('active');
   _chSelected.clear();
   _chUpdateBulkBar();
   // Always restore input focus when leaving panel
   setTimeout(() => { const ci = document.getElementById('ci'); if (ci) ci.focus(); }, 80);
 }
 
-// ── Load standalone chats only (projectId == null) ──────────────
+// ── Load all chats for History tab (both standalone and project-linked) ──
 async function _chLoadAndRender() {
   const listEl = document.getElementById('ch-list');
   if (!listEl) return;
   listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#303055;font-size:12px">Loading…</div>';
   try {
     const all = await A.chats.load();
-    // ── ONLY standalone chats — project chats live in their project view ──
+    // ── Include all chats — project-linked chats show a project badge ──
     _chAllChats = (all || [])
-      .filter(c => !c.projectId)
       .sort((a, b) => b.updatedAt - a.updatedAt);
     // ── Seed title cache from disk so AI-generated titles never change after first generation ──
     _chAllChats.forEach(c => { if (c.id && c.title) _titleCache.set(c.id, c.title); });
@@ -10050,6 +10058,7 @@ function _chRenderList(query) {
       const isActive = chat.id === ACTIVE_CHAT_ID;
       const isSelected = _chSelected.has(chat.id);
       const msgCount = (chat.messages || []).length;
+      const projFlag = chat.projectId ? PROJECTS_LIST.find(p => p.id === chat.projectId) : null;
 
       const item = document.createElement('div');
       item.className = 'ch-item' + (isActive ? ' ch-active' : '') + (isSelected ? ' ch-selected' : '');
@@ -10075,6 +10084,9 @@ function _chRenderList(query) {
         '<div class="ch-item-meta">' +
         _chTimeAgo(chat.updatedAt) + ' · ' + msgCount + ' msg' + (msgCount !== 1 ? 's' : '') +
         (chat.model ? ' · ' + _chEsc(chat.model.split('/').pop().slice(0, 16)) : '') +
+        (projFlag ? ' · <span style="color:' + _chEsc(projFlag.color || '#6c63ff') + ';opacity:0.7">' +
+          _chEsc(projFlag.name).slice(0, 20) +
+        '</span>' : '') +
         '</div>';
 
       const actions = document.createElement('div');
@@ -10145,8 +10157,14 @@ async function _chOpenChat(chat) {
   CONV_HISTORY = chat.messages.slice();
   ACTIVE_CHAT_ID = chat.id;
   if (chat.title) _titleCache.set(chat.id, chat.title);
-  _chatLinkedToProject = false; // standalone chats never linked to a project
-  ACTIVE_PROJECT = null;
+  // Set project linkage based on whether the chat belongs to a project
+  _chatLinkedToProject = !!chat.projectId;
+  if (chat.projectId) {
+    const proj = PROJECTS_LIST.find(p => p.id === chat.projectId);
+    ACTIVE_PROJECT = proj || null;
+  } else {
+    ACTIVE_PROJECT = null;
+  }
   _renderProjTitleBadge();
   renderProjects();
 
