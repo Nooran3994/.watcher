@@ -576,7 +576,7 @@ let DISK_INDEX_COUNT = 0;   // total files tracked
 let DISK_SCAN_TIME = null;  // epoch ms of last successful scan
 // ── Web Search state ──
 let WEB_SEARCH_ENABLED = false;
-const WS_FALLBACK = { engine: 'tavily', tavilyKey: '', braveKey: '', googleKey: '', googleCx: '' };
+const WS_FALLBACK = { engine: '', tavilyKey: '', braveKey: '', googleKey: '', googleCx: '' };
 function getWsCfg() { return Object.assign({}, WS_FALLBACK, TOOLS_CONFIG.webSearch || {}); }
 
 // ── Projects & Chat History state ──
@@ -3599,7 +3599,8 @@ async function saveSettings() {
   }
 
   // Web Search
-  const wsEngine = (document.getElementById('ws-engine') || {}).value || 'tavily';
+  const wsSel = document.querySelector('input[name="ws-engine"]:checked');
+  const wsEngine = wsSel ? wsSel.value : '';
   TOOLS_CONFIG.webSearch = {
     engine: wsEngine,
     tavilyKey: ((document.getElementById('ws-tavily-key') || {}).value || '').trim(),
@@ -6836,8 +6837,9 @@ function initToolsPanel() {
   if (el && SYSTEM_INSTRUCTIONS) el.value = SYSTEM_INSTRUCTIONS;
   // Restore web search settings
   const wsc = getWsCfg();
-  const sel = document.getElementById('ws-engine');
-  if (sel) { sel.value = wsc.engine || 'tavily'; _wsShowFields(wsc.engine || 'tavily'); }
+  const radio = document.querySelector(`input[name="ws-engine"][value="${wsc.engine}"]`);
+  if (radio) radio.checked = true;
+  _wsShowFields(wsc.engine || '');
   const tk = document.getElementById('ws-tavily-key');
   const bk = document.getElementById('ws-brave-key');
   const gk = document.getElementById('ws-google-key');
@@ -6857,7 +6859,8 @@ function _wsShowFields(engine) {
 }
 
 async function saveWebSearchConfig() {
-  const engine = (document.getElementById('ws-engine') || {}).value || 'tavily';
+  const sel = document.querySelector('input[name="ws-engine"]:checked');
+  const engine = sel ? sel.value : '';
   const tavilyKey = ((document.getElementById('ws-tavily-key') || {}).value || '').trim();
   const braveKey = ((document.getElementById('ws-brave-key') || {}).value || '').trim();
   const googleKey = ((document.getElementById('ws-google-key') || {}).value || '').trim();
@@ -6868,6 +6871,16 @@ async function saveWebSearchConfig() {
   addMsg('sys', `✅ Web search set to **${names[engine] || engine}**. Active on next search.`);
   const hsc = document.getElementById('hsc');
   if (hsc && WEB_SEARCH_ENABLED) hsc.textContent = '🌐 ' + (names[engine] || engine);
+  // Update the inline status badge after save
+  const statusEl = document.getElementById('ws-configured-status');
+  if (statusEl) {
+    const isValid = (engine === 'tavily' && tavilyKey) ||
+                    (engine === 'brave' && braveKey) ||
+                    (engine === 'google' && googleKey && googleCx);
+    statusEl.innerHTML = isValid
+      ? `<span style="color:#6cffa0">✅ Web search configured (${names[engine] || engine})</span>`
+      : `<span style="color:#ff6b6b">⚠️ No API key saved yet</span>`;
+  }
 }
 
 function _updateObsStatus() {
@@ -7559,8 +7572,22 @@ function openWebBrowser() {
 }
 
 function toggleWebSearch() {
-  WEB_SEARCH_ENABLED = !WEB_SEARCH_ENABLED;
   const wsc = getWsCfg();
+  //  Gate: if no API key is configured, open settings instead of toggling
+  const hasKey = (wsc.engine === 'tavily' && wsc.tavilyKey) ||
+                 (wsc.engine === 'brave' && wsc.braveKey) ||
+                 (wsc.engine === 'google' && wsc.googleKey && wsc.googleCx) ||
+                 wsc.engine === 'duckduckgo';
+  if (!WEB_SEARCH_ENABLED && !hasKey) {
+    switchTab('tool');
+    setTimeout(() => {
+      const wsSection = document.getElementById('ws-setup-section');
+      if (wsSection) wsSection.focus();
+    }, 300);
+    addMsg('sys', '🔑 **Web search needs an API key.** Configure one in Settings → Web Search to enable it.');
+    return; // do NOT toggle ON
+  }
+  WEB_SEARCH_ENABLED = !WEB_SEARCH_ENABLED;
   const names = { tavily: 'Tavily', brave: 'Brave', google: 'Google', duckduckgo: 'DuckDuckGo' };
   const ename = names[wsc.engine] || 'Web';
   const btn = document.getElementById('wsbtn');
@@ -7620,11 +7647,7 @@ async function _doWebSearch(query) {
     const wsc = getWsCfg();
     const engine = wsc.engine || 'tavily';
     let r = await A.web.search({ query: cleanQuery, engine, config: wsc, num: 5 });
-    // Auto-fallback to DuckDuckGo if primary engine fails
-    if (!r.ok && engine !== 'duckduckgo') {
-      addToolMsg(`web (${engine} failed → trying DuckDuckGo)`, '');
-      r = await A.web.search({ query: cleanQuery, engine: 'duckduckgo', config: wsc, num: 5 });
-    }
+    // No automatic fallback — failing clearly is better than silently switching engines
     if (!r.ok) {
       addToolMsg('web search failed', r.error || 'unknown');
       return `\n=== WEB SEARCH UNAVAILABLE ===\n${r.error}\nAnswer from training knowledge. Do NOT run shell commands to find information.\n=== END ===\n`;

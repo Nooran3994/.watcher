@@ -613,34 +613,63 @@
 
         <!-- TOOLS TAB -->
         <div id="st-tools" style="display:none">
-          <!-- Web Search Settings -->
-          <div class="tool-section">
+          <!-- Web Search: Engine Selector -->
+          <div class="tool-section" id="ws-setup-section">
             <div class="tool-section-hdr"><span class="tool-section-icon">🌐</span><span>Web Search</span><span
                 class="tool-section-sub">Engine + Keys</span></div>
-            <div style="margin-bottom:6px">
-              <label class="flbl">ENGINE</label>
-              <select id="ws-engine" onchange="_wsShowFields(this.value)"
-                style="width:100%;background:#0d0d1a;border:1px solid rgba(108,99,255,.2);border-radius:5px;color:#a0a0c8;font-size:10px;padding:6px;outline:none;cursor:pointer;font-family:inherit">
-                <option value="tavily">🟢 Tavily — 1,000 free/month</option>
-                <option value="duckduckgo">🦆 DuckDuckGo — free, no key</option>
-                <option value="brave">🦁 Brave Search</option>
-                <option value="google">🔵 Google CSE</option>
-              </select>
+            <p class="tool-hint">Connect an API key to enable real-time web search. Choose your provider:</p>
+            <!-- Engine cards — user picks one -->
+            <div id="ws-engine-cards" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+              <!-- Tavily -->
+              <label class="ws-engine-card" id="wsc-tavily">
+                <input type="radio" name="ws-engine" value="tavily" onchange="_wsShowFields(this.value)">
+                <span class="wsc-name">Tavily</span>
+                <span class="wsc-badge free">Free tier</span>
+                <span class="wsc-hint">Best for AI search. Get key at <a href="#" onclick="A.sys.openUrl('https://tavily.com')">tavily.com</a></span>
+                <span class="wsc-status" id="wcs-status-tavily"></span>
+              </label>
+              <!-- Brave -->
+              <label class="ws-engine-card" id="wsc-brave">
+                <input type="radio" name="ws-engine" value="brave" onchange="_wsShowFields(this.value)">
+                <span class="wsc-name">Brave Search</span>
+                <span class="wsc-badge free">Free tier</span>
+                <span class="wsc-hint">Privacy-focused. Get key at <a href="#" onclick="A.sys.openUrl('https://api.search.brave.com')">api.search.brave.com</a></span>
+                <span class="wsc-status" id="wcs-status-brave"></span>
+              </label>
+              <!-- Google CSE -->
+              <label class="ws-engine-card" id="wsc-google">
+                <input type="radio" name="ws-engine" value="google" onchange="_wsShowFields(this.value)">
+                <span class="wsc-name">Google CSE</span>
+                <span class="wsc-badge paid">Paid</span>
+                <span class="wsc-hint">Needs API key + CX ID. <a href="#" onclick="A.sys.openUrl('https://programmablesearchengine.google.com')">Set up here</a></span>
+                <span class="wsc-status" id="wcs-status-google"></span>
+              </label>
             </div>
+            <!-- Key fields — shown based on selected engine -->
             <div id="ws-fields-tavily">
               <label class="flbl">TAVILY API KEY</label>
-              <input id="ws-tavily-key" type="password" placeholder="tvly-dev-…" class="finput" />
+              <input id="ws-tavily-key" type="password" class="tool-input"
+                     placeholder="tvly-xxxxxxxxxxxxxxxx" autocomplete="off">
             </div>
             <div id="ws-fields-brave" style="display:none">
               <label class="flbl">BRAVE API KEY</label>
-              <input id="ws-brave-key" type="password" placeholder="BSA…" class="finput" />
+              <input id="ws-brave-key" type="password" class="tool-input"
+                     placeholder="BSA-xxxxxxxxxxxxxxxx" autocomplete="off">
             </div>
             <div id="ws-fields-google" style="display:none">
               <label class="flbl">GOOGLE API KEY</label>
-              <input id="ws-google-key" type="password" placeholder="AIza…" class="finput" style="margin-bottom:4px" />
-              <label class="flbl">SEARCH ENGINE ID (CX)</label>
-              <input id="ws-google-cx" type="text" placeholder="110d76868…" class="finput" />
+              <input id="ws-google-key" type="password" class="tool-input"
+                     placeholder="AIzaSy..." autocomplete="off">
+              <label class="flbl" style="margin-top:8px">SEARCH ENGINE ID (CX)</label>
+              <input id="ws-google-cx" type="text" class="tool-input"
+                     placeholder="xxxxxxxxx:yyyyyy" autocomplete="off">
             </div>
+            <!-- Status indicator -->
+            <div id="ws-configured-status" style="margin-top:10px;font-size:12px"></div>
+            <!-- Save button -->
+            <button class="tool-btn-primary" onclick="saveWebSearchConfig()" style="margin-top:12px">
+              Save &amp; Activate
+            </button>
           </div>
 
           <div style="margin-top:20px;border-top:1px solid rgba(255,255,255,.06);padding-top:15px">

@@ -1,3 +1,4 @@
+const DDG = require('duck-duck-scrape');
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -360,10 +361,10 @@ ipcMain.handle('memory:clear', () => true);
 ipcMain.handle('persona:load', () => readJSON(PERSONA_FILE, { confidence: .55, curiosity: .70, attention: .55 }));
 ipcMain.handle('persona:save', (_, d) => { writeJSON(PERSONA_FILE, d); return true; });
 let _config = { useWsl2: true };
-try { 
+try {
   const saved = readJSON(CONFIG_FILE, null);
   if (saved) _config = saved;
-} catch (e) {}
+} catch (e) { }
 
 ipcMain.handle('config:load', () => readJSON(CONFIG_FILE, {
   provider: 'groq',
@@ -373,10 +374,10 @@ ipcMain.handle('config:load', () => readJSON(CONFIG_FILE, {
   model: 'llama-3.3-70b',
   useWsl2: true,
 }));
-ipcMain.handle('config:save', (_, d) => { 
+ipcMain.handle('config:save', (_, d) => {
   _config = d;
-  writeJSON(CONFIG_FILE, d); 
-  return true; 
+  writeJSON(CONFIG_FILE, d);
+  return true;
 });
 ipcMain.handle('files:load-index', () => readJSON(FILES_INDEX, {}));
 ipcMain.handle('files:save-index', (_, d) => { writeJSON(FILES_INDEX, d); return true; });
@@ -408,7 +409,7 @@ ipcMain.handle('sys:self-map', async () => {
     const cwd = process.cwd();
     const pkgPath = path.join(cwd, 'package.json');
     if (!fs.existsSync(pkgPath)) return { ok: false, error: 'package.json not found' };
-    
+
     // 1. Ensure it's SCAAI
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
     if (!pkg.name || !pkg.name.toLowerCase().includes('scaai')) {
@@ -423,28 +424,28 @@ ipcMain.handle('sys:self-map', async () => {
     digest += `## Architecture Map (src/)\n`;
     const srcPath = path.join(cwd, 'src');
     if (fs.existsSync(srcPath)) {
-       const items = fs.readdirSync(srcPath, { withFileTypes: true });
-       for (const item of items) {
-          digest += `- ${item.name}${item.isDirectory() ? '/' : ''}\n`;
-          if (item.isDirectory()) {
-             const subItems = fs.readdirSync(path.join(srcPath, item.name), { withFileTypes: true });
-             for (const sub of subItems) {
-                if (!['node_modules', '.git'].includes(sub.name)) {
-                   digest += `  - ${sub.name}\n`;
-                }
-             }
+      const items = fs.readdirSync(srcPath, { withFileTypes: true });
+      for (const item of items) {
+        digest += `- ${item.name}${item.isDirectory() ? '/' : ''}\n`;
+        if (item.isDirectory()) {
+          const subItems = fs.readdirSync(path.join(srcPath, item.name), { withFileTypes: true });
+          for (const sub of subItems) {
+            if (!['node_modules', '.git'].includes(sub.name)) {
+              digest += `  - ${sub.name}\n`;
+            }
           }
-       }
+        }
+      }
     } else {
-       digest += `(src/ directory not found)\n`;
+      digest += `(src/ directory not found)\n`;
     }
 
     // 4. Read Documentation
     const clPath = path.join(cwd, 'CHANGELOG.md');
     if (fs.existsSync(clPath)) {
-       digest += `\n## Recent Documentation (CHANGELOG.md - top 30 lines)\n`;
-       const clLines = fs.readFileSync(clPath, 'utf-8').split('\n');
-       digest += clLines.slice(0, 30).join('\n') + `\n`;
+      digest += `\n## Recent Documentation (CHANGELOG.md - top 30 lines)\n`;
+      const clLines = fs.readFileSync(clPath, 'utf-8').split('\n');
+      digest += clLines.slice(0, 30).join('\n') + `\n`;
     }
 
     return { ok: true, digest };
@@ -2119,10 +2120,10 @@ async function callGroq({ apiKey, model, system, messages, maxTokens, tools }) {
   };
   const apiModel = modelMap[model] || model;
   const msgs = [...(system ? [{ role: 'system', content: system }] : []), ...messages];
-  const body = { 
-    model: apiModel, 
-    messages: msgs, 
-    max_tokens: maxTokens || 4096, 
+  const body = {
+    model: apiModel,
+    messages: msgs,
+    max_tokens: maxTokens || 4096,
     temperature: 0.1,
     ...(tools ? { tools, tool_choice: 'auto' } : {})
   };
@@ -2272,8 +2273,8 @@ const SCAAI_TOOLS = [
       parameters: {
         type: "object",
         properties: {
-          command: { type: "string", description: "The command to run." },
-          cwd: { type: "string", description: "The working directory (optional)." }
+          command: { type: "string", description: "The shell command to execute." },
+          cwd: { type: ["string", "null"], description: "The working directory. Pass null or omit to use the user's home directory." }
         },
         required: ["command"]
       }
@@ -2296,7 +2297,7 @@ function _isBinary(filename, buf) {
     // Check first 2KB for NUL bytes or high density of non-text chars
     const chunk = buf.slice(0, 2048);
     for (let i = 0; i < chunk.length; i++) {
-       if (chunk[i] === 0) return true;
+      if (chunk[i] === 0) return true;
     }
   }
   return false;
@@ -2307,7 +2308,7 @@ async function handleScaaiTool(call) {
   const { name, arguments: argsJson } = call.function;
   let args;
   try { args = JSON.parse(argsJson); } catch (e) { return `Error parsing arguments: ${e.message}`; }
-  
+
   console.log(`[SCAAI TOOLS] Executing ${name}...`, args);
 
   switch (name) {
@@ -2355,12 +2356,12 @@ async function handleScaaiTool(call) {
         let rawPath = args.path.replace(/^~/, os.homedir());
         const winPath = rawPath.startsWith('/mnt/') ? wslToWinPath(rawPath) : rawPath;
         if (!fs.existsSync(winPath)) return `Error: File does not exist: ${winPath}`;
-        
+
         // Binary check (read first 2KB)
         const fd = fs.openSync(winPath, 'r');
         const buffer = Buffer.alloc(2048);
         const bytesRead = fs.readSync(fd, buffer, 0, 2048, 0);
-        
+
         if (_isBinary(winPath, buffer.slice(0, bytesRead))) {
           fs.closeSync(fd);
           return `Error: Cannot read binary file content as text. Path: ${winPath}`;
@@ -2383,16 +2384,16 @@ async function handleScaaiTool(call) {
         const winPath = rawPath.startsWith('/mnt/') ? wslToWinPath(rawPath) : rawPath;
         const offset = args.offset || 0;
         const length = Math.min(args.length || 20000, 30000);
-        
+
         if (!fs.existsSync(winPath)) return `Error: File does not exist: ${winPath}`;
-        
+
         const fd = fs.openSync(winPath, 'r');
         const buffer = Buffer.alloc(length);
         const bytesRead = fs.readSync(fd, buffer, 0, length, offset);
         fs.closeSync(fd);
 
         if (bytesRead === 0) return "[EOF: No more content at this offset]";
-        
+
         const content = buffer.slice(0, bytesRead).toString('utf-8');
         return `[Chunk @ ${offset}, ${bytesRead} bytes]\n${content}`;
       } catch (e) { return `Error: ${e.message}`; }
@@ -2471,13 +2472,13 @@ async function runWithTools(chatFunc, opts) {
     if (res.tool_calls && res.tool_calls.length > 0) {
       // Add assistant's tool call message
       messages.push({ role: 'assistant', content: res.text || "", tool_calls: res.tool_calls });
-      
+
       // Execute each tool call and add results
       for (const call of res.tool_calls) {
         const result = await handleScaaiTool(call);
         messages.push({ role: 'tool', tool_call_id: call.id, content: String(result) });
       }
-      
+
       iterations++;
       continue; // Loop back for final response or more tool calls
     }
@@ -2782,20 +2783,36 @@ ipcMain.handle('api:chat', async (_, opts) => {
 // Engines: Tavily | Brave | Google CSE | DuckDuckGo
 // ══════════════════════════════════════════
 
-function httpsGet(hostname, urlPath, headers = {}) {
-  return new Promise(resolve => {
+function httpsGet(hostname, urlPath, headers = {}, maxRedirects = 5) {
+  return _httpsGetFollow(hostname, urlPath, headers, maxRedirects, 0);
+}
+
+function _httpsGetFollow(hostname, urlPath, headers, maxRedirects, depth) {
+  return new Promise((resolve) => {
     const mergedHeaders = {
       'User-Agent': 'SCAAI/1.0 (Desktop)',
       'Accept': 'application/json',
       ...headers
     };
     const req = https.request({ hostname, path: urlPath, method: 'GET', headers: mergedHeaders }, (res) => {
-      let d = ''; res.on('data', c => d += c); res.on('end', () => resolve({ status: res.statusCode, body: d }));
+      // Follow redirects (301, 302, 307, 308)
+      const redirectCode = res.statusCode;
+      if (depth < maxRedirects && (redirectCode === 301 || redirectCode === 302 || redirectCode === 307 || redirectCode === 308)) {
+        const location = res.headers['location'];
+        if (location) {
+          const parsed = new URL(location);
+          resolve(_httpsGetFollow(parsed.hostname, parsed.pathname + parsed.search, headers, maxRedirects, depth + 1));
+          return;
+        }
+      }
+      let d = '';
+      res.on('data', c => d += c);
+      res.on('end', () => resolve({ status: res.statusCode, body: d }));
     });
     req.on('error', e => resolve({ status: 0, body: '', error: e.message }));
-    req.setTimeout(30000, () => {
+    req.setTimeout(15000, () => {
       req.destroy();
-      resolve({ status: 0, body: '', error: 'Request timed out after 30 seconds' });
+      resolve({ status: 0, body: '', error: 'Request timed out after 15 seconds' });
     });
     req.end();
   });
@@ -2856,25 +2873,54 @@ async function searchGoogle(query, apiKey, cx, num) {
   } catch (e) { return { ok: false, error: e.message }; }
 }
 
+//  DDG rate-limit guard: tracks timestamp of last call
+let _ddgLastCallTs = 0;
+
 async function searchDuckDuckGo(query, num) {
+  // Enforce a 700-1300ms jitter between consecutive DDG calls.
+  // Rapid automated requests are the #1 cause of DDG anomaly rejection.
+  const MIN_INTERVAL = 700 + Math.floor(Math.random() * 600);
+  const sinceLastCall = Date.now() - _ddgLastCallTs;
+  if (sinceLastCall < MIN_INTERVAL) {
+    await new Promise(res => setTimeout(res, MIN_INTERVAL - sinceLastCall));
+  }
+  const _attempt = async () => {
+    // SafeSearchType.OFF avoids the extra VQD token validation path
+    // that STRICT triggers — confirmed primary cause of "anomaly" error.
+    const r = await DDG.search(query, {
+      safeSearch: DDG.SafeSearchType.OFF,
+    });
+    return (r.results || []).slice(0, num).map(it => ({
+      title: it.title,
+      url: it.url,
+      snippet: it.description || '',
+    }));
+  };
   try {
-    const q = encodeURIComponent(query);
-    const res = await httpsGet('html.duckduckgo.com', `/html/?q=${q}`,
-      { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' });
-    if (res.status !== 200) return { ok: false, error: `DuckDuckGo HTTP ${res.status}` };
-    const items = [];
-    const re = /<a[^>]+class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-    const sr = /<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
-    const titles = [], snips = [];
-    let m;
-    while ((m = re.exec(res.body)) !== null && titles.length < num)
-      titles.push({ url: m[1], title: m[2].replace(/<[^>]+>/g, '').trim() });
-    while ((m = sr.exec(res.body)) !== null && snips.length < num)
-      snips.push(m[1].replace(/<[^>]+>/g, '').trim());
-    titles.forEach((t, i) => items.push({ title: t.title, url: t.url, snippet: snips[i] || '' }));
-    if (!items.length) return { ok: false, error: 'DuckDuckGo returned no results.' };
+    const items = await _attempt();
+    _ddgLastCallTs = Date.now();
+    if (!items.length) {
+      return { ok: false, error: 'DuckDuckGo returned no results.' };
+    }
     return { ok: true, items, query };
-  } catch (e) { return { ok: false, error: e.message }; }
+  } catch (e) {
+    const isAnomaly = /anomaly|vqd|rate|429/i.test(e.message || '');
+    if (isAnomaly) {
+      // Single retry after a 1.5s pause on anomaly/rate errors
+      await new Promise(res => setTimeout(res, 1500));
+      try {
+        const items = await _attempt();
+        _ddgLastCallTs = Date.now();
+        if (!items.length) {
+          return { ok: false, error: 'DuckDuckGo returned no results (retry).' };
+        }
+        return { ok: true, items, query };
+      } catch (e2) {
+        return { ok: false, error: `DuckDuckGo blocked after retry: ${e2.message}` };
+      }
+    }
+    return { ok: false, error: e.message };
+  }
 }
 
 ipcMain.handle('api:web-search', async (_, { query, engine = 'tavily', config = {}, num = 5 }) => {

@@ -6443,3 +6443,108 @@
     .tool-out.collapsible.collapsed {
       max-height: 180px;
     }
+
+    /* ─ Web Search Engine Cards ─ */
+    .ws-engine-card {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 3px;
+      background: rgba(108, 99, 255, .06);
+      border: 1px solid rgba(108, 99, 255, .14);
+      border-radius: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      min-width: 140px;
+      flex: 1;
+      transition: border-color .2s, background .2s;
+    }
+    .ws-engine-card:has(input:checked) {
+      border-color: rgba(108, 99, 255, .5);
+      background: rgba(108, 99, 255, .12);
+    }
+    .ws-engine-card input[type="radio"] {
+      display: none;
+    }
+    .wsc-name {
+      font-size: 11px;
+      font-weight: 700;
+      color: #d0d0f0;
+    }
+    .wsc-badge {
+      font-size: 8px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .wsc-badge.free {
+      background: rgba(0, 201, 167, .12);
+      color: #00c9a7;
+      border: 1px solid rgba(0, 201, 167, .2);
+    }
+    .wsc-badge.paid {
+      background: rgba(251, 191, 36, .1);
+      color: #fbbf24;
+      border: 1px solid rgba(251, 191, 36, .2);
+    }
+    .wsc-hint {
+      font-size: 9px;
+      color: #6c6c8a;
+      line-height: 1.4;
+      margin-top: 2px;
+    }
+    .wsc-hint a {
+      color: #6c63ff;
+      text-decoration: none;
+    }
+    .wsc-hint a:hover {
+      text-decoration: underline;
+    }
+    .wsc-status {
+      font-size: 8px;
+      color: #4a4a78;
+    }
+    .tool-hint {
+      font-size: 10px;
+      color: #6c6c8a;
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+    .tool-input {
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid rgba(255, 255, 255, .09);
+      border-radius: 7px;
+      color: #d8d8f8;
+      font-size: 12px;
+      outline: none;
+      padding: 8px 11px;
+      font-family: inherit;
+      transition: border-color .2s;
+      width: 100%;
+    }
+    .tool-input:focus {
+      border-color: rgba(108, 99, 255, .45);
+    }
+    .tool-input::placeholder {
+      color: #1e1e38;
+    }
+    .tool-btn-primary {
+      background: rgba(108, 99, 255, .15);
+      border: 1px solid rgba(108, 99, 255, .3);
+      border-radius: 6px;
+      color: #c0c0f0;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .2s, border-color .2s;
+      width: 100%;
+    }
+    .tool-btn-primary:hover {
+      background: rgba(108, 99, 255, .25);
+      border-color: rgba(108, 99, 255, .5);
+      color: #e0e0ff;
+    }
