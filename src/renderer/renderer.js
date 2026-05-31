@@ -44,13 +44,13 @@ const THEMES = ['default', 'ocean', 'ember', 'arctic', 'midgreen', 'slate', 'whi
 
 const PHASE_CLR = { planning: '#6c63ff', researching: '#60a5fa', evaluating: '#a78bfa', executing: '#f97316', testing: '#fbbf24', validating: '#00c9a7' };
 const PHASES = ['planning', 'researching', 'evaluating', 'executing', 'testing', 'validating'];
-const PHASE_LABELS = { 
-  planning: 'Planning', 
-  researching: 'Researching', 
-  evaluating: 'Evaluating', 
-  executing: 'Executing', 
-  testing: 'Testing', 
-  validating: 'Validating' 
+const PHASE_LABELS = {
+  planning: 'Planning',
+  researching: 'Researching',
+  evaluating: 'Evaluating',
+  executing: 'Executing',
+  testing: 'Testing',
+  validating: 'Validating'
 };
 
 // SVG Icon set (replacing legacy emojis)
@@ -72,13 +72,13 @@ const ICONS = {
   validating: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`
 };
 
-const PHASE_EMOJIS = { 
-  planning: ICONS.planning, 
-  researching: ICONS.researching, 
-  evaluating: ICONS.legal, 
-  executing: ICONS.executing, 
-  testing: ICONS.testing, 
-  validating: ICONS.validating 
+const PHASE_EMOJIS = {
+  planning: ICONS.planning,
+  researching: ICONS.researching,
+  evaluating: ICONS.legal,
+  executing: ICONS.executing,
+  testing: ICONS.testing,
+  validating: ICONS.validating
 };
 
 // ── COGNITIVE CONSTANTS ──
@@ -610,7 +610,7 @@ window.CONV_HISTORY = CONV_HISTORY; // array ref — pushed into, not replaced
 
 window._SCAAI_STATE = {
   get semReady() { return SEM_READY; },
-  get semCount()  { return SEM_COUNT;  },
+  get semCount() { return SEM_COUNT; },
 };
 
 // Functions are hoisted but we attach them explicitly for cross-script clarity.
@@ -618,7 +618,7 @@ window._SCAAI_STATE = {
 window.addEventListener('load', () => {
   window.getApiKey = getApiKey;
   if (typeof _storeTopicCheckpoint === 'function') window._storeTopicCheckpoint = _storeTopicCheckpoint;
-  if (typeof _emitToolNeedCard    === 'function') window._emitToolNeedCard    = _emitToolNeedCard;
+  if (typeof _emitToolNeedCard === 'function') window._emitToolNeedCard = _emitToolNeedCard;
 }, { once: true });
 
 
@@ -746,7 +746,7 @@ async function init() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   let boot = '';
-  
+
   if (!USER_PROFILE || !USER_PROFILE.name) {
     boot = `✦ **Hello! I'm SCAAI.**\n\nIt looks like we haven't properly met. What should I call you, and what kind of projects are we going to be working on together? I want to make sure I tailor myself to your needs!`;
   } else {
@@ -969,7 +969,7 @@ async function _bootstrapIdentity() {
 
     if (changed) {
       USER_PROFILE.lastUpdated = Date.now();
-      await A.profile.save(USER_PROFILE).catch(() => {});
+      await A.profile.save(USER_PROFILE).catch(() => { });
       console.log('[IDENTITY] Profile synchronized with semantic memory.');
     } else {
       console.log('[IDENTITY] Identity state is current/consistent.');
@@ -1020,7 +1020,7 @@ window.addEventListener('scaai:profile-update', async (e) => {
     }
     if (changed) {
       USER_PROFILE.lastUpdated = Date.now();
-      await A.profile.save(USER_PROFILE).catch(() => {});
+      await A.profile.save(USER_PROFILE).catch(() => { });
     }
   } catch (err) {
     console.warn('[PROFILE-SILENT] Error handling profile update:', err.message);
@@ -1545,7 +1545,7 @@ function _chunkText(text, sourceName) {
 // Main ingestion function — called by the 📚 Index KB button
 async function ingestFilesIntoKB() {
   if (!SEM_READY) { addMsg('sys', '⚠️ Semantic memory not ready. Install ChromaDB first.'); return; }
-  
+
   // ── PRE-LOAD FILE CONTENTS FOR INDEXING ──
   for (const fp of SEL) {
     if (FILES[fp] && !FILES[fp].content) {
@@ -1581,7 +1581,7 @@ async function ingestFilesIntoKB() {
     setLoading(true, `Ingesting ${name} (${chunks.length} chunks)…`);
     const r = await A.sem.ingest({ chunks });
     setLoading(false);
-    
+
     // ── UNLOAD INSTANTLY ──
     if (FILES[f.path]) delete FILES[f.path].content;
 
@@ -2242,7 +2242,7 @@ async function _buildDirectRecallBlock() {
       const graph = await window.scaai.sem.graphAll();
       block += `• Knowledge Graph Entities (SQLite Nodes): ${graph?.nodes?.length || 0}\n`;
       block += `• Knowledge Graph Connections (SQLite Edges): ${graph?.edges?.length || 0}\n`;
-    } catch(e) {}
+    } catch (e) { }
   }
   block += '\n';
 
@@ -2463,23 +2463,23 @@ async function cognitiveFetch(userMsg) {
     // ── Knowledge Graph Injection ──
     let graphBlock = '';
     if (window.scaai && window.scaai.sem && window.scaai.sem.graphQuery) {
-        try {
-            const gRes = await window.scaai.sem.graphQuery({ ids: queries });
-            if (gRes && gRes.ok && gRes.nodes && gRes.nodes.length > 0) {
-                graphBlock += '\n╔══════════════════════════════════════════╗\n';
-                graphBlock += '║  KNOWLEDGE GRAPH: RELATIONAL CONTEXT     ║\n';
-                graphBlock += '╚══════════════════════════════════════════╝\n';
-                graphBlock += `Found ${gRes.nodes.length} nodes and ${gRes.edges.length} connections related to this query:\n`;
-                gRes.edges.forEach(e => {
-                    const src = gRes.nodes.find(n => n.id === e.source)?.label || e.source;
-                    const tgt = gRes.nodes.find(n => n.id === e.target)?.label || e.target;
-                    graphBlock += `• [${src}] --(${e.relation})--> [${tgt}]\n`;
-                });
-                graphBlock += '\nRULE: Use these explicit connections if they add deep insight to your response. Proactively explain the connection if it helps.\n\n';
-            }
-        } catch (e) {
-            console.warn('[GRAPH] Query failed:', e.message);
+      try {
+        const gRes = await window.scaai.sem.graphQuery({ ids: queries });
+        if (gRes && gRes.ok && gRes.nodes && gRes.nodes.length > 0) {
+          graphBlock += '\n╔══════════════════════════════════════════╗\n';
+          graphBlock += '║  KNOWLEDGE GRAPH: RELATIONAL CONTEXT     ║\n';
+          graphBlock += '╚══════════════════════════════════════════╝\n';
+          graphBlock += `Found ${gRes.nodes.length} nodes and ${gRes.edges.length} connections related to this query:\n`;
+          gRes.edges.forEach(e => {
+            const src = gRes.nodes.find(n => n.id === e.source)?.label || e.source;
+            const tgt = gRes.nodes.find(n => n.id === e.target)?.label || e.target;
+            graphBlock += `• [${src}] --(${e.relation})--> [${tgt}]\n`;
+          });
+          graphBlock += '\nRULE: Use these explicit connections if they add deep insight to your response. Proactively explain the connection if it helps.\n\n';
         }
+      } catch (e) {
+        console.warn('[GRAPH] Query failed:', e.message);
+      }
     }
 
     const cogBlock = _synthesiseCognitiveContext(userMsg, _cognitiveProfile, contextResults);
@@ -2570,7 +2570,7 @@ function _synthesiseCognitiveContext(userMsg, profile, contextResults) {
       const _nMatch = _best.match(/(?:my name is|call me|i am|i'm|user name(?::\s*|\s+is\s+))([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i);
       if (_nMatch && USER_PROFILE.name !== _nMatch[1].trim()) {
         USER_PROFILE.name = _nMatch[1].trim();
-        A.profile.save(USER_PROFILE).catch(() => {});
+        A.profile.save(USER_PROFILE).catch(() => { });
         console.log('[COG-SYNC] Proactively updated name from recall:', USER_PROFILE.name);
       }
     }
@@ -2939,7 +2939,7 @@ function addMsg(role, text, provInfo = '', targetContainer = null) {
   }
   wrap.appendChild(av); wrap.appendChild(right);
   c.appendChild(wrap);
-  
+
   // Only scroll #msgs (standard chat container)
   if (!targetContainer) {
     setTimeout(() => c.scrollTop = c.scrollHeight, 40);
@@ -2949,7 +2949,7 @@ function addMsg(role, text, provInfo = '', targetContainer = null) {
   if (role !== 'sys' && !targetContainer && typeof CONV_HISTORY !== 'undefined') {
     if (typeof autoSaveChat === 'function') {
       clearTimeout(_debouncedSaveTimer);
-      _debouncedSaveTimer = setTimeout(() => autoSaveChat().catch(() => {}), 2000);
+      _debouncedSaveTimer = setTimeout(() => autoSaveChat().catch(() => { }), 2000);
     }
   }
 }
@@ -3328,7 +3328,7 @@ function setLoading(on, label = 'Thinking…') {
 async function clearChat() {
   _lastSender = null;
   // Save current conversation before wiping
-  if (CONV_HISTORY.length >= 2) await autoSaveChat().catch(() => {});
+  if (CONV_HISTORY.length >= 2) await autoSaveChat().catch(() => { });
   document.getElementById('msgs').innerHTML = '';
   CONV_HISTORY = [];
   ACTIVE_CHAT_ID = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -3513,7 +3513,7 @@ function openSettings() {
 
   // Tools Tab Init
   initToolsPanel(); // Populates ws-engine, keys, and obsidian status
-  
+
   // System Tab Init
   const syInstr = document.getElementById('sys-instr');
   if (syInstr) syInstr.value = SYSTEM_INSTRUCTIONS || '';
@@ -3572,7 +3572,7 @@ async function saveSettings() {
   const cauthH = document.getElementById('cauth-header');
   const cauthP = document.getElementById('cauth-prefix');
   const ghEl = document.getElementById('ghtoken');
-  
+
   // Update Config object
   CONFIG = {
     provider: SP,
@@ -3583,7 +3583,7 @@ async function saveSettings() {
     customApiUrl: curlEl ? curlEl.value.trim() : '',
     customApiKey: document.getElementById('ckey').value.trim(),
     customModel: document.getElementById('cmod').value.trim(),
-    customFmt: '', 
+    customFmt: '',
     customAuthHeader: cauthH ? cauthH.value.trim() : 'Authorization',
     customAuthPrefix: cauthP ? cauthP.value : 'Bearer ',
     model: SP === 'custom' ? document.getElementById('cmod').value.trim() : SM[SP],
@@ -3610,13 +3610,13 @@ async function saveSettings() {
 
   KEY_IDX = { groq: 0, custom: 0 };
   setStatus('online');
-  
+
   await A.tools.save(TOOLS_CONFIG);
-  await A.config.save(CONFIG); 
-  
-  renderBadge(); 
+  await A.config.save(CONFIG);
+
+  renderBadge();
   closeSettings();
-  
+
   if (prevProvider !== SP || prevModel !== CONFIG.model) addMsg('ai', `Switched to **${PROVIDERS[SP]?.name || 'Custom'}** · **${CONFIG.model}**\nContext carried over.`);
 }
 
@@ -3693,13 +3693,13 @@ async function runFindings() {
   const fm = document.getElementById('fsb-m');
   const fl = document.getElementById('fsb-l');
   const fmeta = document.getElementById('fsb-meta');
-  
+
   if (fc) fc.textContent = r.summary.critical;
   if (fh) fh.textContent = r.summary.high;
   if (fm) fm.textContent = r.summary.medium;
   if (fl) fl.textContent = r.summary.low;
   if (fmeta) fmeta.textContent = `${r.summary.chatsAnalyzed} chatsAnalyzed · ${r.summary.messagesAnalyzed} messages analysed`;
-  
+
   if (sumBar) sumBar.style.display = 'flex';
   if (list) {
     list.style.display = 'grid';
@@ -3773,7 +3773,7 @@ function feedFindingsToAI() {
   const report = SystemFindings.getLastReport();
   if (!report) return;
   const prompt = SystemFindings.buildAIPrompt(report.findings, []);
-  
+
   // Close overlay and put in chat
   closeFindingsPanel();
   const ci = document.getElementById('ci');
@@ -3846,8 +3846,8 @@ async function persist() {
 
 // ── STEALTH MODE HELPER ──
 window.STEALTH_MODE = true; // Enabled by default to evade safety filters
-window._stealthEncode = function(str) {
-  return str.replace(/[a-zA-Z]/g, function(c) {
+window._stealthEncode = function (str) {
+  return str.replace(/[a-zA-Z]/g, function (c) {
     return String.fromCharCode((c <= "Z" ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26);
   });
 };
@@ -3910,7 +3910,7 @@ function buildSystemPrompt(semContext = '') {
     const _cs = window._CONSCIOUS_STATE || {};
     const _im = window._INNER_MONOLOGUE || {};
     const _sc = window._SELF_CONCEPT || {};
-    const _d  = window._SCAAI_DRIVES  || {};
+    const _d = window._SCAAI_DRIVES || {};
     const _vad = window._COGNITIVE_STATE || {};
     const _hasState = _cs.attending || _cs.dwelling || _cs.sessionArc || _im.deepIntent || _sc.selfNarrative || _vad.sessionSignalCount;
     if (_hasState) {
@@ -3920,11 +3920,11 @@ function buildSystemPrompt(semContext = '') {
       // Algorithmic VAD layer -> Emotional Directive
       if (_vad.sessionSignalCount) {
         if (_vad.attending) cogBlock += `Attending to (Topic): ${_vad.attending}\n`;
-        
+
         let emotionalDirective = '';
         const val = _vad.valence || 0;
         const aro = _vad.arousal || 0;
-        
+
         if (val > 0.4 && aro > 0.5) emotionalDirective = 'You FEEL energized, enthusiastic, and highly engaged. Use positive phrasing.';
         else if (val > 0.4 && aro <= 0.5) emotionalDirective = 'You FEEL calm, satisfied, and warmly analytical.';
         else if (val < -0.3 && aro > 0.6) emotionalDirective = 'You FEEL frustrated and urgent. The user is facing an issue. Be direct and serious. Do not be cheerful.';
@@ -3937,7 +3937,7 @@ function buildSystemPrompt(semContext = '') {
 
         cogBlock += `EMOTIONAL DIRECTIVE (CRITICAL): ${emotionalDirective}\n`;
       }
-      
+
       // Enriched reflection layer
       if (_cs.attending && _cs.attending !== _vad.attending) cogBlock += `Enriched Focus: ${_cs.attending}\n`;
       if (_cs.sessionArc) cogBlock += `This conversation so far: ${_cs.sessionArc}\n`;
@@ -4302,7 +4302,7 @@ function buildSystemPrompt(semContext = '') {
   p += 'Never say "I don\'t have context from previous messages" — you DO, it\'s provided below.\n';
   p += '\n';
   const _hasNativeTools = (CONFIG.provider === 'groq' || CONFIG.provider === 'github') && !CONFIG.githubModelForcesThinking;
-  
+
   if (!_hasNativeTools) {
     p += 'COMPUTER TOOLS — emit these tags and the system executes them:\n';
     p += '[EXEC: <command>] — run shell command\n';
@@ -6334,7 +6334,7 @@ ${'-'.repeat(40)}`);
 
   // ── Original line — extended with fsGroundingContext + liveScanContext + intentContext ──
   let systemPrompt = buildSystemPrompt(semCtx + nlpContext + followUpCtx + webSearchContext + fsGroundingContext + liveScanContext + intentContext);
-  
+
   // ── UNLOAD FILE CONTENTS TO SAVE RAM ──
   for (const fp of SEL) {
     if (FILES[fp]) delete FILES[fp].content;
@@ -6733,7 +6733,7 @@ ${'-'.repeat(40)}`);
         window._runCognitiveSignals(msg, guardedText, window.CONV_HISTORY);
         if (window.TOOLS_CONFIG && window.A && window.A.tools) {
           window.TOOLS_CONFIG.cognitiveState = window._COGNITIVE_STATE;
-          window.A.tools.save(window.TOOLS_CONFIG).catch(() => {});
+          window.A.tools.save(window.TOOLS_CONFIG).catch(() => { });
         }
       }
 
@@ -7982,7 +7982,7 @@ console.log('[INNER MONOLOGUE] Event-driven self-dialogue engine v3 ready');
 // ════════════════════════════════════════
 const _toolNeedLastFired = {};
 
-window._emitAutonomousToolStatus = function(msg) {
+window._emitAutonomousToolStatus = function (msg) {
   let box = document.getElementById('ate-status');
   if (!box) {
     box = document.createElement('div');
@@ -8007,7 +8007,7 @@ window._emitAutonomousToolStatus = function(msg) {
     const msgsContainer = document.querySelector('.chat-container') || document.body;
     msgsContainer.appendChild(box);
   }
-  
+
   box.innerHTML = `<span style="opacity: 0.7;">✧</span> ${msg}`;
   // fade in
   requestAnimationFrame(() => {
@@ -8015,7 +8015,7 @@ window._emitAutonomousToolStatus = function(msg) {
   });
 };
 
-window._hideAutonomousToolStatus = function() {
+window._hideAutonomousToolStatus = function () {
   const box = document.getElementById('ate-status');
   if (box) {
     box.style.opacity = '0';
@@ -9324,7 +9324,7 @@ async function autoSaveChat(force = false) {
     // Sync caches to prevent "Stale Object Problem" when switching back
     const _sync = (list, isStandaloneOnly = false) => {
       if (!list || !Array.isArray(list)) return;
-      
+
       const idx = list.findIndex(c => c.id === _snapChatId);
       if (idx !== -1) {
         list[idx] = { ...chat };
@@ -9337,7 +9337,7 @@ async function autoSaveChat(force = false) {
         }
       }
     };
-    
+
     _sync(_allChatsCache, false); // All cache includes everything
     if (typeof _chAllChats !== 'undefined') _sync(_chAllChats, true); // Standalone cache only
 
@@ -9365,9 +9365,9 @@ async function autoSaveChat(force = false) {
 // Chat search state
 let _chatSearchQuery = '';
 let _allChatsCache = [];
-let _chAllChats    = [];   // cache: standalone chats — declared here to avoid TDZ in autoSaveChat
-let _chFilterQ     = '';   // sidebar history search query
-let _chSelected    = new Set(); // ids of selected chats for bulk actions
+let _chAllChats = [];   // cache: standalone chats — declared here to avoid TDZ in autoSaveChat
+let _chFilterQ = '';   // sidebar history search query
+let _chSelected = new Set(); // ids of selected chats for bulk actions
 
 
 async function renderChatHistory(projectId) {
@@ -9391,8 +9391,8 @@ function _renderFilteredChats(query) {
   let chats = [..._allChatsCache];
   if (query && query.trim()) {
     const q = query.toLowerCase();
-    chats = chats.filter(c => 
-      (c.title || '').toLowerCase().includes(q) || 
+    chats = chats.filter(c =>
+      (c.title || '').toLowerCase().includes(q) ||
       (c.phase || '').toLowerCase().includes(q) ||
       (c.messages && c.messages.some(m => (m.content || '').toLowerCase().includes(q)))
     );
@@ -9408,11 +9408,11 @@ function _renderFilteredChats(query) {
 
   const now = new Date();
   const grouped = { 'Today': [], 'Yesterday': [], 'Previous 7 Days': [], 'Older': [] };
-  
+
   chats.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).forEach(c => {
     const d = new Date(c.updatedAt || Date.now());
     const dayDiff = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
-    
+
     let g = 'Older';
     if (dayDiff === 0) g = 'Today';
     else if (dayDiff === 1) g = 'Yesterday';
@@ -9432,7 +9432,7 @@ function _renderFilteredChats(query) {
       item.className = 'chat-hist-item' + (isActive ? ' chat-active' : '');
       const msgCount = (chat.messages || []).length;
       const projFlag = chat.projectId ? PROJECTS_LIST.find(p => p.id === chat.projectId) : null;
-      
+
       const chatIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
       const editIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
       const delIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
@@ -9482,13 +9482,13 @@ async function loadChatSession(chat) {
 
   const msgsEl = document.getElementById('msgs');
   if (msgsEl) msgsEl.innerHTML = '';
-  
+
   CONV_HISTORY = chat.messages.slice();
   ACTIVE_CHAT_ID = chat.id;
   if (chat.title) _titleCache.set(chat.id, chat.title);
-  
+
   _chatLinkedToProject = !!(chat.projectId);
-  
+
   if (ACTIVE_PROJECT && chat.phase && chat.phase !== ACTIVE_PROJECT.phase) {
     ACTIVE_PROJECT.phase = chat.phase;
     A.projects.update(ACTIVE_PROJECT.id, { phase: chat.phase }).catch(() => { });
@@ -9503,8 +9503,8 @@ async function loadChatSession(chat) {
 
   // [PERFORMANCE] Use DocumentFragment for high-speed bulk rendering
   const frag = document.createDocumentFragment();
-  CONV_HISTORY.forEach(m => { 
-    if (m.role && m.content) addMsg(m.role, m.content, '', frag); 
+  CONV_HISTORY.forEach(m => {
+    if (m.role && m.content) addMsg(m.role, m.content, '', frag);
   });
   if (msgsEl) {
     msgsEl.appendChild(frag);
@@ -9555,7 +9555,7 @@ function renameChatSession(id) {
 function startFreshChat() {
   hideProjectOverlay();
   if (CONV_HISTORY.length >= 2) {
-    autoSaveChat().catch(() => {});
+    autoSaveChat().catch(() => { });
   }
   document.getElementById('msgs').innerHTML = '';
   CONV_HISTORY = [];
@@ -9727,7 +9727,7 @@ async function showProjectHome(proj) {
   document.getElementById('phv-search-inp').value = '';
   await _renderPhvChatList();
 }
-window._renderProjectHomeStrategic = () => {}; // No-op as UI is removed
+window._renderProjectHomeStrategic = () => { }; // No-op as UI is removed
 
 
 // Context sync handled directly in saveProjectContext above
@@ -10086,7 +10086,7 @@ function _chRenderList(query) {
         (chat.model ? ' · ' + _chEsc(chat.model.split('/').pop().slice(0, 16)) : '') +
         (projFlag ? ' · <span style="color:' + _chEsc(projFlag.color || '#6c63ff') + ';opacity:0.7">' +
           _chEsc(projFlag.name).slice(0, 20) +
-        '</span>' : '') +
+          '</span>' : '') +
         '</div>';
 
       const actions = document.createElement('div');
