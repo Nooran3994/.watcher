@@ -13,6 +13,7 @@
   "author": "SCAAI",
   "license": "MIT",
   "dependencies": {
+    "duck-duck-scrape": "^2.2.7",
     "pdf-parse": "^2.4.5"
   }
 }
