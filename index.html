@@ -226,7 +226,7 @@
             <textarea id="ci" rows="1" placeholder="Ask SCAAI..."></textarea>
 
             <div class="itools-right">
-              <button class="pill-btn mic-btn" title="Voice input (Coming soon)">
+              <button class="pill-btn mic-btn" id="mic-btn" onclick="toggleMic()" title="Voice input">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
               </button>
               
@@ -266,7 +266,10 @@
               </div>
               <div id="mcp-input-json" style="display:none">
                 <label class="flbl">JSON CONFIG</label>
-                <textarea id="mcp-json-input" class="finput" rows="4" placeholder="{ &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;-y&quot;, &quot;@modelcontextprotocol/server-filesystem&quot;, &quot;/path&quot;] }" style="resize:vertical;font-family:monospace;font-size:11px"></textarea>
+                <textarea id="mcp-json-input" class="finput" rows="4" placeholder='{ &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;-y&quot;, &quot;@modelcontextprotocol/server-filesystem&quot;, &quot;/path&quot;] }
+
+Or with mcpServers wrapper:
+{ &quot;mcpServers&quot;: { &quot;my-server&quot;: { &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;-y&quot;, &quot;@upstash/context7-mcp@latest&quot;] } } }' style="resize:vertical;font-family:monospace;font-size:11px"></textarea>
               </div>
               <button class="bp" style="margin-top:8px;width:100%;padding:9px;font-size:12px" onclick="mcpAddServer()">➕ Add MCP Server</button>
             </div>
@@ -771,6 +774,37 @@
               </label>
             </div>
           </div>
+
+          <!-- VOICE SETTINGS -->
+          <div style="margin-top:20px;border-top:1px solid rgba(255,255,255,.06);padding-top:15px">
+            <label class="flbl" style="display:flex;align-items:center;gap:8px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+              <span>Voice &amp; Audio</span>
+            </label>
+            <div style="margin-top:8px">
+              <label style="display:flex;align-items:center;gap:8px;font-size:11px;color:#a0a0c8;cursor:pointer;margin-bottom:8px">
+                <input type="checkbox" id="voice-input-enabled" checked style="accent-color:#6c63ff" />
+                <span>Voice Input (mic button)</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:11px;color:#a0a0c8;cursor:pointer;margin-bottom:8px">
+                <input type="checkbox" id="voice-reply-enabled" style="accent-color:#6c63ff" />
+                <span>Speak AI replies aloud</span>
+              </label>
+              <div style="margin-top:6px">
+                <label class="flbl" style="font-size:9px;color:#6c6c8a">TTS VOICE</label>
+                <select id="voice-name" style="background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.15);border-radius:5px;color:#a0a0c8;font-size:10px;padding:4px 6px;width:100%;outline:none">
+                  <option value="troy">Troy</option>
+                  <option value="kore">Kore</option>
+                  <option value="lea">Lea</option>
+                  <option value="daniel">Daniel</option>
+                </select>
+              </div>
+              <div style="margin-top:6px">
+                <label class="flbl" style="font-size:9px;color:#6c6c8a">MAX TTS CHARS</label>
+                <input type="number" id="voice-max-chars" value="200" min="50" max="1000" style="background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.15);border-radius:5px;color:#a0a0c8;font-size:10px;padding:4px 6px;width:100px;outline:none" />
+              </div>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -794,6 +828,7 @@
   <script src="src/renderer/reflectionEngine.js"></script>
   <script src="src/renderer/renderer.js"></script>
   <script src="src/renderer/inputEnhancer.js"></script>
+  <script src="src/renderer/voiceInput.js"></script>
 
   <!-- ══ MINI BROWSER PANEL ══ -->
   <div id="mini-browser"

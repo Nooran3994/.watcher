@@ -158,6 +158,11 @@ contextBridge.exposeInMainWorld('scaai', {
   clipboard: {
     readImage: () => ipcRenderer.invoke('clipboard:read-image'),
   },
+  // ── Groq Audio (Whisper STT + Orpheus TTS) ──
+  audio: {
+    transcribe: (opts) => ipcRenderer.invoke('audio:transcribe', opts),
+    speak:      (opts) => ipcRenderer.invoke('audio:speak',      opts),
+  },
   // ── RAG XAI (Transparency Panel) ──
   rag: {
     explain:    (opts) => ipcRenderer.invoke('rag:explain',     opts),

@@ -534,7 +534,7 @@ PROFESSIONAL ETHICS IN DESIGN:
 let FILES = {}, SEL = new Set(), LOADING = false, EDIT_PATH = null, SYS_INFO = {};
 let _lastSender = null;
 let PERSONA = { confidence: .55, curiosity: .70, attention: .55 };
-let CONFIG = { provider: 'groq', groqKey: '', groqKeys: [], githubToken: '', customApiUrl: '', customApiKey: '', customModel: '', customFmt: '', customAuthHeader: 'Authorization', customAuthPrefix: 'Bearer ', model: 'llama-3.3-70b', innerMonologueModel: 'llama-3.1-8b-instant', useWsl2: true };
+let CONFIG = { provider: 'groq', groqKey: '', groqKeys: [], githubToken: '', customApiUrl: '', customApiKey: '', customModel: '', customFmt: '', customAuthHeader: 'Authorization', customAuthPrefix: 'Bearer ', model: 'llama-3.3-70b', innerMonologueModel: 'llama-3.1-8b-instant', useWsl2: true, voiceInputEnabled: true, voiceReplyEnabled: false, voiceName: 'troy', voiceMaxChars: 200 };
 // ── WSL2 state — set on boot from sys:info and wsl2:ready event ──
 let _WSL2_ACTIVE = false;   // true when WSL2 was detected and is being used
 let _WSL2_DISTRO = '';      // e.g. "Ubuntu-22.04"
@@ -2927,12 +2927,15 @@ function addMsg(role, text, provInfo = '', targetContainer = null, attachments) 
       img.className = 'att-thumb-img';
       img.dataset.attId = att.id;
       // Load lazily — fetch base64 from main process and display
-      (function(imgEl, attId) {
+      (function(imgEl, attId, _srcFallback) {
         A.attachments.read({ id: attId }).then(function(r) {
           if (r && r.ok) {
-            imgEl.src = 'data:' + r.mimeType + ';base64,' + r.base64;
+            var _url = 'data:' + r.mimeType + ';base64,' + r.base64;
+            imgEl.src = _url;
             imgEl.style.width = Math.min(att.width || 200, 200) + 'px';
             imgEl.style.height = 'auto';
+            imgEl.style.cursor = 'zoom-in';
+            imgEl.onclick = function (e) { e.stopPropagation(); expandImage(_url, imgEl.alt); };
           }
         }).catch(function() { /* silent */ });
       })(img, att.id);
@@ -3027,6 +3030,14 @@ function addMsg(role, text, provInfo = '', targetContainer = null, attachments) 
   wrap.appendChild(av); wrap.appendChild(right);
   c.appendChild(wrap);
 
+  // ── TTS: speak AI reply aloud if enabled ──
+  if (role === 'ai' && CONFIG && CONFIG.voiceReplyEnabled && typeof window._speakText === 'function' && text && text.length > 10) {
+    // Only speak real AI replies, not boot/system notices
+    if (!text.startsWith('Switched to') && !text.startsWith('🔭') && !text.startsWith('✅') && !text.startsWith('⚠️') && !text.startsWith('📋')) {
+      window._speakText(text, CONFIG.voiceName);
+    }
+  }
+
   // Only scroll #msgs (standard chat container)
   if (!targetContainer) {
     setTimeout(() => c.scrollTop = c.scrollHeight, 40);
@@ -3058,6 +3069,8 @@ function renderImageMessage(dataUrl, altText) {
   img.src = dataUrl;
   img.alt = altText || 'Rendered image';
   img.loading = 'lazy';
+  img.style.cursor = 'zoom-in';
+  img.onclick = function () { expandImage(dataUrl, img.alt); };
   imgWrap.appendChild(img);
   body.appendChild(imgWrap);
   right.appendChild(meta); right.appendChild(body);
@@ -3250,6 +3263,8 @@ function expandImage(src, alt) {
 
   var overlay = document.createElement('div');
   overlay.id = 'img-lightbox';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-label', alt || 'Expanded image');
   overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;cursor:zoom-out;animation:fadeIn .15s ease';
   overlay.onclick = function () { overlay.remove(); };
 
@@ -3261,6 +3276,15 @@ function expandImage(src, alt) {
 
   overlay.appendChild(img);
   document.body.appendChild(overlay);
+
+  // Escape-to-close
+  var _escHandler = function (e) {
+    if (e.key === 'Escape') {
+      overlay.remove();
+      document.removeEventListener('keydown', _escHandler);
+    }
+  };
+  document.addEventListener('keydown', _escHandler);
 }
 
 function fmtInline(s) {
@@ -3764,7 +3788,11 @@ async function saveSettings() {
     customAuthPrefix: cauthP ? cauthP.value : 'Bearer ',
     model: SP === 'custom' ? document.getElementById('cmod').value.trim() : SM[SP],
     innerMonologueModel: (document.getElementById('im-model') || {}).value || CONFIG.innerMonologueModel || 'llama-3.1-8b-instant',
-    useWsl2: document.getElementById('use-wsl2') ? document.getElementById('use-wsl2').checked : true
+    useWsl2: document.getElementById('use-wsl2') ? document.getElementById('use-wsl2').checked : true,
+    voiceInputEnabled: document.getElementById('voice-input-enabled') ? document.getElementById('voice-input-enabled').checked : true,
+    voiceReplyEnabled: document.getElementById('voice-reply-enabled') ? document.getElementById('voice-reply-enabled').checked : false,
+    voiceName: (document.getElementById('voice-name') || {}).value || 'troy',
+    voiceMaxChars: parseInt((document.getElementById('voice-max-chars') || {}).value, 10) || 200
   };
 
   // Systems Instructions

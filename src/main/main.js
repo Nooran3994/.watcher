@@ -2880,6 +2880,150 @@ ipcMain.handle('api:chat', async (_, opts) => {
 });
 
 // ══════════════════════════════════════════
+// ── GROQ AUDIO — Whisper STT + Orpheus TTS ──
+// ══════════════════════════════════════════
+
+/**
+ * HTTPS POST with multipart/form-data body (for Groq Whisper transcription).
+ * @param {string} hostname
+ * @param {string} urlPath
+ * @param {object} headers - extra headers (will merge Authorization, etc.)
+ * @param {Buffer} fileBuffer - raw audio bytes
+ * @param {string} fileName - filename for the Content-Disposition
+ * @param {string} fieldName - form field name (default 'file')
+ * @param {object} extraFields - extra text fields like { model: 'whisper-large-v3' }
+ */
+function httpsPostMultipart(hostname, urlPath, headers, fileBuffer, fileName, fieldName, extraFields) {
+  return new Promise(resolve => {
+    var boundary = '----FormBoundary' + Math.random().toString(36).slice(2);
+    var bodyParts = [];
+
+    // Extra text fields first
+    if (extraFields) {
+      var eKeys = Object.keys(extraFields);
+      for (var _ei = 0; _ei < eKeys.length; _ei++) {
+        var _k = eKeys[_ei];
+        bodyParts.push(Buffer.from(
+          '--' + boundary + '\r\n' +
+          'Content-Disposition: form-data; name="' + _k + '"\r\n\r\n' +
+          extraFields[_k] + '\r\n'
+        ));
+      }
+    }
+
+    // File field
+    bodyParts.push(Buffer.from(
+      '--' + boundary + '\r\n' +
+      'Content-Disposition: form-data; name="' + (fieldName || 'file') + '"; filename="' + (fileName || 'audio.webm') + '"\r\n' +
+      'Content-Type: audio/webm\r\n\r\n'
+    ));
+    bodyParts.push(fileBuffer);
+    bodyParts.push(Buffer.from('\r\n--' + boundary + '--\r\n'));
+
+    var body = Buffer.concat(bodyParts);
+    var mergedHeaders = {
+      'User-Agent': 'SCAAI/1.0 (Desktop)',
+      'Content-Type': 'multipart/form-data; boundary=' + boundary,
+      'Content-Length': body.length,
+      ...headers
+    };
+
+    var req = https.request({ hostname, path: urlPath, method: 'POST', headers: mergedHeaders }, (res) => {
+      var d = ''; res.on('data', c => d += c); res.on('end', () => resolve({ status: res.statusCode, body: d }));
+    });
+    req.on('error', e => resolve({ status: 0, body: '', error: e.message }));
+    req.setTimeout(60000, () => {
+      req.destroy();
+      resolve({ status: 0, body: '', error: 'Request timed out' });
+    });
+    req.write(body); req.end();
+  });
+}
+
+/**
+ * Transcribe audio using Groq Whisper API.
+ * Expects { apiKey, audioBuffer (base64), mimeType }
+ */
+async function _audioTranscribe({ apiKey, audioBase64, mimeType }) {
+  try {
+    var audioBuf = Buffer.from(audioBase64, 'base64');
+    var ext = 'webm';
+    if (mimeType) {
+      if (mimeType.includes('wav')) ext = 'wav';
+      else if (mimeType.includes('mp3') || mimeType.includes('mpeg')) ext = 'mp3';
+      else if (mimeType.includes('ogg')) ext = 'ogg';
+      else if (mimeType.includes('mp4')) ext = 'mp4';
+    }
+    var res = await httpsPostMultipart(
+      'api.groq.com',
+      '/openai/v1/audio/transcriptions',
+      { 'Authorization': 'Bearer ' + apiKey },
+      audioBuf,
+      'audio.' + ext,
+      'file',
+      { model: 'whisper-large-v3-turbo' }
+    );
+    if (res.status === 0) return { ok: false, error: res.error || 'Network error' };
+    var j;
+    try { j = JSON.parse(res.body); } catch (e) { return { ok: false, error: 'Invalid response: ' + res.body.slice(0, 200) }; }
+    if (j.error) return { ok: false, error: j.error.message || JSON.stringify(j.error) };
+    return { ok: true, text: (j.text || '').trim() };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+/**
+ * Generate speech audio using Groq Orpheus TTS.
+ * Expects { apiKey, text, voice }.
+ * Returns base64-encoded WAV audio.
+ * Uses raw buffer collection (not httpsPost) to preserve binary WAV data.
+ */
+async function _audioSpeak({ apiKey, text, voice }) {
+  try {
+    var body = JSON.stringify({
+      model: 'canopylabs/orpheus-v1-standard',
+      input: text,
+      voice: voice || 'troy',
+      response_format: 'wav'
+    });
+    return await new Promise(function (resolve) {
+      var headers = {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json',
+        'User-Agent': 'SCAAI/1.0 (Desktop)',
+        'Content-Length': Buffer.byteLength(body)
+      };
+      var req = https.request({ hostname: 'api.groq.com', path: '/openai/v1/audio/speech', method: 'POST', headers: headers }, function (res) {
+        var chunks = [];
+        res.on('data', function (c) { chunks.push(typeof c === 'string' ? Buffer.from(c, 'binary') : c); });
+        res.on('end', function () {
+          var raw = Buffer.concat(chunks);
+          if (res.statusCode !== 200) {
+            var errStr = raw.toString('utf-8').slice(0, 200);
+            return resolve({ ok: false, error: 'HTTP ' + res.statusCode + ': ' + errStr });
+          }
+          resolve({ ok: true, audioBase64: raw.toString('base64'), mimeType: 'audio/wav' });
+        });
+      });
+      req.on('error', function (e) { resolve({ ok: false, error: e.message }); });
+      req.setTimeout(60000, function () { req.destroy(); resolve({ ok: false, error: 'TTS request timed out' }); });
+      req.write(body); req.end();
+    });
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+ipcMain.handle('audio:transcribe', async (_, opts) => {
+  return await _audioTranscribe(opts);
+});
+
+ipcMain.handle('audio:speak', async (_, opts) => {
+  return await _audioSpeak(opts);
+});
+
+// ══════════════════════════════════════════
 // ── WEB SEARCH — Multi-engine backend ──
 // Engines: Tavily | Brave | Google CSE | DuckDuckGo
 // ══════════════════════════════════════════
@@ -3528,7 +3672,7 @@ ipcMain.handle('mcp:saveConfig', async (_, servers) => {
 // Manages external MCP server processes spawned by the renderer.
 const _mcpProcesses = {};
 
-ipcMain.handle('mcp:start', async (event, { id, cmd }) => {
+ipcMain.handle('mcp:start', async (event, { id, cmd, env }) => {
   try {
     if (_mcpProcesses[id]) {
       try { _mcpProcesses[id].kill(); } catch (_) {}
@@ -3552,7 +3696,7 @@ ipcMain.handle('mcp:start', async (event, { id, cmd }) => {
     const proc = spawn(prog, args, {
       windowsHide: true,
       stdio: ['ipc', 'pipe', 'pipe'],
-      env: { ...process.env },
+      env: env ? { ...process.env, ...env } : { ...process.env },
     });
     _mcpProcesses[id] = proc;
     let stdoutData = '';

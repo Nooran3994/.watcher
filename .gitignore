@@ -30,3 +30,5 @@ queue.json
 # Local DeepSeek TUI config
 ~/
 %SystemDrive%/
+.deepseek/
+.cursor/

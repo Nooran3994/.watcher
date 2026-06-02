@@ -6904,3 +6904,23 @@
 
 
 
+
+
+    /* ── Mic recording state — red pulsing icon ── */
+    .pill-btn.mic-btn.recording {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.12);
+      animation: mic-pulse 1s ease-in-out infinite;
+    }
+    .pill-btn.mic-btn.recording svg {
+      animation: mic-pulse-svg 1s ease-in-out infinite;
+    }
+    @keyframes mic-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3); }
+      50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+    }
+    @keyframes mic-pulse-svg {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+

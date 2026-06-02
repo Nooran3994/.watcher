@@ -80,7 +80,7 @@
     var idx = window._PASTED_IMAGES.length;
     var bubble = document.createElement('div');
     bubble.className = 'img-preview-bubble';
-    bubble.innerHTML = '<img src="' + dataUrl.replace(/"/g, '&quot;') + '" alt="Pasted image" />'
+    bubble.innerHTML = '<img src="' + dataUrl.replace(/"/g, '&quot;') + '" alt="Pasted image" style="cursor:zoom-in" onclick="expandImage(\'' + dataUrl.replace(/'/g, "\\'") + '\',\'Pasted image\');event.stopPropagation()" />'
       + '<button class="img-remove-btn" onclick="_removeImagePreview(' + idx + ')">\u2715</button>'
       + '<span class="img-index">' + (idx + 1) + '</span>';
     container.appendChild(bubble);
@@ -106,7 +106,7 @@
     window._PASTED_IMAGES.forEach(function (img, i) {
       var bubble = document.createElement('div');
       bubble.className = 'img-preview-bubble';
-      bubble.innerHTML = '<img src="' + img.dataUrl.replace(/"/g, '&quot;') + '" alt="Pasted image" />'
+      bubble.innerHTML = '<img src="' + img.dataUrl.replace(/"/g, '&quot;') + '" alt="Pasted image" style="cursor:zoom-in" onclick="expandImage(\'' + img.dataUrl.replace(/'/g, "\\'") + '\',\'Pasted image\');event.stopPropagation()" />'
         + '<button class="img-remove-btn" onclick="_removeImagePreview(' + i + ')">\u2715</button>'
         + '<span class="img-index">' + (i + 1) + '</span>';
       container.appendChild(bubble);
@@ -208,13 +208,42 @@
   };
 
   /**
-   * Parse a Cursor-style MCP JSON config into { cmd, name }.
-   * Expected schema: { command: string, args: string[], env?: object, cwd?: string }
+   * Parse a Cursor-style MCP JSON config into { cmd, name, env?, cwd? }.
+   * Handles:
+   *   - flat  { command, args, env?, cwd? }  (existing)
+   *   - wrapped { mcpServers: { name: { command, args, env?, cwd? } } }
+   *   - url-only { url: "https://..." } → returns actionable error hint
    */
   function _parseMCPJson(jsonStr) {
     var obj;
     try { obj = JSON.parse(jsonStr); } catch (e) { return { error: 'Invalid JSON: ' + e.message }; }
     if (!obj || typeof obj !== 'object') return { error: 'Must be a JSON object.' };
+
+    // Unwrap mcpServers wrapper:  { mcpServers: { name: { ... } } }
+    if (obj.mcpServers && typeof obj.mcpServers === 'object' && !obj.command && !obj.url) {
+      var keys = Object.keys(obj.mcpServers);
+      if (keys.length === 0) return { error: '"mcpServers" object is empty — add a server entry.' };
+      var firstKey = keys[0];
+      var firstVal = obj.mcpServers[firstKey];
+      if (!firstVal || typeof firstVal !== 'object') return { error: 'Entry "' + firstKey + '" must be a JSON object.' };
+      // Inject name from key and recurse
+      firstVal.name = firstVal.name || firstKey;
+      return _parseSingleMCP(firstVal);
+    }
+
+    return _parseSingleMCP(obj);
+  }
+
+  /** Parse a single MCP server config object */
+  function _parseSingleMCP(obj) {
+    // URL-only remote MCP detection
+    if (obj.url && typeof obj.url === 'string' && obj.url.startsWith('http')) {
+      var hint = '';
+      if (/context7/i.test(obj.url)) {
+        hint = '\n\nFor Context7, use stdio instead:\n{\n  "command": "npx",\n  "args": ["-y", "@upstash/context7-mcp@latest"]\n}';
+      }
+      return { error: 'Remote URL MCP is not supported yet. Use stdio command + args instead.' + hint };
+    }
     if (typeof obj.command !== 'string' || !obj.command.trim()) return { error: 'Missing required "command" field (must be a non-empty string).' };
     if (obj.args !== undefined && (!Array.isArray(obj.args) || !obj.args.every(function(a) { return typeof a === 'string'; }))) {
       return { error: '"args" must be an array of strings.' };
@@ -309,7 +338,7 @@
     if (typeof addMsg === 'function') addMsg('sys', '\uD83D\uDD0C Connecting MCP server: **' + name + '**...');
 
     try {
-      var r = await (A.mcp && A.mcp.start ? A.mcp.start({ id: id, cmd: cmd })
+      var r = await (A.mcp && A.mcp.start ? A.mcp.start({ id: id, cmd: cmd, env: extraOpts.env })
         : A.sys.exec(cmd, { timeout: 15000 }));
       if (r && r.ok !== false) {
         var srv = window._MCP_SERVERS.find(function (s) { return s.id === id; });
