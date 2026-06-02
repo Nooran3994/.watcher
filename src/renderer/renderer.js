@@ -2954,6 +2954,60 @@ function addMsg(role, text, provInfo = '', targetContainer = null) {
   }
 }
 
+// ── Image rendering in chat messages ──
+function renderImageMessage(dataUrl, altText) {
+  const c = document.getElementById('msgs');
+  if (!c) return;
+  const wrap = document.createElement('div'); wrap.className = 'msg msg-ai';
+  const av = document.createElement('div'); av.className = 'mav'; av.textContent = 'SC';
+  const right = document.createElement('div'); right.className = 'mright';
+  const meta = document.createElement('div'); meta.className = 'mmeta';
+  const rl = document.createElement('span'); rl.className = 'mrole'; rl.textContent = 'SCAAI';
+  const tm = document.createElement('span'); tm.className = 'mtm'; tm.textContent = fmt();
+  meta.appendChild(rl); meta.appendChild(tm);
+  const body = document.createElement('div'); body.className = 'mbody';
+  const imgWrap = document.createElement('div'); imgWrap.className = 'msg-img';
+  const img = document.createElement('img');
+  img.src = dataUrl;
+  img.alt = altText || 'Rendered image';
+  img.loading = 'lazy';
+  imgWrap.appendChild(img);
+  body.appendChild(imgWrap);
+  right.appendChild(meta); right.appendChild(body);
+  wrap.appendChild(av); wrap.appendChild(right);
+  c.appendChild(wrap);
+  setTimeout(() => c.scrollTop = c.scrollHeight, 40);
+}
+
+// ── Image/media file type detection constants ──
+const _IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico', 'avif']);
+const _MEDIA_EXTS = new Set(['mp4', 'webm', 'ogg', 'mp3', 'wav', 'flac', 'm4a', 'mov', 'avi', 'mkv']);
+
+function getMediaType(ext) {
+  if (_IMAGE_EXTS.has(ext)) return 'image';
+  if (_MEDIA_EXTS.has(ext)) return 'media';
+  return 'text';
+}
+
+// ── MCP Tool Registration ──
+function registerMCPTools(mcpTools) {
+  if (!mcpTools || !Array.isArray(mcpTools) || !mcpTools.length) return;
+  if (!window._MCP_REGISTERED_TOOLS) window._MCP_REGISTERED_TOOLS = [];
+  mcpTools.forEach(function (tool) {
+    if (window._MCP_REGISTERED_TOOLS.some(function (t) { return t.name === tool.name; })) return;
+    window._MCP_REGISTERED_TOOLS.push(tool);
+  });
+  // Expose to TOOLS_CONFIG for system prompt injection
+  if (typeof TOOLS_CONFIG !== 'undefined') {
+    TOOLS_CONFIG.mcpTools = (TOOLS_CONFIG.mcpTools || []).concat(
+      mcpTools.filter(function (t) {
+        return !(TOOLS_CONFIG.mcpTools || []).some(function (e) { return e.name === t.name; });
+      })
+    );
+  }
+  console.log('[MCP] Registered ' + mcpTools.length + ' tool(s) via MCP bridge.');
+}
+
 function addToolMsg(cmd, result) {
   const c = document.getElementById('msgs');
   const wrap = document.createElement('div'); wrap.className = 'msg msg-sys';
@@ -3370,7 +3424,7 @@ async function loadPaths(paths, folderRoot) {
   for (const fp of paths) {
     const r = await A.fs.stat(fp); if (!r.ok) continue;
     const nm = fp.split(/[\\/]/).pop(); const ext = nm.split('.').pop().toLowerCase();
-    FILES[fp] = { size: r.size || 0, ext, name: nm, realPath: fp, folderRoot: folderRoot || null };
+    FILES[fp] = { size: r.size || 0, ext, name: nm, realPath: fp, folderRoot: folderRoot || null, mediaType: getMediaType(ext) };
     loaded.push(fp);
   }
   if (!loaded.length) { addMsg('ai', 'No supported files found.'); return; }
@@ -3400,7 +3454,7 @@ async function syncFileAfterWrite(filePath, newContent) {
   const norm = p => p.replace(/\\/g, '/');
   if (!FILES[key]) { key = Object.keys(FILES).find(k => norm(FILES[k].realPath || k) === norm(filePath)) || filePath; }
   if (FILES[key]) { FILES[key].content = newContent; FILES[key].size = newContent.length; await persist(); renderAll(); }
-  else { const nm = filePath.split(/[\\/]/).pop(); const ext = nm.split('.').pop().toLowerCase(); FILES[filePath] = { content: newContent, size: newContent.length, ext, name: nm, realPath: filePath, folderRoot: null }; SEL.add(filePath); await persist(); renderAll(); }
+  else { const nm = filePath.split(/[\\/]/).pop(); const ext = nm.split('.').pop().toLowerCase(); FILES[filePath] = { content: newContent, size: newContent.length, ext, name: nm, realPath: filePath, folderRoot: null, mediaType: getMediaType(ext) }; SEL.add(filePath); await persist(); renderAll(); }
 }
 
 async function refreshFile(path) {
@@ -3422,7 +3476,7 @@ async function refreshAllFiles() {
       if (FILES[fp]) continue;
       const fr = await A.fs.readFile(fp); if (!fr.ok) continue;
       const nm = fp.split(/[\\/]/).pop(); const ext = nm.split('.').pop().toLowerCase();
-      FILES[fp] = { content: fr.content, size: fr.size, ext, name: nm, realPath: fp, folderRoot: root }; added++;
+      FILES[fp] = { content: fr.content, size: fr.size, ext, name: nm, realPath: fp, folderRoot: root, mediaType: getMediaType(ext) }; added++;
     }
   }
   await persist(); renderAll(); btn.textContent = '↻'; btn.classList.remove('refreshing');
@@ -6875,8 +6929,8 @@ async function saveWebSearchConfig() {
   const statusEl = document.getElementById('ws-configured-status');
   if (statusEl) {
     const isValid = (engine === 'tavily' && tavilyKey) ||
-                    (engine === 'brave' && braveKey) ||
-                    (engine === 'google' && googleKey && googleCx);
+      (engine === 'brave' && braveKey) ||
+      (engine === 'google' && googleKey && googleCx);
     statusEl.innerHTML = isValid
       ? `<span style="color:#6cffa0">✅ Web search configured (${names[engine] || engine})</span>`
       : `<span style="color:#ff6b6b">⚠️ No API key saved yet</span>`;
@@ -7575,9 +7629,9 @@ function toggleWebSearch() {
   const wsc = getWsCfg();
   //  Gate: if no API key is configured, open settings instead of toggling
   const hasKey = (wsc.engine === 'tavily' && wsc.tavilyKey) ||
-                 (wsc.engine === 'brave' && wsc.braveKey) ||
-                 (wsc.engine === 'google' && wsc.googleKey && wsc.googleCx) ||
-                 wsc.engine === 'duckduckgo';
+    (wsc.engine === 'brave' && wsc.braveKey) ||
+    (wsc.engine === 'google' && wsc.googleKey && wsc.googleCx) ||
+    wsc.engine === 'duckduckgo';
   if (!WEB_SEARCH_ENABLED && !hasKey) {
     switchTab('tool');
     setTimeout(() => {

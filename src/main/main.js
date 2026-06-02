@@ -3143,3 +3143,96 @@ Return exactly this JSON shape:
     return { ok: false, error: e.message };
   }
 });
+
+// Clipboard image extraction
+ipcMain.handle('clipboard:read-image', async () => {
+  try {
+    const { clipboard, nativeImage } = require('electron');
+    const img = clipboard.readImage();
+    if (img.isEmpty()) return { ok: false, error: 'No image in clipboard' };
+    const dataUrl = img.toDataURL();
+    return { ok: true, dataUrl: dataUrl };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+// MCP Subprocess Manager
+// Manages external MCP server processes spawned by the renderer.
+const _mcpProcesses = {};
+
+ipcMain.handle('mcp:start', async (event, { id, cmd }) => {
+  try {
+    if (_mcpProcesses[id]) {
+      try { _mcpProcesses[id].kill(); } catch (_) {}
+      delete _mcpProcesses[id];
+    }
+    const parts = [];
+    let current = '';
+    let inQuote = false;
+    for (const ch of cmd) {
+      if (ch === '"' || ch === "'") { inQuote = !inQuote; continue; }
+      if (ch === ' ' && !inQuote) {
+        if (current) { parts.push(current); current = ''; }
+      } else {
+        current += ch;
+      }
+    }
+    if (current) parts.push(current);
+    if (!parts.length) return { ok: false, error: 'Empty command' };
+    const prog = parts[0];
+    const args = parts.slice(1);
+    const proc = spawn(prog, args, {
+      windowsHide: true,
+      stdio: ['ipc', 'pipe', 'pipe'],
+      env: { ...process.env },
+    });
+    _mcpProcesses[id] = proc;
+    let stdoutData = '';
+    let stderrData = '';
+    proc.stdout.on('data', (d) => { stdoutData += d.toString(); });
+    proc.stderr.on('data', (d) => { stderrData += d.toString(); });
+    proc.on('error', (err) => {
+      console.error('[MCP:' + id + '] error:', err.message);
+      delete _mcpProcesses[id];
+    });
+    proc.on('close', (code) => {
+      console.log('[MCP:' + id + '] exited with code ' + code);
+      delete _mcpProcesses[id];
+    });
+    await new Promise(function (resolve) { setTimeout(resolve, 1500); });
+    if (proc.exitCode !== null && proc.exitCode !== 0) {
+      return { ok: false, error: 'Process exited with code ' + proc.exitCode + ': ' + stderrData.slice(0, 500) };
+    }
+    return { ok: true, pid: proc.pid };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('mcp:stop', async (event, id) => {
+  try {
+    var proc = _mcpProcesses[id];
+    if (!proc) return { ok: true, note: 'Not running' };
+    proc.kill();
+    delete _mcpProcesses[id];
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('mcp:list', async () => {
+  var entries = Object.keys(_mcpProcesses).map(function (id) {
+    var proc = _mcpProcesses[id];
+    return { id: id, pid: proc.pid, alive: proc.exitCode === null };
+  });
+  return { ok: true, servers: entries };
+});
+
+// Clean up MCP processes on app quit
+app.on('before-quit', function () {
+  for (var id of Object.keys(_mcpProcesses)) {
+    try { _mcpProcesses[id].kill(); } catch (_) {}
+  }
+});

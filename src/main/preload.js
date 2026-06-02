@@ -138,6 +138,16 @@ contextBridge.exposeInMainWorld('scaai', {
     delete: (id)       => ipcRenderer.invoke('agents:delete', id),
     chat:   (opts)     => ipcRenderer.invoke('agents:chat',   opts),
   },
+  // ── MCP (Model Context Protocol) ──
+  mcp: {
+    start: (opts) => ipcRenderer.invoke('mcp:start', opts),
+    stop:  (id)   => ipcRenderer.invoke('mcp:stop',  id),
+    list:  ()     => ipcRenderer.invoke('mcp:list'),
+  },
+  // ── Clipboard ──
+  clipboard: {
+    readImage: () => ipcRenderer.invoke('clipboard:read-image'),
+  },
   // ── RAG XAI (Transparency Panel) ──
   rag: {
     explain:    (opts) => ipcRenderer.invoke('rag:explain',     opts),

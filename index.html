@@ -188,14 +188,39 @@
           <span id="tlbl">Thinking…</span>
         </div>
         <div id="iwrap">
+          <!-- Image preview container for pasted images -->
+          <div id="img-preview-container" style="display:none"></div>
           <div id="irow">
-            <div class="itools-left">
-              <button class="pill-btn" onclick="doOpenFiles()" title="Add files or context">
+            <div class="itools-left" style="position:relative">
+              <button class="pill-btn" id="plus-btn" onclick="togglePlusMenu(event)" title="Add files, folders, images and more">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
               </button>
               <button class="pill-btn" id="wsbtn" onclick="toggleWebSearch()" title="Toggle Web Search">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
               </button>
+              <!-- Floating plus menu -->
+              <div id="plus-menu" class="plus-menu" style="display:none">
+                <div class="plus-menu-item" onclick="doOpenFiles();closePlusMenu()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                  <span>Upload Files</span>
+                </div>
+                <div class="plus-menu-item" onclick="doOpenFolder();closePlusMenu()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                  <span>Upload Folder</span>
+                </div>
+                <div class="plus-menu-item" onclick="triggerImagePaste();closePlusMenu()" id="paste-image-menu-item">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                  <span>Paste Image</span>
+                  <span class="plus-menu-hint">Ctrl+V</span>
+                </div>
+                <div class="plus-menu-divider"></div>
+
+                <div class="plus-menu-item" onclick="openMCPConnect();closePlusMenu()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"></path><path d="M4 20V4"></path><path d="M20 20V4"></path><path d="M8 20V8h4v12"></path><path d="M14 20v-4h4v4"></path></svg>
+                  <span>MCP Connect</span>
+                  <span id="mcp-connect-badge" class="plus-menu-badge" style="display:none">●</span>
+                </div>
+              </div>
             </div>
             
             <textarea id="ci" rows="1" placeholder="Ask SCAAI..."></textarea>
@@ -219,6 +244,25 @@
         </div>
       </div><!-- /#workspace -->
 
+      <!-- MCP Connect Modal -->
+      <div id="mcp-modal" class="mbg" style="display:none" onclick="if(event.target===this)closeMCPConnect()">
+        <div class="modal" style="width:520px;max-height:80vh;overflow-y:auto">
+          <div class="mhdr">
+            <h3>🔌 MCP Connect</h3>
+            <button class="mcl" onclick="closeMCPConnect()">✕</button>
+          </div>
+          <div class="mbody" style="padding:16px">
+            <div id="mcp-server-list">
+              <div class="mcp-empty">No MCP servers connected.</div>
+            </div>
+            <div style="margin-top:14px;border-top:1px solid rgba(255,255,255,.06);padding-top:14px">
+              <label class="flbl">SERVER COMMAND</label>
+              <input type="text" id="mcp-cmd-input" class="finput" placeholder="npx -y @modelcontextprotocol/server-filesystem /path" />
+              <button class="bp" style="margin-top:8px;width:100%;padding:9px;font-size:12px" onclick="mcpAddServer()">➕ Add MCP Server</button>
+            </div>
+          </div>
+        </div>
+      </div>
 
 
       <!-- ══ PROJECT OVERLAY — covers #chat when browsing projects ══ -->
@@ -739,6 +783,7 @@
   <script src="src/renderer/strategicEngine.js"></script>
   <script src="src/renderer/reflectionEngine.js"></script>
   <script src="src/renderer/renderer.js"></script>
+  <script src="src/renderer/inputEnhancer.js"></script>
 
   <!-- ══ MINI BROWSER PANEL ══ -->
   <div id="mini-browser"
