@@ -14,7 +14,19 @@
 
   // ── Global state ──
   window._PASTED_IMAGES = window._PASTED_IMAGES || [];
+  window._PENDING_ATTACHMENTS = window._PENDING_ATTACHMENTS || [];
   window._MCP_SERVERS = window._MCP_SERVERS || [];
+
+  // Persist current MCP server list to disk
+  window._saveMCPServers = function () {
+    // Strip runtime-only fields before saving
+    var saveable = (window._MCP_SERVERS || []).map(function (s) {
+      return { id: s.id, name: s.name, cmd: s.cmd, extraOpts: s.extraOpts || {}, status: 'disconnected' };
+    });
+    if (A && A.mcp && A.mcp.saveConfig) {
+      A.mcp.saveConfig(saveable).catch(function () {});
+    }
+  };
 
   // ═══════════════════════════════════════════════════════════
   // ── Floating Plus Menu ──
@@ -175,6 +187,53 @@
     if (modal) modal.style.display = 'none';
   };
 
+  /** Switch between Simple (command string) and JSON input modes in the MCP modal */
+  window.switchMCPInputMode = function (mode) {
+    var simpleDiv = document.getElementById('mcp-input-simple');
+    var jsonDiv = document.getElementById('mcp-input-json');
+    var simpleBtn = document.getElementById('mcp-tab-simple');
+    var jsonBtn = document.getElementById('mcp-tab-json');
+    if (!simpleDiv || !jsonDiv) return;
+    if (mode === 'json') {
+      simpleDiv.style.display = 'none';
+      jsonDiv.style.display = '';
+      if (simpleBtn) simpleBtn.style.opacity = '0.5';
+      if (jsonBtn) jsonBtn.style.opacity = '1';
+    } else {
+      simpleDiv.style.display = '';
+      jsonDiv.style.display = 'none';
+      if (simpleBtn) simpleBtn.style.opacity = '1';
+      if (jsonBtn) jsonBtn.style.opacity = '0.5';
+    }
+  };
+
+  /**
+   * Parse a Cursor-style MCP JSON config into { cmd, name }.
+   * Expected schema: { command: string, args: string[], env?: object, cwd?: string }
+   */
+  function _parseMCPJson(jsonStr) {
+    var obj;
+    try { obj = JSON.parse(jsonStr); } catch (e) { return { error: 'Invalid JSON: ' + e.message }; }
+    if (!obj || typeof obj !== 'object') return { error: 'Must be a JSON object.' };
+    if (typeof obj.command !== 'string' || !obj.command.trim()) return { error: 'Missing required "command" field (must be a non-empty string).' };
+    if (obj.args !== undefined && (!Array.isArray(obj.args) || !obj.args.every(function(a) { return typeof a === 'string'; }))) {
+      return { error: '"args" must be an array of strings.' };
+    }
+    if (obj.env !== undefined && (typeof obj.env !== 'object' || obj.env === null)) return { error: '"env" must be a key-value object.' };
+    // Build cmd string: command + args joined with shell-friendly quoting
+    var parts = [obj.command.trim()];
+    if (obj.args && obj.args.length) {
+      for (var _ai = 0; _ai < obj.args.length; _ai++) {
+        var a = obj.args[_ai];
+        if (a.indexOf(' ') > -1) parts.push('"' + a.replace(/"/g, '\\"') + '"');
+        else parts.push(a);
+      }
+    }
+    var cmd = parts.join(' ');
+    var name = obj.name || obj.command.split('/').pop().split('@').pop() || 'MCP Server';
+    return { cmd: cmd, name: name, env: obj.env, cwd: obj.cwd };
+  }
+
   function _renderMCPServerList() {
     var list = document.getElementById('mcp-server-list');
     var badge = document.getElementById('mcp-connect-badge');
@@ -209,17 +268,44 @@
   }
 
   window.mcpAddServer = async function () {
-    var input = document.getElementById('mcp-cmd-input');
-    var cmd = input ? input.value.trim() : '';
-    if (!cmd) {
-      if (typeof addMsg === 'function') addMsg('sys', '\u26A0\uFE0F Enter a server command.');
-      return;
+    // Detect which input mode is active
+    var simpleDiv = document.getElementById('mcp-input-simple');
+    var jsonDiv = document.getElementById('mcp-input-json');
+    var isJsonMode = jsonDiv && jsonDiv.style.display !== 'none';
+
+    var cmd, name, extraOpts;
+    if (isJsonMode) {
+      var jsonInput = document.getElementById('mcp-json-input');
+      var jsonStr = jsonInput ? jsonInput.value.trim() : '';
+      if (!jsonStr) {
+        if (typeof addMsg === 'function') addMsg('sys', '\u26A0\uFE0F Paste a JSON MCP config first.');
+        return;
+      }
+      var parsed = _parseMCPJson(jsonStr);
+      if (parsed.error) {
+        if (typeof addMsg === 'function') addMsg('sys', '\u26A0\uFE0F ' + parsed.error);
+        return;
+      }
+      cmd = parsed.cmd;
+      name = parsed.name;
+      extraOpts = { env: parsed.env, cwd: parsed.cwd };
+      if (jsonInput) jsonInput.value = '';
+    } else {
+      var input = document.getElementById('mcp-cmd-input');
+      cmd = input ? input.value.trim() : '';
+      if (!cmd) {
+        if (typeof addMsg === 'function') addMsg('sys', '\u26A0\uFE0F Enter a server command.');
+        return;
+      }
+      name = cmd.split(/\s+/).slice(0, 2).join(' ');
+      extraOpts = {};
+      if (input) input.value = '';
     }
+
     var id = 'mcp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-    var name = cmd.split(/\s+/).slice(0, 2).join(' ');
-    window._MCP_SERVERS.push({ id: id, name: name, cmd: cmd, status: 'connecting' });
+    window._MCP_SERVERS.push({ id: id, name: name, cmd: cmd, status: 'connecting', extraOpts: extraOpts });
     _renderMCPServerList();
-    if (input) input.value = '';
+    if (typeof window._saveMCPServers === 'function') window._saveMCPServers();
     if (typeof addMsg === 'function') addMsg('sys', '\uD83D\uDD0C Connecting MCP server: **' + name + '**...');
 
     try {
@@ -258,6 +344,7 @@
     } catch (e) { /* best effort */ }
     window._MCP_SERVERS.splice(index, 1);
     _renderMCPServerList();
+    if (typeof window._saveMCPServers === 'function') window._saveMCPServers();
     if (typeof addMsg === 'function') addMsg('sys', '\uD83D\uDD0C MCP server **' + srv.name + '** disconnected.');
   };
 
@@ -267,13 +354,60 @@
   // ── Image Handling in Send Logic ──
   // ═══════════════════════════════════════════════════════════
 
+  /**
+   * Process all pending pasted images into cached attachment refs.
+   * Saves each image via IPC (main process handles compression + storage).
+   * Returns an array of AttachmentRef objects, or empty array on failure.
+   * Sets window._PENDING_ATTACHMENTS so _sendCore can attach them to the message.
+   */
+  window.processPendingAttachments = async function () {
+    if (!window._PASTED_IMAGES || !window._PASTED_IMAGES.length) {
+      window._PENDING_ATTACHMENTS = [];
+      return [];
+    }
+
+    // Wait a tick so the chat ID is set (send() uses ACTIVE_CHAT_ID)
+    await new Promise(function (r) { setTimeout(r, 0); });
+
+    var chatId = window._getActiveChatId ? window._getActiveChatId() : (window.ACTIVE_CHAT_ID || 'chat_unsaved');
+    var refs = [];
+
+    for (var i = 0; i < window._PASTED_IMAGES.length; i++) {
+      var img = window._PASTED_IMAGES[i];
+      try {
+        var r = await A.attachments.save({
+          dataUrl: img.dataUrl,
+          chatId: chatId,
+          mimeType: img.mimeType || 'image/png',
+        });
+        if (r && r.ok && r.attachment) {
+          refs.push(r.attachment);
+        }
+      } catch (e) {
+        console.warn('[Attachments] save failed:', e.message);
+      }
+    }
+
+    // Clear pending UI
+    window._PASTED_IMAGES = [];
+    _reRenderImagePreviews();
+
+    window._PENDING_ATTACHMENTS = refs;
+    return refs;
+  };
+
+  // Patch send() to process pending images BEFORE calling the original send
   (function _patchSendForImages() {
     var checkSend = setInterval(function () {
       if (typeof window.send === 'function') {
         clearInterval(checkSend);
         var _origSend = window.send;
-        window.send = function () {
-          _injectImagesBeforeSend();
+        window.send = async function () {
+          if (window._PASTED_IMAGES && window._PASTED_IMAGES.length) {
+            await window.processPendingAttachments();
+          } else {
+            window._PENDING_ATTACHMENTS = [];
+          }
           return _origSend.apply(this, arguments);
         };
       }
@@ -281,33 +415,51 @@
     setTimeout(function () { clearInterval(checkSend); }, 8000);
   })();
 
-  function _injectImagesBeforeSend() {
-    if (!window._PASTED_IMAGES || !window._PASTED_IMAGES.length) return;
-    var ci = document.getElementById('ci');
-    if (!ci) return;
+  // ── Auto-load and auto-connect MCP servers from disk ──
+  // Runs after all init is complete and the A.api bridge is available.
+  (function _autoLoadMCP() {
+    // Delay to ensure A.mcp.loadConfig is available
+    var _mcpLoadTimer = setInterval(function () {
+      if (A && A.mcp && A.mcp.loadConfig) {
+        clearInterval(_mcpLoadTimer);
+        A.mcp.loadConfig().then(function (r) {
+          if (r && r.ok && r.servers && r.servers.length) {
+            // Restore server entries
+            window._MCP_SERVERS = r.servers.map(function (s) {
+              return { id: s.id, name: s.name, cmd: s.cmd, extraOpts: s.extraOpts || {}, status: 'disconnected' };
+            });
+            if (typeof _renderMCPServerList === 'function') _renderMCPServerList();
+            // Auto-connect each server that should be connected
+            (async function () {
+              for (var _si = 0; _si < window._MCP_SERVERS.length; _si++) {
+                var _srv = window._MCP_SERVERS[_si];
+                if (_srv.cmd) {
+                  _srv.status = 'connecting';
+                  if (typeof _renderMCPServerList === 'function') _renderMCPServerList();
+                  try {
+                    var _r = await A.mcp.start({ id: _srv.id, cmd: _srv.cmd });
+                    if (_r && _r.ok !== false) {
+                      _srv.status = 'connected';
+                      if (typeof registerMCPTools === 'function') {
+                        if (_r.tools && _r.tools.length) registerMCPTools(_r.tools);
+                        else registerMCPTools([{ name: _srv.name, server: _srv.name, description: 'Tool from ' + _srv.name + ' MCP server', inputSchema: {} }]);
+                      }
+                    } else {
+                      _srv.status = 'error';
+                    }
+                  } catch (_e) {
+                    _srv.status = 'error';
+                  }
+                  if (typeof _renderMCPServerList === 'function') _renderMCPServerList();
+                }
+              }
+            })();
+          }
+        }).catch(function () {});
+      }
+    }, 400);
+    setTimeout(function () { clearInterval(_mcpLoadTimer); }, 10000);
+  })();
 
-    var numImages = window._PASTED_IMAGES.length;
-    var modelCanSee = window._modelCanAnalyzeImages();
-
-    var imageBlock = '\n\n---\n**Pasted Images (' + numImages + ')**\n';
-    if (modelCanSee) {
-      imageBlock += 'The following images were pasted. Analyze them directly:\n';
-    } else {
-      imageBlock += 'Note: The current model (' + (window.CONFIG.model || 'unknown') + ') may not support image analysis.\n';
-      imageBlock += 'If analysis fails, switch to a vision-capable model (e.g., GPT-4o, Claude Sonnet, Gemini).\n';
-    }
-    imageBlock += '\n';
-    window._PASTED_IMAGES.forEach(function (img, i) {
-      imageBlock += 'Image ' + (i + 1) + ': ' + img.dataUrl + '\n';
-    });
-    imageBlock += '---\n';
-
-    ci.value = ci.value + imageBlock;
-    ci.dispatchEvent(new Event('input', { bubbles: true }));
-
-    window._PASTED_IMAGES = [];
-    _reRenderImagePreviews();
-  }
-
-  console.log('[InputEnhancer] Plus Menu, Image Paste & MCP bridge loaded.');
+  console.log('[InputEnhancer] Plus Menu, Image Paste, MCP persistence & vision guard loaded.');
 })();

@@ -256,8 +256,18 @@
               <div class="mcp-empty">No MCP servers connected.</div>
             </div>
             <div style="margin-top:14px;border-top:1px solid rgba(255,255,255,.06);padding-top:14px">
-              <label class="flbl">SERVER COMMAND</label>
-              <input type="text" id="mcp-cmd-input" class="finput" placeholder="npx -y @modelcontextprotocol/server-filesystem /path" />
+              <div style="display:flex;gap:6px;margin-bottom:10px">
+                <button id="mcp-tab-simple" class="bp" style="flex:1;padding:6px;font-size:11px" onclick="switchMCPInputMode('simple')">⌨️ Simple</button>
+                <button id="mcp-tab-json" class="bp" style="flex:1;padding:6px;font-size:11px;opacity:0.5" onclick="switchMCPInputMode('json')">📋 JSON Config</button>
+              </div>
+              <div id="mcp-input-simple">
+                <label class="flbl">SERVER COMMAND</label>
+                <input type="text" id="mcp-cmd-input" class="finput" placeholder="npx -y @modelcontextprotocol/server-filesystem /path" />
+              </div>
+              <div id="mcp-input-json" style="display:none">
+                <label class="flbl">JSON CONFIG</label>
+                <textarea id="mcp-json-input" class="finput" rows="4" placeholder="{ &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;-y&quot;, &quot;@modelcontextprotocol/server-filesystem&quot;, &quot;/path&quot;] }" style="resize:vertical;font-family:monospace;font-size:11px"></textarea>
+              </div>
               <button class="bp" style="margin-top:8px;width:100%;padding:9px;font-size:12px" onclick="mcpAddServer()">➕ Add MCP Server</button>
             </div>
           </div>

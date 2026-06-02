@@ -1,5 +1,5 @@
 const DDG = require('duck-duck-scrape');
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, nativeImage, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -240,6 +240,7 @@ async function wslOpenPath(p) {
 }
 // ── Data paths ──
 const DATA_DIR = path.join(os.homedir(), '.scaai');
+const ATTACHMENTS_DIR = path.join(DATA_DIR, 'attachments');
 const MEMORY_FILE = path.join(DATA_DIR, 'memory.json');
 const PERSONA_FILE = path.join(DATA_DIR, 'persona.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
@@ -901,6 +902,11 @@ ipcMain.handle('chats:delete', async (_, id) => {
     ensureDataDir();
     const list = readJSON(CHATS_FILE, []);
     writeJSON(CHATS_FILE, list.filter(c => c.id !== id));
+    // Clean up attachment files for this chat
+    const chatDir = path.join(ATTACHMENTS_DIR, id);
+    if (fs.existsSync(chatDir)) {
+      fs.rmSync(chatDir, { recursive: true, force: true });
+    }
     return { ok: true };
   } catch (e) { return { ok: false, error: e.message }; }
 });
@@ -2528,11 +2534,51 @@ async function callCustom({ customApiUrl, customApiKey, customModel, customFmt, 
     let body, extraHeaders = {};
 
     if (fmt === 'anthropic') {
-      body = { model: customModel, max_tokens: maxTokens || 4096, messages };
+      // Convert OpenAI content arrays to Anthropic content blocks
+      const anthroMsgs = messages.map(m => {
+        if (Array.isArray(m.content)) {
+          return {
+            role: m.role,
+            content: m.content.map(p => {
+              if (p.type === 'text') return { type: 'text', text: p.text };
+              if (p.type === 'image_url' && p.image_url && p.image_url.url) {
+                const dataUrl = p.image_url.url;
+                const commaIdx = dataUrl.indexOf(',');
+                const meta = dataUrl.slice(0, commaIdx);
+                const b64 = dataUrl.slice(commaIdx + 1);
+                const mediaType = meta.match(/data:([^;]+)/)?.[1] || 'image/png';
+                return { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } };
+              }
+              return { type: 'text', text: String(p) };
+            })
+          };
+        }
+        return m;
+      });
+      body = { model: customModel, max_tokens: maxTokens || 4096, messages: anthroMsgs };
       if (system) body.system = system;
       extraHeaders = { 'anthropic-version': '2023-06-01' };
     } else if (fmt === 'gemini') {
-      const contents = messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+      const contents = messages.map(m => {
+        const role = m.role === 'assistant' ? 'model' : 'user';
+        if (Array.isArray(m.content)) {
+          // Convert OpenAI content parts to Gemini parts
+          const parts = m.content.map(p => {
+            if (p.type === 'text') return { text: p.text };
+            if (p.type === 'image_url' && p.image_url && p.image_url.url) {
+              const dataUrl = p.image_url.url;
+              const commaIdx = dataUrl.indexOf(',');
+              const meta = dataUrl.slice(0, commaIdx);
+              const b64 = dataUrl.slice(commaIdx + 1);
+              const mimeType = meta.match(/data:([^;]+)/)?.[1] || 'image/png';
+              return { inlineData: { mimeType, data: b64 } };
+            }
+            return { text: String(p) };
+          });
+          return { role, parts };
+        }
+        return { role, parts: [{ text: m.content }] };
+      });
       body = { contents, ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}), generationConfig: { maxOutputTokens: maxTokens || 4096, temperature: 0.7 } };
     } else {
       // openai-compat (default for everything else)
@@ -2604,7 +2650,21 @@ const GITHUB_MODEL_BUDGETS = {
 const GITHUB_DEFAULT_BUDGET = { inputBudget: 2800, maxOut: 800 };
 
 // Rough token estimator: ~3 chars per token for English/Code mix
-function _estTokens(str) { return Math.ceil((str || '').length / 3); }
+function _estTokens(str) {
+  // Handle multimodal content arrays — count text parts + image penalty
+  if (Array.isArray(str)) {
+    var textLen = 0;
+    var imgCount = 0;
+    for (var _pi = 0; _pi < str.length; _pi++) {
+      var p = str[_pi];
+      if (p.type === 'text' && p.text) textLen += p.text.length;
+      if (p.type === 'image_url') imgCount++;
+    }
+    // Base64 images are already compressed; count text + ~200 tokens per image
+    return Math.ceil(textLen / 3) + imgCount * 200;
+  }
+  return Math.ceil((str || '').length / 3);
+}
 
 /**
  * Build a compact system prompt for GitHub Models.
@@ -2691,11 +2751,38 @@ async function callGithub({ githubToken, model, system, messages, maxTokens, too
   if (trimmedMsgs.length === 0 && messages.length > 0) {
     const last = messages[messages.length - 1];
     const maxChars = (budget.inputBudget - _estTokens(compactSystem) - 50) * 4;
-    trimmedMsgs.push({ ...last, content: last.content.slice(-Math.max(maxChars, 400)) });
+    // Handle both string and multimodal array content
+    var _fallbackContent = last.content;
+    if (typeof _fallbackContent === 'string') {
+      _fallbackContent = _fallbackContent.slice(-Math.max(maxChars, 400));
+    } else if (Array.isArray(_fallbackContent)) {
+      // For multimodal arrays, truncate text parts
+      _fallbackContent = _fallbackContent.map(function(p) {
+        if (p.type === 'text' && p.text) return { ...p, text: p.text.slice(-Math.max(maxChars, 400)) };
+        return p;
+      });
+    }
+    trimmedMsgs.push({ ...last, content: _fallbackContent });
   }
 
-  // Step 2b: inject skills (behavioral) then codebase (factual) into last user message
-  if ((skillsBlock || codebaseBlock) && trimmedMsgs.length > 0) {
+  // Step 2a.5: extract ACTIVE FILES and PRE-READ FILE CONTENT from system prompt
+  // These are injected by buildSystemPrompt() in the renderer but dropped by _githubSystemPrompt()
+  var fileBlockCtx = '';
+  if (system) {
+    var _afMatch = system.match(/(=== ACTIVE FILES[\s\S]*?=== END FILES ===\n?)/);
+    if (_afMatch) {
+      var _af = _afMatch[1];
+      var _afBudget = Math.min(2800, Math.floor(budget.inputBudget * 0.35));
+      fileBlockCtx = (_af.length > _afBudget ? _af.slice(0, _afBudget) + '\n…[file context truncated to fit budget]' : _af) + '\n\n';
+    }
+    var _prMatch = system.match(/(=== PRE-READ FILE CONTENT[\s\S]*?=== END FILE CONTENT ===\n?)/);
+    if (_prMatch) {
+      fileBlockCtx += (_prMatch[1] + '\n\n');
+    }
+  }
+
+  // Step 2b: inject skills (behavioral), file context, then codebase (factual) into last user message
+  if ((skillsBlock || codebaseBlock || fileBlockCtx) && trimmedMsgs.length > 0) {
     const lastIdx = trimmedMsgs.length - 1;
     const last = trimmedMsgs[lastIdx];
     if (last.role === 'user') {
@@ -2705,11 +2792,25 @@ async function callGithub({ githubToken, model, system, messages, maxTokens, too
         ctx += (usedTokens + st <= budget.inputBudget ? skillsBlock : skillsBlock.slice(0, 400) + '\n…[skills truncated]') + '\n\n';
         usedTokens += Math.min(st, _estTokens(ctx));
       }
+      if (fileBlockCtx) {
+        var _ft = _estTokens(fileBlockCtx);
+        if (usedTokens + _ft <= budget.inputBudget) {
+          ctx += fileBlockCtx + '\n';
+          usedTokens += _ft;
+        }
+      }
       if (codebaseBlock) {
         const ct = _estTokens(codebaseBlock);
         ctx += (usedTokens + ct <= budget.inputBudget ? codebaseBlock : codebaseBlock.slice(0, 400) + '\n…[codebase truncated]') + '\n\n';
       }
-      if (ctx) trimmedMsgs[lastIdx] = { ...last, content: ctx + '---\n' + last.content };
+      if (ctx) {
+        // Handle both string and multimodal array content
+        if (Array.isArray(last.content)) {
+          trimmedMsgs[lastIdx] = { ...last, content: [{ type: 'text', text: ctx + '---\n' }, ...last.content] };
+        } else {
+          trimmedMsgs[lastIdx] = { ...last, content: ctx + '---\n' + last.content };
+        }
+      }
     }
   }
 
@@ -3147,11 +3248,277 @@ Return exactly this JSON shape:
 // Clipboard image extraction
 ipcMain.handle('clipboard:read-image', async () => {
   try {
-    const { clipboard, nativeImage } = require('electron');
     const img = clipboard.readImage();
     if (img.isEmpty()) return { ok: false, error: 'No image in clipboard' };
     const dataUrl = img.toDataURL();
     return { ok: true, dataUrl: dataUrl };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ── Attachment Cache (Pasted Images) ──
+// ═══════════════════════════════════════════════════════════════
+
+/** Max pixels on longest edge after compression */
+const ATTACHMENT_MAX_DIM = 2048;
+/** JPEG/WebP quality 0–100 */
+const ATTACHMENT_QUALITY = 80;
+/** Max single-file bytes after compression (~4 MB) */
+const ATTACHMENT_MAX_BYTES = 4 * 1024 * 1024;
+/** Max attachments per chat on disk */
+const ATTACHMENTS_PER_CHAT_MAX = 100;
+/** Global attachment cache size cap (bytes) */
+const ATTACHMENTS_GLOBAL_CAP = 500 * 1024 * 1024; // 500 MB
+
+/**
+ * Compress an image dataUrl using Electron's nativeImage.
+ * Resizes to fit ATTACHMENT_MAX_DIM, encodes as JPEG at ATTACHMENT_QUALITY.
+ * Returns { base64, mimeType, width, height, sizeBytes }.
+ */
+function _compressImage(dataUrl) {
+  const img = nativeImage.createFromDataURL(dataUrl);
+  if (img.isEmpty()) return null;
+
+  const origSize = img.getSize();
+  let w = origSize.width;
+  let h = origSize.height;
+
+  // Resize if larger than max dimension
+  if (w > ATTACHMENT_MAX_DIM || h > ATTACHMENT_MAX_DIM) {
+    const ratio = Math.min(ATTACHMENT_MAX_DIM / w, ATTACHMENT_MAX_DIM / h);
+    w = Math.round(w * ratio);
+    h = Math.round(h * ratio);
+  }
+
+  const resized = w !== origSize.width || h !== origSize.height
+    ? img.resize({ width: w, height: h, quality: 'good' })
+    : img;
+
+  // Encode as JPEG for best compression (or keep PNG if it's smaller)
+  const jpegBuf = resized.toJPEG(ATTACHMENT_QUALITY);
+  const pngBuf = resized.toPNG();
+  const useJpeg = jpegBuf.length <= pngBuf.length;
+  const buf = useJpeg ? jpegBuf : pngBuf;
+  const mimeType = useJpeg ? 'image/jpeg' : 'image/png';
+  const base64 = buf.toString('base64');
+
+  return {
+    base64,
+    mimeType,
+    width: w,
+    height: h,
+    sizeBytes: buf.length,
+  };
+}
+
+/**
+ * Save a compressed attachment to disk.
+ * @param {string} dataUrl - The original image data URL
+ * @param {string} chatId - The parent chat ID
+ * @param {string} [mimeType] - Optional original MIME type hint
+ * @returns {object|null} AttachmentRef or null on failure
+ */
+async function saveAttachment(dataUrl, chatId, mimeType) {
+  try {
+    const compressed = _compressImage(dataUrl);
+    if (!compressed) return null;
+
+    // Check individual file size cap
+    if (compressed.sizeBytes > ATTACHMENT_MAX_BYTES) return null;
+
+    const chatDir = path.join(ATTACHMENTS_DIR, chatId);
+    fs.mkdirSync(chatDir, { recursive: true });
+
+    // List existing files for per-chat cap
+    let existing = [];
+    try { existing = fs.readdirSync(chatDir); } catch { /* empty */ }
+    if (existing.length >= ATTACHMENTS_PER_CHAT_MAX) return null;
+
+    const ext = compressed.mimeType === 'image/jpeg' ? '.jpg' : '.png';
+    const id = 'att_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const fileName = id + ext;
+    const filePath = path.join(chatDir, fileName);
+
+    fs.writeFileSync(filePath, Buffer.from(compressed.base64, 'base64'));
+
+    return {
+      id,
+      chatId,
+      mimeType: compressed.mimeType,
+      storedRelPath: chatId + '/' + fileName,
+      sizeBytes: compressed.sizeBytes,
+      width: compressed.width,
+      height: compressed.height,
+      originalName: 'pasted_image_' + (existing.length + 1) + ext,
+      createdAt: Date.now(),
+    };
+  } catch (e) {
+    console.error('[ATTACHMENTS] save error:', e.message);
+    return null;
+  }
+}
+
+// ── Attachment IPC Handlers ──
+
+ipcMain.handle('attachments:save', async (_, { dataUrl, chatId, mimeType }) => {
+  const ref = await saveAttachment(dataUrl, chatId, mimeType);
+  if (!ref) return { ok: false, error: 'Failed to save attachment (too large, too many, or compression error)' };
+  return { ok: true, attachment: ref };
+});
+
+ipcMain.handle('attachments:read', async (_, { id }) => {
+  try {
+    // Scan all chat dirs for the file
+    if (!fs.existsSync(ATTACHMENTS_DIR)) return { ok: false, error: 'No attachments directory' };
+    const chatDirs = fs.readdirSync(ATTACHMENTS_DIR);
+    for (const chatDir of chatDirs) {
+      const dirPath = path.join(ATTACHMENTS_DIR, chatDir);
+      const entries = fs.readdirSync(dirPath);
+      const match = entries.find(e => e.startsWith(id));
+      if (match) {
+        const buf = fs.readFileSync(path.join(dirPath, match));
+        const ext = path.extname(match).toLowerCase();
+        const mimeType = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
+        return { ok: true, base64: buf.toString('base64'), mimeType };
+      }
+    }
+    return { ok: false, error: 'Attachment not found' };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('attachments:readBulk', async (_, { ids }) => {
+  try {
+    if (!fs.existsSync(ATTACHMENTS_DIR)) return { ok: true, attachments: {} };
+    const chatDirs = fs.readdirSync(ATTACHMENTS_DIR);
+    const found = {};
+    for (const chatDir of chatDirs) {
+      const dirPath = path.join(ATTACHMENTS_DIR, chatDir);
+      let entries;
+      try { entries = fs.readdirSync(dirPath); } catch { continue; }
+      for (const id of (ids || [])) {
+        if (found[id]) continue;
+        const match = entries.find(e => e.startsWith(id));
+        if (match) {
+          const buf = fs.readFileSync(path.join(dirPath, match));
+          const ext = path.extname(match).toLowerCase();
+          const mimeType = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
+          found[id] = { base64: buf.toString('base64'), mimeType };
+        }
+      }
+    }
+    return { ok: true, attachments: found };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('attachments:deleteForChat', async (_, { chatId }) => {
+  try {
+    const chatDir = path.join(ATTACHMENTS_DIR, chatId);
+    if (fs.existsSync(chatDir)) {
+      fs.rmSync(chatDir, { recursive: true, force: true });
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('attachments:gc', async () => {
+  try {
+    if (!fs.existsSync(ATTACHMENTS_DIR)) return { ok: true, deleted: 0, freedBytes: 0 };
+    const chatDirs = fs.readdirSync(ATTACHMENTS_DIR);
+    // Load all known chat IDs from chat history
+    const chats = readJSON(CHATS_FILE, []);
+    const knownChatIds = new Set(chats.map(c => c.id));
+    let deleted = 0;
+    let freedBytes = 0;
+
+    for (const chatDir of chatDirs) {
+      const dirPath = path.join(ATTACHMENTS_DIR, chatDir);
+      if (!knownChatIds.has(chatDir)) {
+        // Orphaned chat directory — delete all files
+        const stat = fs.statSync(dirPath);
+        if (stat.isDirectory()) {
+          const files = fs.readdirSync(dirPath);
+          for (const f of files) {
+            const fp = path.join(dirPath, f);
+            freedBytes += fs.statSync(fp).size;
+            fs.unlinkSync(fp);
+            deleted++;
+          }
+          fs.rmdirSync(dirPath);
+        }
+      } else {
+        // Existing chat — check per-chat count cap
+        const files = fs.readdirSync(dirPath).filter(f => /\.(jpg|png)$/i.test(f));
+        if (files.length > ATTACHMENTS_PER_CHAT_MAX) {
+          // Sort by name (which includes timestamp), remove oldest
+          files.sort();
+          const toRemove = files.length - ATTACHMENTS_PER_CHAT_MAX;
+          for (let i = 0; i < toRemove; i++) {
+            const fp = path.join(dirPath, files[i]);
+            freedBytes += fs.statSync(fp).size;
+            fs.unlinkSync(fp);
+            deleted++;
+          }
+        }
+      }
+    }
+
+    // Global cap check
+    let totalBytes = 0;
+    const allFiles = [];
+    const walkAtt = (dir) => {
+      try {
+        const entries = fs.readdirSync(dir);
+        for (const e of entries) {
+          const fp = path.join(dir, e);
+          const stat = fs.statSync(fp);
+          if (stat.isDirectory()) walkAtt(fp);
+          else allFiles.push({ fp, size: stat.size, mtime: stat.mtimeMs });
+        }
+      } catch { /* skip */ }
+    };
+    walkAtt(ATTACHMENTS_DIR);
+    allFiles.sort((a, b) => a.mtime - b.mtime); // oldest first
+
+    for (const f of allFiles) {
+      if (totalBytes + f.size > ATTACHMENTS_GLOBAL_CAP) {
+        fs.unlinkSync(f.fp);
+        freedBytes += f.size;
+        deleted++;
+      } else {
+        totalBytes += f.size;
+      }
+    }
+
+    return { ok: true, deleted, freedBytes };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+// ── MCP Server Config Persistence ──
+const MCP_CONFIG_FILE = path.join(DATA_DIR, 'mcp_servers.json');
+
+ipcMain.handle('mcp:loadConfig', async () => {
+  try {
+    return { ok: true, servers: readJSON(MCP_CONFIG_FILE, []) };
+  } catch (e) {
+    return { ok: false, servers: [], error: e.message };
+  }
+});
+
+ipcMain.handle('mcp:saveConfig', async (_, servers) => {
+  try {
+    ensureDataDir();
+    writeJSON(MCP_CONFIG_FILE, servers || []);
+    return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message };
   }

@@ -608,6 +608,8 @@ let FILE_CACHE = {};
 window.CONFIG = CONFIG;             // object ref — properties mutated in-place
 window.CONV_HISTORY = CONV_HISTORY; // array ref — pushed into, not replaced
 
+// Live getter so inputEnhancer.js always reads the current ACTIVE_CHAT_ID
+Object.defineProperty(window, 'ACTIVE_CHAT_ID', { get: function() { return ACTIVE_CHAT_ID; }, configurable: true });
 window._SCAAI_STATE = {
   get semReady() { return SEM_READY; },
   get semCount() { return SEM_COUNT; },
@@ -836,7 +838,7 @@ async function init() {
             if (msgsEl) {
               msgsEl.innerHTML = '';
               const frag = document.createDocumentFragment();
-              CONV_HISTORY.forEach(m => { if (m.role && m.content) addMsg(m.role, m.content, '', frag); });
+              CONV_HISTORY.forEach(m => { if (m.role && m.content) addMsg(m.role, m.content, '', frag, m.attachments); });
               msgsEl.appendChild(frag);
               msgsEl.scrollTop = msgsEl.scrollHeight;
             }
@@ -2680,6 +2682,29 @@ async function semRetrieveLegacy(userMsg) {
 // ── Context caching helpers ──
 function hashStr(s) { let h = 0; for (let i = 0; i < Math.min(s.length, 2000); i++) { h = (Math.imul(31, h) + s.charCodeAt(i)) | 0; } return h.toString(36); }
 
+function removeFolder(root) {
+  Object.keys(FILES).forEach(function (p) {
+    if (FILES[p].folderRoot === root) { delete FILES[p]; SEL.delete(p); }
+  });
+  FOLDER_ROOTS.delete(root);
+  persist(); renderAll();
+  const ci = document.getElementById('ci'); if (ci) ci.focus();
+}
+
+function clearPastedImages() {
+  if (window._PASTED_IMAGES) { window._PASTED_IMAGES = []; }
+  if (typeof _reRenderImagePreviews === 'function') _reRenderImagePreviews();
+  renderAll();
+}
+
+function clearAllContext() {
+  FILES = {}; SEL.clear(); FOLDER_ROOTS.clear();
+  if (window._PASTED_IMAGES) { window._PASTED_IMAGES = []; }
+  if (typeof _reRenderImagePreviews === 'function') _reRenderImagePreviews();
+  persist(); renderAll();
+  const ci = document.getElementById('ci'); if (ci) ci.focus();
+}
+
 function buildCachedFileBlock(filePath, info) {
   const content = info.content || '';
   const len = content.length;
@@ -2768,16 +2793,49 @@ async function _switchToBackupProvider(info) {
 function renderActiveBar() {
   const bar = document.getElementById('abar');
   if (!bar) return;
-  if (!SEL.size) { bar.style.display = 'none'; return; }
+  const imgCount = (window._PASTED_IMAGES || []).length;
+  const folderCount = FOLDER_ROOTS.size;
+  const hasContent = SEL.size > 0 || folderCount > 0 || imgCount > 0;
+  if (!hasContent) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
-  bar.innerHTML = '<span style="font-size:9px;color:#1e1e38;flex-shrink:0">Active:</span>';
-  [...SEL].slice(0, 5).forEach(p => {
-    const t = document.createElement('span'); t.className = 'tag';
-    const isLarge = FILES[p] && (FILES[p].content || '').length > CACHE_THRESHOLD;
-    t.innerHTML = `${x(p.split(/[\\/]/).pop())}${isLarge ? '<span class="cache-tag">cached</span>' : ''}<span class="rm" onclick="toggle('${x(p)}')">✕</span>`;
+  bar.innerHTML = '<span style="font-size:9px;color:#1e1e38;flex-shrink:0;margin-right:2px">Active:</span>';
+
+  // Folder bubbles
+  FOLDER_ROOTS.forEach(function (root) {
+    var t = document.createElement('span'); t.className = 'tag tag-folder';
+    var folderName = root.split(/[\\/]/).pop() || root;
+    var fc = Object.values(FILES).filter(function (info) { return info.folderRoot === root; }).length;
+    t.innerHTML = '📁 ' + x(folderName) + ' <span style=\"opacity:0.5\">' + fc + '</span><span class=\"rm\" onclick=\"removeFolder(\'' + x(root) + '\')\">\u2715</span>';
     bar.appendChild(t);
   });
-  if (SEL.size > 5) { const s = document.createElement('span'); s.style.cssText = 'font-size:9px;color:#1e1e38'; s.textContent = `+${SEL.size - 5} more`; bar.appendChild(s); }
+
+  // File bubbles (only files not under a folder root)
+  var fileItems = [...SEL].filter(function (p) { return !FILES[p] || !FILES[p].folderRoot; });
+  var maxVisible = Math.max(1, 5 - folderCount);
+  fileItems.slice(0, maxVisible).forEach(function (p) {
+    var t = document.createElement('span'); t.className = 'tag';
+    var isLarge = FILES[p] && (FILES[p].content || '').length > CACHE_THRESHOLD;
+    t.innerHTML = x(p.split(/[\\/]/).pop()) + (isLarge ? '<span class=\"cache-tag\">cached</span>' : '') + '<span class=\"rm\" onclick=\"toggle(\'' + x(p) + '\')\">\u2715</span>';
+    bar.appendChild(t);
+  });
+  var fileMore = fileItems.length - maxVisible;
+  if (fileMore > 0) { var s = document.createElement('span'); s.style.cssText = 'font-size:9px;color:#1e1e38'; s.textContent = '+' + fileMore + ' more'; bar.appendChild(s); }
+
+  // Image indicator
+  if (imgCount > 0) {
+    var imgTag = document.createElement('span'); imgTag.className = 'tag tag-image';
+    imgTag.innerHTML = '🖼 ' + imgCount + ' image' + (imgCount > 1 ? 's' : '') + '<span class=\"rm\" onclick=\"clearPastedImages()\">\u2715</span>';
+    bar.appendChild(imgTag);
+  }
+
+  // Clear All button
+  if (hasContent) {
+    var clearBtn = document.createElement('button'); clearBtn.className = 'abar-clear';
+    clearBtn.textContent = '\u2715 Clear';
+    clearBtn.title = 'Remove all files, folders, and images from context';
+    clearBtn.onclick = function () { clearAllContext(); };
+    bar.appendChild(clearBtn);
+  }
 }
 function renderFiles() {
   const list = document.getElementById('fl');
@@ -2833,7 +2891,7 @@ function fmt() { return new Date().toLocaleTimeString([], { hour: '2-digit', min
  * @param {string} [provInfo] Optional provider/model label
  * @param {HTMLElement} [targetContainer] Optional target (defaults to #msgs)
  */
-function addMsg(role, text, provInfo = '', targetContainer = null) {
+function addMsg(role, text, provInfo = '', targetContainer = null, attachments) {
   const c = targetContainer || document.getElementById('msgs');
   if (!c) return;
   const wrap = document.createElement('div'); wrap.className = `msg msg-${role}`;
@@ -2853,9 +2911,38 @@ function addMsg(role, text, provInfo = '', targetContainer = null) {
   meta.appendChild(rl); meta.appendChild(tm);
   if (provInfo) { const pi = document.createElement('span'); pi.className = 'mprov'; pi.textContent = provInfo; meta.appendChild(pi); }
   const body = document.createElement('div'); body.className = 'mbody';
-  if (role === 'you') body.textContent = text;
-  else body.appendChild(parseRich(text));
 
+  // ── Attachment rendering (pasted images) ──
+  if (role === 'you' && attachments && attachments.length) {
+    const attContainer = document.createElement('div');
+    attContainer.className = 'attachments-row';
+    for (let i = 0; i < attachments.length; i++) {
+      const att = attachments[i];
+      const thumb = document.createElement('div');
+      thumb.className = 'att-thumb';
+      thumb.title = att.originalName || 'Image ' + (i + 1);
+      // Load attachment data via IPC if available
+      const img = document.createElement('img');
+      img.alt = att.originalName || 'Image ' + (i + 1);
+      img.className = 'att-thumb-img';
+      img.dataset.attId = att.id;
+      // Load lazily — fetch base64 from main process and display
+      (function(imgEl, attId) {
+        A.attachments.read({ id: attId }).then(function(r) {
+          if (r && r.ok) {
+            imgEl.src = 'data:' + r.mimeType + ';base64,' + r.base64;
+            imgEl.style.width = Math.min(att.width || 200, 200) + 'px';
+            imgEl.style.height = 'auto';
+          }
+        }).catch(function() { /* silent */ });
+      })(img, att.id);
+      thumb.appendChild(img);
+      attContainer.appendChild(thumb);
+    }
+    body.appendChild(attContainer);
+  }
+
+  body.appendChild(parseRich(text));
   right.appendChild(meta); right.appendChild(body);
 
   // ── FEATURE: Collapsible Content (User logic + Long messages) ──
@@ -3155,11 +3242,32 @@ function appendText(parent, text) {
   });
 }
 
+
+// Global expandImage function for viewing full-size images in a lightbox
+function expandImage(src, alt) {
+  var existing = document.getElementById('img-lightbox');
+  if (existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'img-lightbox';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;cursor:zoom-out;animation:fadeIn .15s ease';
+  overlay.onclick = function () { overlay.remove(); };
+
+  var img = document.createElement('img');
+  img.src = src;
+  img.alt = alt || 'Expanded image';
+  img.style.cssText = 'max-width:90%;max-height:90%;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.5);object-fit:contain';
+  img.onclick = function (e) { e.stopPropagation(); };
+
+  overlay.appendChild(img);
+  document.body.appendChild(overlay);
+}
+
 function fmtInline(s) {
   // Correct approach: extract rich elements as placeholders FIRST,
   // then escape plain text, then restore. This prevents x() from
   // mangling URLs and onclick attributes.
-  const codePH = [], linkPH = [], urlPH = [];
+  const codePH = [], linkPH = [], urlPH = [], imgPH = [];
 
   // Step 1: extract inline code spans
   s = s.replace(/`([^`]+)`/g, (_, inner) => {
@@ -3175,6 +3283,19 @@ function fmtInline(s) {
     const i = linkPH.length;
     linkPH.push(`<a href="javascript:void(0)" class="mb-link" onclick="openMiniBrowser('${safe}');return false;" title="${x(url)}">${x(label)}</a>`);
     return `\x00L${i}\x00`;
+  });
+
+  // Step 2.5: extract markdown images ![alt](url) — data URLs and web URLs
+  s = s.replace(/!\[([^\]]*)\]\((data:image\/[^)\s]+)\)/g, (_, alt, url) => {
+    const i = imgPH.length;
+    imgPH.push('<img class="msg-img" src="' + url.replace(/"/g,'&quot;') + '" alt="' + (alt || 'Image').replace(/"/g,'&quot;') + '" loading="lazy" onclick="expandImage(this.src, this.alt)" />');
+    return '\x00I' + i + '\x00';
+  });
+  s = s.replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g, (_, alt, url) => {
+    url = url.replace(/[.,;:!?)]+$/, '').trim();
+    const i = imgPH.length;
+    imgPH.push('<img class="msg-img" src="' + url.replace(/"/g,'&quot;') + '" alt="' + (alt || 'Image').replace(/"/g,'&quot;') + '" loading="lazy" onclick="expandImage(this.src, this.alt)" />');
+    return '\x00I' + i + '\x00';
   });
 
   // Step 3: extract bare URLs (only raw text, no placeholders in scope)
@@ -3197,6 +3318,7 @@ function fmtInline(s) {
   s = s.replace(/\x00C(\d+)\x00/g, (_, i) => codePH[+i]);
   s = s.replace(/\x00L(\d+)\x00/g, (_, i) => linkPH[+i]);
   s = s.replace(/\x00U(\d+)\x00/g, (_, i) => urlPH[+i]);
+  s = s.replace(/\x00I(\d+)\x00/g, (_, i) => imgPH[+i]);
   return s;
 }
 
@@ -3493,14 +3615,14 @@ function selNone() { SEL.clear(); persist(); renderAll(); }
 function clrFiles() { FILES = {}; SEL.clear(); FOLDER_ROOTS.clear(); persist(); renderAll(); }
 function clrFS() { document.getElementById('fsr').value = ''; renderFiles(); }
 function clrMS() { /* MEM panel removed */ }
-function hashStr(s) { let h = 0; for (let i = 0; i < Math.min(s.length, 2000); i++) { h = (Math.imul(31, h) + s.charCodeAt(i)) | 0; } return h.toString(36); }
-
 // ── Editor removed — files open directly in OS via ↗ button ──
 
 // ── Settings ──
 function selProv(p) {
   SP = p;
   document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+
+
   document.getElementById(`ptab-${p}`).classList.add('active');
   document.querySelectorAll('.pp').forEach(pp => pp.classList.remove('active'));
   document.getElementById(`pp-${p}`).classList.add('active');
@@ -4579,18 +4701,24 @@ function buildSystemPrompt(semContext = '') {
   return p;
 }
 
-function buildMessages(userMsg) {
+function buildMessages(userMsg, attData, visionModel) {
   const msgs = [];
   // Hard token budget for conversation history.
   // Groq free tier: 12k TPM total — history must be much tighter (~20k chars ≈ 5k tokens)
   // to leave room for the system prompt + file context + output.
   // Other providers: 48k chars (~12k tokens) is safe.
   const TOKEN_BUDGET = CONFIG.provider === 'groq' ? 24000 : 48000;
-  let usedChars = userMsg.length;
+  // Estimate starting length — for multimodal content use text parts only
+  let usedChars = typeof userMsg === 'string' ? userMsg.length : 0;
   const allTurns = [...CONV_HISTORY].reverse();
   const included = [];
   for (let i = 0; i < allTurns.length; i++) {
-    const c = (allTurns[i].content || '').length;
+    // Estimate length: for multimodal arrays, count text parts only
+    var _tc = allTurns[i].content || '';
+    var c = (typeof _tc === 'string' ? _tc.length : 0);
+    if (!c && Array.isArray(_tc)) {
+      c = _tc.reduce(function(a, p) { return a + ((p.text || '').length); }, 0);
+    }
     if (usedChars + c > TOKEN_BUDGET) break;
     usedChars += c;
     included.unshift(allTurns[i]);
@@ -4617,9 +4745,27 @@ function buildMessages(userMsg) {
   const _hasToolHistory = finalTurns.some(t => t.role === 'tool');
   for (let i = 0; i < finalTurns.length; i++) {
     const turn = finalTurns[i];
-    const raw = (turn.content || '').slice(0, 8000);
+    // If turn already has array content (reloaded from prior multimodal), use as-is
+    const raw = Array.isArray(turn.content) ? turn.content : (turn.content || '').slice(0, 8000);
     if (turn.role === 'you') {
-      msgs.push({ role: 'user', content: raw });
+      // Build multimodal content if the message has attachments and model supports vision
+      if (turn.attachments && turn.attachments.length && visionModel && attData) {
+        var parts = [{ type: 'text', text: typeof raw === 'string' ? raw : (raw[0] ? raw[0].text || '' : '') }];
+        for (var _aj = 0; _aj < turn.attachments.length; _aj++) {
+          var _att = turn.attachments[_aj];
+          var _attInfo = attData ? attData[_att.id] : null;
+          if (_attInfo && _attInfo.base64) {
+            var _mime = _attInfo.mimeType || _att.mimeType || 'image/png';
+            parts.push({
+              type: 'image_url',
+              image_url: { url: 'data:' + _mime + ';base64,' + _attInfo.base64 }
+            });
+          }
+        }
+        msgs.push({ role: 'user', content: parts });
+      } else {
+        msgs.push({ role: 'user', content: raw });
+      }
     } else if (turn.role === 'tool') {
       // Inject as user message — authoritative, cannot be overridden by prior AI text
       msgs.push({
@@ -5842,7 +5988,37 @@ async function send() {
   // ── Thinking mode toggle ──
   if (_checkThinkingModeToggle(msg)) { ci.value = ''; ci.style.height = ''; return; }
   ci.value = ''; ci.style.height = '';
-  addMsg('you', msg);
+  var _sendAtts = (window._PENDING_ATTACHMENTS || []).filter(Boolean);
+  addMsg('you', msg, '', null, _sendAtts.length ? _sendAtts : undefined);
+
+  // ── Vision capability guard: prompt to switch model when images are pending ──
+  if (_sendAtts.length && !window._modelCanAnalyzeImages() && !window._VISION_SWITCH_DONE) {
+    window._VISION_SWITCH_DONE = true; // guard against loops
+    var _recommendedModel = null;
+    if (CONFIG.provider === 'github') _recommendedModel = { provider: 'github', model: 'gpt-4o-mini' };
+    else if (CONFIG.provider === 'groq') _recommendedModel = { provider: 'groq', model: 'llama-3.2-11b-vision-preview' };
+    else if (CONFIG.provider === 'custom') {
+      var _url = (CONFIG.customApiUrl || '').toLowerCase();
+      if (_url.indexOf('anthropic') > -1) _recommendedModel = { provider: 'custom', model: 'claude-sonnet-4-20250514' };
+      else if (_url.indexOf('google') > -1) _recommendedModel = { provider: 'custom', model: 'gemini-2.0-flash' };
+      else _recommendedModel = { provider: 'custom', model: 'gpt-4o' };
+    }
+    if (_recommendedModel && window.confirm('Your current model (' + CONFIG.model + ') may not support image analysis.\n\nSwitch to ' + _recommendedModel.model + ' to analyze the attached image(s)?')) {
+      await _switchToBackupProvider({ to: _recommendedModel });
+      addMsg('sys', 'Switched to **' + _recommendedModel.model + '** for image analysis.');
+      // Clear guard so next turn can prompt again if user switches back manually
+      setTimeout(function() { window._VISION_SWITCH_DONE = false; }, 500);
+    } else {
+      // User declined — send text-only (images still shown as thumbnails but not sent as image_url parts)
+      addMsg('sys', 'Images attached but model may not see them. Switch to a vision model manually if needed.');
+    }
+    // Reset guard after a brief delay to allow per-turn re-prompting
+    setTimeout(function() { window._VISION_SWITCH_DONE = false; }, 3000);
+  } else if (!_sendAtts.length) {
+    // No images pending — reset guard so next image send gets prompted
+    window._VISION_SWITCH_DONE = false;
+  }
+
   // ── Introspection — surface inner monologue if asked "what are you thinking?" ──
   if (_checkIntrospectionQuery(msg)) { return; }
   try { await _sendCore(msg); }
@@ -5851,7 +6027,10 @@ async function send() {
 }
 
 async function _sendCore(msg) {
-  CONV_HISTORY.push({ role: 'you', content: msg, ts: Date.now() });
+  // Include pending image attachments from inputEnhancer
+  var _pendingAtts = (window._PENDING_ATTACHMENTS || []).filter(Boolean);
+  CONV_HISTORY.push({ role: 'you', content: msg, ts: Date.now(), attachments: _pendingAtts.length ? _pendingAtts : undefined });
+  window._PENDING_ATTACHMENTS = [];
   if (CONV_HISTORY.length > MAX_CONV * 2) CONV_HISTORY = CONV_HISTORY.slice(-MAX_CONV);
   _preExecCache = {}; // clear per-turn cache — fresh disk reads each send()
 
@@ -6396,7 +6575,27 @@ ${'-'.repeat(40)}`);
   }
 
   // ── Phase 2: Build messages with resolved message so LLM gets unambiguous input ──
-  let messages = buildMessages(resolvedMsg !== msg ? resolvedMsg : msg);
+  // Pre-load attachment data for vision-capable models
+  var _visionModel = typeof window._modelCanAnalyzeImages === 'function' && window._modelCanAnalyzeImages();
+  var _attData = {};
+  if (_visionModel) {
+    var _allAttIds = [];
+    for (var _ti = 0; _ti < CONV_HISTORY.length; _ti++) {
+      var _turn = CONV_HISTORY[_ti];
+      if (_turn.attachments && _turn.attachments.length) {
+        for (var _ai = 0; _ai < _turn.attachments.length; _ai++) {
+          if (_turn.attachments[_ai].id) _allAttIds.push(_turn.attachments[_ai].id);
+        }
+      }
+    }
+    if (_allAttIds.length) {
+      var _attR = await A.attachments.readBulk({ ids: _allAttIds });
+      if (_attR && _attR.ok && _attR.attachments) _attData = _attR.attachments;
+    }
+  }
+  let messages = buildMessages(resolvedMsg !== msg ? resolvedMsg : msg, _attData, _visionModel);
+  // Clear pending attachments reference
+  window._PENDING_ATTACHMENTS = [];
   // ── Vector-based prompt compression ──
   // Scores every semantic context chunk and every history turn by cosine
   // similarity to the current query. Keeps only the most relevant within
@@ -9201,7 +9400,7 @@ async function activateProject(proj) {
       _chatLinkedToProject = true;
       document.getElementById('msgs').innerHTML = '';
       CONV_HISTORY = latest.messages.slice();
-      CONV_HISTORY.forEach(m => { if (m.role && m.content) addMsg(m.role, m.content); });
+      CONV_HISTORY.forEach(m => { if (m.role && m.content) addMsg(m.role, m.content, '', null, m.attachments); });
       addMsg('sys', `📂 **${proj.name}** — resumed last conversation (${latest.messages.length} messages)`);
     } else {
       ACTIVE_CHAT_ID = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -10251,7 +10450,7 @@ async function _chOpenChat(chat) {
   _renderProjTitleBadge();
   renderProjects();
 
-  CONV_HISTORY.forEach(m => { if (m.role && m.content) addMsg(m.role, m.content); });
+  CONV_HISTORY.forEach(m => { if (m.role && m.content) addMsg(m.role, m.content, '', null, m.attachments); });
   closeChatHistoryPanel();
   addMsg('sys', '📂 restored: **' + _chEsc(chat.title || 'Untitled') + '** (' + chat.messages.length + ' messages)');
 }
@@ -10391,7 +10590,18 @@ setTimeout(() => {
 // The LLM API receives compressed TEXT — vectors do the filtering.
 // Typical savings: 40–65% input tokens on long conversations.
 // Shared token estimator: 3.8 chars/token (English+code average)
-function _estTok(s) { return Math.ceil((s || '').length / 3.8); }
+function _estTok(s) {
+  if (Array.isArray(s)) {
+    var textLen = 0, imgCount = 0;
+    for (var _ei = 0; _ei < s.length; _ei++) {
+      var _ep = s[_ei];
+      if (_ep.type === 'text' && _ep.text) textLen += _ep.text.length;
+      if (_ep.type === 'image_url') imgCount++;
+    }
+    return Math.ceil(textLen / 3.8) + (imgCount * 200);
+  }
+  return Math.ceil((s || '').length / 3.8);
+}
 
 async function _vectorCompress(systemPrompt, messages, currentQuery) {
   const rawSysTok = _estTok(systemPrompt);
@@ -10460,7 +10670,14 @@ async function _vectorCompress(systemPrompt, messages, currentQuery) {
 
     try {
       const hr = await Promise.race([
-        A.sem.score({ query: currentQuery, texts: historical.map(m => (m.content || '').slice(0, 500)) }),
+        A.sem.score({ query: currentQuery, texts: historical.map(function(m) {
+          var _mc = m.content || '';
+          if (Array.isArray(_mc)) {
+            // Extract text from multimodal content arrays
+            return _mc.map(function(p) { return p.text || ''; }).join(' ').slice(0, 500);
+          }
+          return _mc.slice(0, 500);
+        })}),
         new Promise((_, rej) => setTimeout(() => rej(new Error('score timeout')), 8000))
       ]);
       if (hr && hr.ok && hr.scores && hr.scores.length === historical.length) {

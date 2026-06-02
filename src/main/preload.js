@@ -140,9 +140,19 @@ contextBridge.exposeInMainWorld('scaai', {
   },
   // ── MCP (Model Context Protocol) ──
   mcp: {
-    start: (opts) => ipcRenderer.invoke('mcp:start', opts),
-    stop:  (id)   => ipcRenderer.invoke('mcp:stop',  id),
-    list:  ()     => ipcRenderer.invoke('mcp:list'),
+    start:      (opts) => ipcRenderer.invoke('mcp:start', opts),
+    stop:       (id)   => ipcRenderer.invoke('mcp:stop',  id),
+    list:       ()     => ipcRenderer.invoke('mcp:list'),
+    loadConfig: ()     => ipcRenderer.invoke('mcp:loadConfig'),
+    saveConfig: (s)   => ipcRenderer.invoke('mcp:saveConfig', s),
+  },
+  // ── Attachment Cache ──
+  attachments: {
+    save:        (d) => ipcRenderer.invoke('attachments:save', d),
+    read:        (d) => ipcRenderer.invoke('attachments:read', d),
+    readBulk:    (d) => ipcRenderer.invoke('attachments:readBulk', d),
+    deleteForChat: (d) => ipcRenderer.invoke('attachments:deleteForChat', d),
+    gc:          ()  => ipcRenderer.invoke('attachments:gc'),
   },
   // ── Clipboard ──
   clipboard: {
