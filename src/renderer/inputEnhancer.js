@@ -338,7 +338,7 @@
     if (typeof addMsg === 'function') addMsg('sys', '\uD83D\uDD0C Connecting MCP server: **' + name + '**...');
 
     try {
-      var r = await (A.mcp && A.mcp.start ? A.mcp.start({ id: id, cmd: cmd, env: extraOpts.env })
+      var r = await (A.mcp && A.mcp.start ? A.mcp.start({ id: id, cmd: cmd, env: extraOpts.env, cwd: extraOpts.cwd })
         : A.sys.exec(cmd, { timeout: 15000 }));
       if (r && r.ok !== false) {
         var srv = window._MCP_SERVERS.find(function (s) { return s.id === id; });

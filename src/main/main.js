@@ -3023,6 +3023,21 @@ ipcMain.handle('audio:speak', async (_, opts) => {
   return await _audioSpeak(opts);
 });
 
+// ── Grammar polish for voice dictation segments ──
+ipcMain.handle('audio:polish', async (_, { apiKey, text }) => {
+  if (!text || !text.trim()) return { ok: false, error: 'Empty text' };
+  try {
+    const body = { model: 'llama-3.1-8b-instant', messages: [
+      { role: 'system', content: 'Fix grammar and punctuation only. Return plain text with no quotes, no explanations, no markdown. Preserve the original meaning and wording as much as possible.' },
+      { role: 'user', content: text }
+    ], max_tokens: 256, temperature: 0 };
+    const res = await httpsPost('api.groq.com', '/openai/v1/chat/completions', { 'Authorization': `Bearer ${apiKey}` }, body);
+    const j = JSON.parse(res.body);
+    const polished = (j.choices?.[0]?.message?.content || text).trim();
+    return { ok: true, text: polished };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
 // ══════════════════════════════════════════
 // ── WEB SEARCH — Multi-engine backend ──
 // Engines: Tavily | Brave | Google CSE | DuckDuckGo
@@ -3672,7 +3687,7 @@ ipcMain.handle('mcp:saveConfig', async (_, servers) => {
 // Manages external MCP server processes spawned by the renderer.
 const _mcpProcesses = {};
 
-ipcMain.handle('mcp:start', async (event, { id, cmd, env }) => {
+ipcMain.handle('mcp:start', async (event, { id, cmd, env, cwd }) => {
   try {
     if (_mcpProcesses[id]) {
       try { _mcpProcesses[id].kill(); } catch (_) {}
@@ -3691,13 +3706,26 @@ ipcMain.handle('mcp:start', async (event, { id, cmd, env }) => {
     }
     if (current) parts.push(current);
     if (!parts.length) return { ok: false, error: 'Empty command' };
-    const prog = parts[0];
-    const args = parts.slice(1);
-    const proc = spawn(prog, args, {
+    let prog = parts[0];
+    let args = parts.slice(1);
+    // ── Windows fix: .cmd/.bat files (npx, npm) need cmd /c ──
+    if (process.platform === 'win32') {
+      const basename = path.basename(prog).toLowerCase();
+      if (basename === 'npx' || basename === 'npm' || basename === 'node' ||
+          basename.endsWith('.cmd') || basename.endsWith('.bat') ||
+          prog.indexOf(' ') > -1) {
+        const fullCmd = [prog].concat(args).join(' ');
+        prog = 'cmd';
+        args = ['/d', '/s', '/c', fullCmd];
+      }
+    }
+    const spawnOpts = {
       windowsHide: true,
-      stdio: ['ipc', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
       env: env ? { ...process.env, ...env } : { ...process.env },
-    });
+    };
+    if (cwd) spawnOpts.cwd = cwd;
+    const proc = spawn(prog, args, spawnOpts);
     _mcpProcesses[id] = proc;
     let stdoutData = '';
     let stderrData = '';
@@ -3713,7 +3741,12 @@ ipcMain.handle('mcp:start', async (event, { id, cmd, env }) => {
     });
     await new Promise(function (resolve) { setTimeout(resolve, 1500); });
     if (proc.exitCode !== null && proc.exitCode !== 0) {
-      return { ok: false, error: 'Process exited with code ' + proc.exitCode + ': ' + stderrData.slice(0, 500) };
+      var errMsg = 'Process exited with code ' + proc.exitCode + ': ' + stderrData.slice(0, 500);
+      // Windows ENOENT / -4058 guidance
+      if (proc.exitCode === -4058 || /ENOENT/i.test(errMsg)) {
+        errMsg += '\n\nTip: On Windows, use cmd /c prefix for npx/npm commands.\nExample: { "command": "cmd", "args": ["/c", "npx", "-y", "@modelcontextprotocol/server-sequential-thinking"] }';
+      }
+      return { ok: false, error: errMsg };
     }
     return { ok: true, pid: proc.pid };
   } catch (e) {

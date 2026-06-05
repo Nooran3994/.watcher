@@ -15,11 +15,23 @@
   var _isRecording = false;
   var _micStream = null;
 
+  // ── Dictation (VAD-lite) state ──
+  var _vadCtx = null;          // AudioContext
+  var _vadAnalyser = null;     // AnalyserNode
+  var _vadSource = null;       // MediaStreamSource
+  var _vadSilenceStart = 0;    // timestamp (ms) when silence began
+  var _vadHasSpeech = false;   // true if speech detected since last segment
+  var _vadTimer = null;        // setInterval for VAD polling
+  var _vadSegmentStart = 0;    // timestamp of current segment start
+  var _vadChunkBlobs = [];     // per-slice blobs for current segment
+  var _vadProcTimer = false;   // gate to prevent concurrent segment processing
+
   // ── State ──
   window._VOICE_STATE = { recording: false, transcribing: false };
 
   /**
-   * Toggle microphone recording. Click once to start, again to stop + transcribe.
+   * Toggle microphone recording. Click once to start, again to stop.
+   * In dictation mode, stop ends the session (processes final segment + cleans up).
    */
   window.toggleMic = async function () {
     if (_isRecording) {
@@ -34,7 +46,6 @@
       if (typeof addMsg === 'function') addMsg('sys', '⚠️ Configure a **Groq API key** in Settings to use voice input.');
       return;
     }
-    // Gate: provider check — voice only works with Groq keys
     if (CONFIG.provider !== 'groq' && !CONFIG.groqKey) {
       if (typeof addMsg === 'function') addMsg('sys', '⚠️ Voice input uses Groq Whisper. Set a Groq API key in Settings.');
       console.warn('[Voice] No Groq key available');
@@ -50,14 +61,29 @@
       }
       _mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
       _audioChunks = [];
+      _vadChunkBlobs = [];
+      _vadHasSpeech = false;
+      _vadSilenceStart = 0;
+      _vadSegmentStart = Date.now();
+
+      var mode = (CONFIG.voiceMode || 'dictation');
+      var isDictation = (mode === 'dictation');
 
       _mediaRecorder.ondataavailable = function (e) {
         if (e.data && e.data.size > 0) {
-          _audioChunks.push(e.data);
+          if (isDictation) {
+            _vadChunkBlobs.push(e.data);
+          } else {
+            _audioChunks.push(e.data);
+          }
         }
       };
 
       _mediaRecorder.onstop = function () {
+        // Stop VAD timer
+        if (_vadTimer) { clearInterval(_vadTimer); _vadTimer = null; }
+        // Clean up AudioContext
+        if (_vadCtx) { _vadCtx.close().catch(function () {}); _vadCtx = null; _vadAnalyser = null; _vadSource = null; }
         // Stop all tracks
         if (_micStream) {
           _micStream.getTracks().forEach(function (t) { t.stop(); });
@@ -65,15 +91,27 @@
         }
         _isRecording = false;
         _updateMicUI(false);
-        // Transcribe
-        _transcribeAudio();
+
+        if (isDictation) {
+          // Process any remaining segment
+          if (_vadChunkBlobs.length > 0 && !_vadProcTimer) {
+            _processSegment(true);
+          }
+        } else {
+          _transcribeAudio();
+        }
       };
 
-      _mediaRecorder.start();
+      _mediaRecorder.start(isDictation ? 250 : undefined);
       _isRecording = true;
       window._VOICE_STATE.recording = true;
       _updateMicUI(true);
-      console.log('[Voice] Recording started');
+      console.log('[Voice] Recording started (mode: ' + mode + ')');
+
+      // ── Dictation: start VAD-lite via AudioContext ──
+      if (isDictation) {
+        _startVAD(stream);
+      }
     } catch (e) {
       _isRecording = false;
       _updateMicUI(false);
@@ -86,11 +124,182 @@
     }
   }
 
+  /** Start VAD-lite: AudioContext + AnalyserNode, polls RMS every 250ms */
+  function _startVAD(stream) {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) { console.warn('[Voice] AudioContext not available — falling back to timeslice-only'); return; }
+      _vadCtx = new AC();
+      _vadSource = _vadCtx.createMediaStreamSource(stream);
+      _vadAnalyser = _vadCtx.createAnalyser();
+      _vadAnalyser.fftSize = 256;
+      _vadSource.connect(_vadAnalyser);
+      var data = new Uint8Array(_vadAnalyser.frequencyBinCount);
+      var silenceMs = CONFIG.voiceSilenceMs || 1200;
+
+      _vadTimer = setInterval(function () {
+        if (_vadProcTimer) return; // already processing a segment
+        _vadAnalyser.getByteFrequencyData(data);
+        // Compute RMS from frequency data
+        var sum = 0;
+        for (var i = 0; i < data.length; i++) { sum += data[i] * data[i]; }
+        var rms = Math.sqrt(sum / data.length);
+        var threshold = 12; // sensitivity threshold (tunable)
+
+        if (rms > threshold) {
+          // Speech detected
+          _vadHasSpeech = true;
+          _vadSilenceStart = 0;
+        } else if (_vadHasSpeech) {
+          // Silence after speech
+          var now = Date.now();
+          if (_vadSilenceStart === 0) {
+            _vadSilenceStart = now;
+          } else if (now - _vadSilenceStart >= silenceMs) {
+            // Silence long enough → process segment
+            _vadSilenceStart = 0;
+            _vadHasSpeech = false;
+            _processSegment(false);
+          }
+        }
+      }, 250);
+    } catch (e) {
+      console.warn('[Voice] VAD init error:', e.message);
+    }
+  }
+
+  /** Process a dictation segment: transcribe → polish → insert */
+  function _processSegment(isFinal) {
+    if (_vadProcTimer) return;
+    if (!_vadChunkBlobs.length) return;
+
+    _vadProcTimer = true;
+
+    // Capture current blobs and reset for next segment
+    var segmentBlobs = _vadChunkBlobs.slice();
+    _vadChunkBlobs = [];
+    _vadSegmentStart = Date.now();
+    _vadSilenceStart = 0;
+    _vadHasSpeech = false;
+
+    // Show "transcribing…" indicator
+    _showTranscribingChip(true);
+
+    // Convert segment to blob and transcribe
+    _transcribeSegment(segmentBlobs, isFinal);
+  }
+
+  async function _transcribeSegment(blobs, isFinal) {
+    var blob = new Blob(blobs, { type: 'audio/webm' });
+
+    // Anti-hallucination: skip very short or empty segments
+    if (blob.size < 5120) { // < 5KB
+      console.log('[Voice] Skipping short segment (' + blob.size + ' bytes)');
+      _vadProcTimer = false;
+      _showTranscribingChip(false);
+      return;
+    }
+
+    try {
+      var reader = new FileReader();
+      var base64 = await new Promise(function (resolve, reject) {
+        reader.onload = function () {
+          var str = reader.result;
+          var comma = str.indexOf(',');
+          resolve(comma > -1 ? str.slice(comma + 1) : str);
+        };
+        reader.onerror = function () { reject(reader.error); };
+        reader.readAsDataURL(blob);
+      });
+
+      var apiKey = CONFIG.groqKey || (CONFIG.groqKeys && CONFIG.groqKeys[0]) || '';
+      if (!apiKey) {
+        _vadProcTimer = false;
+        _showTranscribingChip(false);
+        return;
+      }
+
+      // Get context from existing textarea content (first 200 chars) to reduce drift
+      var ci = document.getElementById('ci');
+      var contextHint = ci ? ci.value.slice(-200).replace(/[^a-zA-Z0-9\s]/g, '') : '';
+
+      var result = await A.audio.transcribe({
+        apiKey: apiKey,
+        audioBase64: base64,
+        mimeType: 'audio/webm',
+        prompt: contextHint || undefined
+      });
+
+      if (result && result.ok && result.text) {
+        var text = result.text.trim();
+
+        // Skip hallucinated polite phrases on very short segments
+        if (!isFinal && text.length < 3 && /^(thanks|thank you|thank|ok|okay|yeah|yes|no|hi|hello)$/i.test(text)) {
+          console.log('[Voice] Skipping hallucination: "' + text + '"');
+          _vadProcTimer = false;
+          _showTranscribingChip(false);
+          return;
+        }
+
+        // Grammar polish if enabled
+        if (CONFIG.voiceGrammarPolish !== false && text.length > 2) {
+          try {
+            var polished = await A.audio.polish({ apiKey: apiKey, text: text });
+            if (polished && polished.ok && polished.text) {
+              text = polished.text;
+            }
+          } catch (e) {
+            console.warn('[Voice] Grammar polish error:', e.message);
+            // Fall through with original text
+          }
+        }
+
+        _insertTranscript(text);
+      } else {
+        console.warn('[Voice] Segment transcription failed:', result && result.error);
+      }
+    } catch (e) {
+      console.warn('[Voice] Segment transcription error:', e.message);
+    }
+
+    _vadProcTimer = false;
+    _showTranscribingChip(false);
+
+    // If this was the final segment (mic toggled off), clean up
+    if (isFinal) {
+      _cleanupDictation();
+    }
+  }
+
+  function _cleanupDictation() {
+    if (_vadTimer) { clearInterval(_vadTimer); _vadTimer = null; }
+    if (_vadCtx) { _vadCtx.close().catch(function () {}); _vadCtx = null; _vadAnalyser = null; _vadSource = null; }
+    _vadChunkBlobs = [];
+    _vadProcTimer = false;
+    _showTranscribingChip(false);
+  }
+
+  /** Show/hide a small "transcribing…" chip above the input area */
+  function _showTranscribingChip(visible) {
+    var chip = document.getElementById('vad-chip');
+    if (!chip) {
+      if (!visible) return;
+      chip = document.createElement('div');
+      chip.id = 'vad-chip';
+      chip.textContent = '🎤 transcribing…';
+      chip.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(108,99,255,0.85);color:#fff;font-size:10px;padding:4px 12px;border-radius:12px;z-index:1000;pointer-events:none;transition:opacity 0.2s';
+      document.body.appendChild(chip);
+    }
+    chip.style.opacity = visible ? '1' : '0';
+    if (!visible) {
+      setTimeout(function () { if (chip && chip.style.opacity === '0') chip.remove(); }, 300);
+    }
+  }
+
   function _stopRecording() {
     if (_mediaRecorder && _mediaRecorder.state !== 'inactive') {
       _mediaRecorder.stop();
     }
-    // isRecording flag will be cleared in onstop handler
   }
 
   function _updateMicUI(recording) {
@@ -98,7 +307,7 @@
     if (!btn) return;
     if (recording) {
       btn.classList.add('recording');
-      btn.title = 'Stop recording';
+      btn.title = CONFIG.voiceMode === 'dictation' ? 'Stop dictation' : 'Stop recording';
     } else {
       btn.classList.remove('recording');
       btn.title = CONFIG && CONFIG.voiceInputEnabled !== false ? 'Voice input' : 'Voice input (disabled in Settings)';
@@ -114,11 +323,9 @@
     _audioChunks = [];
 
     try {
-      // Convert blob to base64
       var reader = new FileReader();
       var base64 = await new Promise(function (resolve, reject) {
         reader.onload = function () {
-          // Remove data URL prefix: "data:audio/webm;base64,"
           var str = reader.result;
           var comma = str.indexOf(',');
           resolve(comma > -1 ? str.slice(comma + 1) : str);
@@ -158,12 +365,10 @@
   function _insertTranscript(text) {
     var ci = document.getElementById('ci');
     if (!ci) return;
-    // Insert at cursor or append
     var start = ci.selectionStart;
     var end = ci.selectionEnd;
     var prefix = ci.value.slice(0, start);
     var suffix = ci.value.slice(end);
-    // Add space if needed
     var spacer = prefix.length > 0 && !/\s$/.test(prefix) ? ' ' : '';
     ci.value = prefix + spacer + text + suffix;
     ci.selectionStart = ci.selectionEnd = start + spacer.length + text.length;
@@ -180,7 +385,6 @@
       return;
     }
 
-    // Strip markdown and code blocks for speech
     var plain = text
       .replace(/```[\s\S]*?```/g, '')
       .replace(/`([^`]+)`/g, '$1')
@@ -188,7 +392,6 @@
       .replace(/\n{2,}/g, '\n')
       .trim();
 
-    // Truncate to voiceMaxChars
     var maxLen = (CONFIG.voiceMaxChars) || 200;
     if (plain.length > maxLen) {
       plain = plain.slice(0, maxLen - 1) + '…';
@@ -214,7 +417,6 @@
   };
 
   function _playAudio(base64, mimeType) {
-    // Stop any previous playback
     if (_lastAudioUrl) {
       URL.revokeObjectURL(_lastAudioUrl);
       _lastAudioUrl = null;
@@ -229,12 +431,14 @@
     var blob = new Blob([bytes], { type: mimeType || 'audio/wav' });
     var url = URL.createObjectURL(blob);
     _lastAudioUrl = url;
+    if (window._speakAudio) { window._speakAudio.pause(); window._speakAudio = null; }
 
     var audio = new Audio(url);
     audio.onended = function () {
       URL.revokeObjectURL(url);
       if (_lastAudioUrl === url) _lastAudioUrl = null;
     };
+    window._speakAudio = audio;
     audio.play().catch(function (e) {
       console.warn('[TTS] Playback error:', e.message);
     });
@@ -252,8 +456,7 @@
     }
   }
 
-  // Watch for config changes — poll since CONFIG is mutated in-place
   setInterval(_refreshMicState, 3000);
 
-  console.log('[VoiceInput] Mic + TTS module loaded.');
+  console.log('[VoiceInput] Mic + TTS module loaded (dictation support).');
 })();

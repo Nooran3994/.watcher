@@ -91,6 +91,10 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
             <span class="lbl">Tools</span>
           </button>
+          <button class="nav-item" id="tb-files" onclick="switchTab('files')" title="Files">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <span class="lbl">Files</span>
+          </button>
         </div>
 
         <!-- Active View Container -->
@@ -147,8 +151,13 @@
           <!-- Files Tab -->
           <div id="tf" style="display:none">
             <div class="sbar" style="padding:12px; display:flex; gap:6px">
-              <button class="bp" style="flex:1;font-size:10px;padding:6px;border-radius:6px" onclick="doOpenFiles()">+ Files</button>
+              <input id="fsr" type="text" placeholder="Search files…" style="flex:1;background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.15);border-radius:5px;color:#a0a0c8;font-size:10px;padding:4px 6px;outline:none" oninput="renderFiles()" />
+              <button id="fscl" class="bp" style="font-size:10px;padding:4px 8px;display:none;border-radius:5px" onclick="clrFS()">✕</button>
+            </div>
+            <div class="sbar" style="padding:0 12px 8px; display:flex; gap:6px">
+              <button class="bp" style="flex:1;font-size:10px;padding:5px;border-radius:6px" onclick="doOpenFiles()">+ Files</button>
               <button class="bg2" style="flex:1;font-size:10px;padding:6px;color:#00c9a7" onclick="doOpenFolder()">📁 Folder</button>
+              <button class="fact" style="font-size:10px;padding:5px" onclick="clrFiles()" title="Clear all files">🗑</button>
             </div>
             <div id="fl" style="flex:1; overflow-y:auto; padding:0 8px"></div>
           </div>
@@ -267,6 +276,9 @@
               <div id="mcp-input-json" style="display:none">
                 <label class="flbl">JSON CONFIG</label>
                 <textarea id="mcp-json-input" class="finput" rows="4" placeholder='{ &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;-y&quot;, &quot;@modelcontextprotocol/server-filesystem&quot;, &quot;/path&quot;] }
+
+Windows example (fixes -4058 on npx/npm):
+{ &quot;command&quot;: &quot;cmd&quot;, &quot;args&quot;: [&quot;/c&quot;, &quot;npx&quot;, &quot;-y&quot;, &quot;@modelcontextprotocol/server-sequential-thinking&quot;] }
 
 Or with mcpServers wrapper:
 { &quot;mcpServers&quot;: { &quot;my-server&quot;: { &quot;command&quot;: &quot;npx&quot;, &quot;args&quot;: [&quot;-y&quot;, &quot;@upstash/context7-mcp@latest&quot;] } } }' style="resize:vertical;font-family:monospace;font-size:11px"></textarea>
@@ -802,6 +814,25 @@ Or with mcpServers wrapper:
               <div style="margin-top:6px">
                 <label class="flbl" style="font-size:9px;color:#6c6c8a">MAX TTS CHARS</label>
                 <input type="number" id="voice-max-chars" value="200" min="50" max="1000" style="background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.15);border-radius:5px;color:#a0a0c8;font-size:10px;padding:4px 6px;width:100px;outline:none" />
+              </div>
+              <div style="margin-top:6px">
+                <label class="flbl" style="font-size:9px;color:#6c6c8a">VOICE INPUT MODE</label>
+                <select id="voice-mode" style="background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.15);border-radius:5px;color:#a0a0c8;font-size:10px;padding:4px 6px;width:100%;outline:none">
+                  <option value="dictation">Dictation (pause-to-transcribe)</option>
+                  <option value="push-to-talk">Push-to-Talk (toggle on/off)</option>
+                </select>
+              </div>
+              <div style="margin-top:6px">
+                <label class="flbl" style="font-size:9px;color:#6c6c8a">SILENCE THRESHOLD (ms)</label>
+                <input type="number" id="voice-silence-ms" value="1200" min="400" max="5000" step="100" style="background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.15);border-radius:5px;color:#a0a0c8;font-size:10px;padding:4px 6px;width:100px;outline:none" />
+                <div style="font-size:8px;color:#333358;margin-top:3px">Pause length before a speech segment is transcribed.</div>
+              </div>
+              <div style="margin-top:8px">
+                <label style="display:flex;align-items:center;gap:8px;font-size:11px;color:#a0a0c8;cursor:pointer">
+                  <input type="checkbox" id="voice-grammar-polish" checked style="accent-color:#6c63ff" />
+                  <span>Grammar polish on dictation</span>
+                </label>
+                <div style="font-size:8px;color:#333358;margin-top:3px;margin-left:26px">Auto-corrects punctuation and grammar after each segment via Groq.</div>
               </div>
             </div>
           </div>

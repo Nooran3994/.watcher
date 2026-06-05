@@ -534,7 +534,7 @@ PROFESSIONAL ETHICS IN DESIGN:
 let FILES = {}, SEL = new Set(), LOADING = false, EDIT_PATH = null, SYS_INFO = {};
 let _lastSender = null;
 let PERSONA = { confidence: .55, curiosity: .70, attention: .55 };
-let CONFIG = { provider: 'groq', groqKey: '', groqKeys: [], githubToken: '', customApiUrl: '', customApiKey: '', customModel: '', customFmt: '', customAuthHeader: 'Authorization', customAuthPrefix: 'Bearer ', model: 'llama-3.3-70b', innerMonologueModel: 'llama-3.1-8b-instant', useWsl2: true, voiceInputEnabled: true, voiceReplyEnabled: false, voiceName: 'troy', voiceMaxChars: 200 };
+let CONFIG = { provider: 'groq', groqKey: '', groqKeys: [], githubToken: '', customApiUrl: '', customApiKey: '', customModel: '', customFmt: '', customAuthHeader: 'Authorization', customAuthPrefix: 'Bearer ', model: 'llama-3.3-70b', innerMonologueModel: 'llama-3.1-8b-instant', useWsl2: true, voiceInputEnabled: true, voiceReplyEnabled: false, voiceName: 'troy', voiceMaxChars: 200, voiceMode: 'dictation', voiceGrammarPolish: true, voiceSilenceMs: 1200 };
 // ── WSL2 state — set on boot from sys:info and wsl2:ready event ──
 let _WSL2_ACTIVE = false;   // true when WSL2 was detected and is being used
 let _WSL2_DISTRO = '';      // e.g. "Ubuntu-22.04"
@@ -2841,9 +2841,9 @@ function renderFiles() {
   const list = document.getElementById('fl');
   const fsrEl = document.getElementById('fsr');
   const fsclEl = document.getElementById('fscl');
-  if (!list || !fsrEl || !fsclEl) return;
-  const q = (fsrEl.value || '').toLowerCase();
-  fsclEl.style.display = q ? '' : 'none';
+  if (!list) return;
+  const q = fsrEl ? (fsrEl.value || '').toLowerCase() : '';
+  if (fsclEl) fsclEl.style.display = q ? '' : 'none';
   const entries = Object.entries(FILES).filter(([p]) => !q || p.toLowerCase().includes(q));
   if (!entries.length && !Object.keys(FILES).length) { list.innerHTML = `<div class="empty">No files loaded.<br/><span style="color:#6c63ff">+ Files</span> or <span style="color:#00c9a7">📁 Folder</span><br/>or ask me to find files</div>`; return; }
   if (!entries.length) { list.innerHTML = `<div class="empty">No matches for "${x(q)}"</div>`; return; }
@@ -2895,6 +2895,7 @@ function addMsg(role, text, provInfo = '', targetContainer = null, attachments) 
   const c = targetContainer || document.getElementById('msgs');
   if (!c) return;
   const wrap = document.createElement('div'); wrap.className = `msg msg-${role}`;
+  if (role === 'ai') wrap.dataset.msgText = text;
 
   _lastSender = role;
 
@@ -3007,6 +3008,7 @@ function addMsg(role, text, provInfo = '', targetContainer = null, attachments) 
       { icon: '👎', label: 'Not helpful', type: 'negative' },
       { icon: '⭐', label: 'Important', type: 'star' },
       { icon: '🔄', label: 'Regenerate', type: 'regen' },
+      { icon: '🔊', label: 'Listen', type: 'listen' },
     ];
     actions.forEach(({ icon, label, type }) => {
       const btn = document.createElement('button'); btn.className = 'fb-btn'; btn.title = label; btn.textContent = icon;
@@ -3015,6 +3017,24 @@ function addMsg(role, text, provInfo = '', targetContainer = null, attachments) 
           const lastUser = [...CONV_HISTORY].reverse().find(t => t.role === 'you');
           if (lastUser) { const ci = document.getElementById('ci'); ci.value = lastUser.content; send(); }
           return;
+        }
+        if (type === 'listen') {
+          if (btn.classList.contains('playing')) {
+            // Stop playback
+            if (window._speakAudio && typeof window._speakAudio.pause === 'function') {
+              window._speakAudio.pause();
+            }
+            btn.classList.remove('playing');
+            btn.textContent = '🔊';
+            btn.title = 'Listen';
+          } else {
+            btn.classList.add('playing');
+            btn.textContent = '⏹';
+            btn.title = 'Stop';
+            window._speakText(text, CONFIG.voiceName).then(function() {
+              btn.classList.remove('playing'); btn.textContent = '🔊'; btn.title = 'Listen';
+            });
+          }  return;
         }
         btn.classList.add('fb-active');
         const entry = { id: msgId, type, text: text.slice(0, 500), ts: Date.now(), model: CONFIG.model, provider: CONFIG.provider };
@@ -3558,11 +3578,13 @@ async function doOpenFiles() {
 async function doOpenFolder() {
   const f = await A.fs.openFolder(); if (!f) return;
   document.getElementById('fbtn').textContent = '⟳';
-  addMsg('ai', `📁 Scanning: **${f}**…`);
   const paths = await A.fs.listFolder(f);
   FOLDER_ROOTS.add(f);
   await loadPaths(paths, f);
   document.getElementById('fbtn').textContent = '📁';
+  // Show Files tab and open sidebar
+  switchTab('files');
+  document.getElementById('sb').classList.add('sb-open');
 }
 
 async function loadPaths(paths, folderRoot) {
@@ -3573,12 +3595,16 @@ async function loadPaths(paths, folderRoot) {
     FILES[fp] = { size: r.size || 0, ext, name: nm, realPath: fp, folderRoot: folderRoot || null, mediaType: getMediaType(ext) };
     loaded.push(fp);
   }
-  if (!loaded.length) { addMsg('ai', 'No supported files found.'); return; }
+  if (!loaded.length) {
+    addMsg('sys', `📁 Folder attached: **${folderRoot}** (0 supported files — folder indexed for path reference).`);
+    await persist(); renderAll();
+    return;
+  }
   loaded.forEach(p => SEL.add(p));
 
   await persist(); renderAll();
   const largeCount = loaded.filter(p => (FILES[p].content || '').length > CACHE_THRESHOLD).length;
-  addMsg('ai', `Loaded **${loaded.length}** file${loaded.length > 1 ? 's' : ''}:\n${loaded.slice(0, 8).map(p => `• ${p}`).join('\n')}${loaded.length > 8 ? `\n• …+${loaded.length - 8} more` : ''}\n\nAll active.${largeCount > 0 ? ` **${largeCount}** large file${largeCount > 1 ? 's' : ''} will use context caching.` : ''}`);
+  addMsg('sys', `📁 Folder attached: **${folderRoot}** (${loaded.length} file${loaded.length > 1 ? 's' : ''}).`);
 
 
 }
@@ -3722,6 +3748,20 @@ function openSettings() {
   const wslEl = document.getElementById('use-wsl2');
   if (wslEl) wslEl.checked = CONFIG.useWsl2 !== false;
 
+  // Voice settings population
+  const vmEl = document.getElementById('voice-mode');
+  if (vmEl) vmEl.value = CONFIG.voiceMode || 'dictation';
+  const gpEl = document.getElementById('voice-grammar-polish');
+  if (gpEl) gpEl.checked = CONFIG.voiceGrammarPolish !== false;
+  const smEl = document.getElementById('voice-silence-ms');
+  if (smEl) smEl.value = CONFIG.voiceSilenceMs || 1200;
+
+  // Voice checkbox population (HTML defaults may not match saved CONFIG)
+  const viEl = document.getElementById('voice-input-enabled');
+  if (viEl) viEl.checked = CONFIG.voiceInputEnabled !== false;
+  const vrEl = document.getElementById('voice-reply-enabled');
+  if (vrEl) vrEl.checked = CONFIG.voiceReplyEnabled === true;
+
   // Reset to first tab
   switchSTab('api');
 
@@ -3792,7 +3832,10 @@ async function saveSettings() {
     voiceInputEnabled: document.getElementById('voice-input-enabled') ? document.getElementById('voice-input-enabled').checked : true,
     voiceReplyEnabled: document.getElementById('voice-reply-enabled') ? document.getElementById('voice-reply-enabled').checked : false,
     voiceName: (document.getElementById('voice-name') || {}).value || 'troy',
-    voiceMaxChars: parseInt((document.getElementById('voice-max-chars') || {}).value, 10) || 200
+    voiceMaxChars: parseInt((document.getElementById('voice-max-chars') || {}).value, 10) || 200,
+    voiceMode: (document.getElementById('voice-mode') || {}).value || 'dictation',
+    voiceGrammarPolish: document.getElementById('voice-grammar-polish') ? document.getElementById('voice-grammar-polish').checked : true,
+    voiceSilenceMs: parseInt((document.getElementById('voice-silence-ms') || {}).value, 10) || 1200
   };
 
   // Systems Instructions
@@ -4001,6 +4044,8 @@ function ovOpenPanel(type) {
 
 // ── Tabs ──
 function switchTab(t) {
+  // Normalize tab id: 'f' → 'files'
+  if (t === 'f') t = 'files';
   // Ensure sidebar is visible when a tab is selected
   const sb = document.getElementById('sb');
   if (sb && !sb.classList.contains('sb-open')) sb.classList.add('sb-open');
@@ -4018,10 +4063,12 @@ function switchTab(t) {
   const tbTool = document.getElementById('tb-tool');
   const tbProj = document.getElementById('tb-proj');
   const tbHistory = document.getElementById('tb-history');
+  const tbFiles = document.getElementById('tb-files');
 
   if (tbTool) tbTool.classList.toggle('active', t === 'tool');
   if (tbProj) tbProj.classList.toggle('active', t === 'proj');
   if (tbHistory) tbHistory.classList.toggle('active', t === 'history');
+  if (tbFiles) tbFiles.classList.toggle('active', t === 'files');
 
   if (t === 'history') _chLoadAndRender(); // Load sidebar chat history
 

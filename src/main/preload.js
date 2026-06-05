@@ -161,6 +161,7 @@ contextBridge.exposeInMainWorld('scaai', {
   // ── Groq Audio (Whisper STT + Orpheus TTS) ──
   audio: {
     transcribe: (opts) => ipcRenderer.invoke('audio:transcribe', opts),
+    polish:     (opts) => ipcRenderer.invoke('audio:polish',     opts),
     speak:      (opts) => ipcRenderer.invoke('audio:speak',      opts),
   },
   // ── RAG XAI (Transparency Panel) ──
